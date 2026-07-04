@@ -1,18 +1,33 @@
+# dependencies
 node_modules
+.pnp
+.pnp.js
+
+# next.js
+.next
+out
+
+# production
+build
+
+# env
 .env
+.env*.local
 
-# Hardhat files
-/cache
-/artifacts
+# supabase
+supabase/.branches
+supabase/.temp
 
-# TypeChain files
-/typechain
-/typechain-types
+# misc
+.DS_Store
+*.pem
+coverage
+.vscode
+.idea
 
-# solidity-coverage files
-/coverage
-/coverage.json
+# vercel
+.vercel
 
-# Foundry files
-/out
-/cache_forge
+# typescript
+*.tsbuildinfo
+*.log

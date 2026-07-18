@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  computeSessionFeedback,
   generatePlan,
   initialAthleteState,
   microCalibrate,
@@ -12,12 +13,15 @@ import {
   type Division,
   type ExperienceLevel,
   type GeneratedPlan,
+  type GeneratedSession,
   type LoadEntry,
+  type SessionFeedback,
   type SessionType,
   type Station,
 } from "@/lib/engine";
 import { DEMO_LIBRARY } from "@/lib/demoLibrary";
 import { SessionCard, type LogAction } from "@/components/SessionCard";
+import { FeedbackCard } from "@/components/FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 
 function stationForWeek(weekNumber: number): Station {
@@ -37,6 +41,7 @@ export default function DemoPage() {
   const [weekIdx, setWeekIdx] = useState(0);
   const [feed, setFeed] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<Record<string, "done" | "skipped">>({});
+  const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
 
   const loadHistory = useRef<LoadEntry[]>([]);
   const lastDelta = useRef<Record<string, number>>({});
@@ -66,8 +71,9 @@ export default function DemoPage() {
     setStatuses({});
   }
 
-  function onLog(weekNumber: number, sortOrder: number, sessionType: string, rpeTarget: number, action: LogAction) {
+  function onLog(weekNumber: number, session: GeneratedSession, action: LogAction) {
     if (!profile || !state) return;
+    const { sort_order: sortOrder, session_type: sessionType, intensity_rpe_target: rpeTarget } = session;
     const key = `${weekNumber}:${sortOrder}`;
     if (action === "skip") {
       setStatuses((m) => ({ ...m, [key]: "skipped" }));
@@ -76,7 +82,7 @@ export default function DemoPage() {
     }
     const rpeActual = action === "planned" ? rpeTarget : action === "harder" ? rpeTarget + 2 : rpeTarget - 2;
     const clampedRpe = Math.max(1, Math.min(10, rpeActual));
-    const duration = 50;
+    const duration = session.planned_duration_min;
     loadHistory.current = [{ at: new Date(), srpe: clampedRpe * duration }, ...loadHistory.current];
 
     const station = sessionType === "station_work" ? stationForWeek(weekNumber) : undefined;
@@ -92,6 +98,18 @@ export default function DemoPage() {
       loadHistory: loadHistory.current,
     });
     lastDelta.current[sessionType] = clampedRpe - rpeTarget;
+
+    // Trainingsfeedback (deterministic — same engine module the API uses).
+    setFeedback(
+      computeSessionFeedback({
+        sessionType: sessionType as SessionType,
+        sessionTitle: session.title,
+        rpeTarget,
+        rpeActual: clampedRpe,
+        plannedDurationMin: session.planned_duration_min,
+        actualDurationMin: duration,
+      }),
+    );
 
     setState(res.state);
     setStatuses((m) => ({ ...m, [key]: "done" }));
@@ -223,9 +241,7 @@ export default function DemoPage() {
                 key={s.sort_order}
                 session={s}
                 status={statuses[`${week.week_number}:${s.sort_order}`] ?? "planned"}
-                onLog={(action) =>
-                  onLog(week.week_number, s.sort_order, s.session_type, s.intensity_rpe_target, action)
-                }
+                onLog={(action) => onLog(week.week_number, s, action)}
               />
             ))}
           </div>
@@ -279,6 +295,20 @@ export default function DemoPage() {
               )}
             </div>
           </aside>
+        </div>
+      )}
+
+      {feedback && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12"
+          onClick={() => setFeedback(null)}
+        >
+          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 text-center text-sm font-semibold text-muted">
+              Training feedback
+            </div>
+            <FeedbackCard feedback={feedback} onClose={() => setFeedback(null)} />
+          </div>
         </div>
       )}
     </main>

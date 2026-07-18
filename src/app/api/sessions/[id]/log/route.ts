@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { applyMicroForSession } from "@/lib/adaptiveRunner";
+import { computeSessionFeedback, type FeedbackInput } from "@/lib/engine";
+import { enrichFeedbackWithAI } from "@/lib/coachFeedback";
 
 // 1-Tap logging (PP5). Default is "completed as planned" — the engine writes
 // planned values as actuals. Deviations arrive via rpe_actual / block_results.
@@ -31,7 +33,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Load the session (RLS ensures the user owns it) to resolve planned values.
   const { data: session, error: sErr } = await supabase
     .from("sessions")
-    .select("id, intensity_rpe_target, planned_duration_min")
+    .select("id, title, session_type, intensity_rpe_target, planned_duration_min")
     .eq("id", sessionId)
     .single();
   if (sErr || !session) return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -68,5 +70,36 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Fire Layer-1 micro-calibration (service role writes state + adjustments).
   const outcome = await applyMicroForSession(supabaseAdmin(), sessionId);
 
-  return NextResponse.json({ ok: true, adaptation: outcome });
+  // ── Trainingsfeedback: IST-SOLL + Erfüllungsindex + coach text ────────────
+  // Planned pace target (if any) comes from the engine-rendered block overrides.
+  const { data: paceBlock } = await supabase
+    .from("session_blocks")
+    .select("load_adjustments")
+    .eq("session_id", sessionId)
+    .not("load_adjustments->pace_sec_km", "is", null)
+    .limit(1)
+    .maybeSingle();
+  const targetPace = (paceBlock?.load_adjustments as any)?.pace_sec_km as number | undefined;
+  const actualPace = Array.isArray(body.block_results)
+    ? (body.block_results.find((r) => typeof r?.pace_actual_sec_km === "number")
+        ?.pace_actual_sec_km as number | undefined)
+    : undefined;
+
+  const feedbackInput: FeedbackInput = {
+    sessionType: session.session_type,
+    sessionTitle: session.title,
+    rpeTarget: session.intensity_rpe_target,
+    rpeActual: rpe,
+    plannedDurationMin: session.planned_duration_min,
+    actualDurationMin: duration,
+    targetPaceSecKm: targetPace,
+    actualPaceSecKm: actualPace,
+  };
+  const feedback = await enrichFeedbackWithAI(
+    computeSessionFeedback(feedbackInput),
+    feedbackInput,
+  );
+  await supabase.from("session_logs").update({ feedback }).eq("session_id", sessionId);
+
+  return NextResponse.json({ ok: true, adaptation: outcome, feedback });
 }

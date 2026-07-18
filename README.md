@@ -71,6 +71,15 @@ reason. The same functions run in the API routes and, unchanged, in the in-brows
 **Layer 2 — macro-guardrails** (nightly cron): ACWR watch (trim / auto-deload),
 rebase after ≥7 inactive days, ramp-up re-entry, injury → rehab mode.
 
+**Post-session training feedback:** after every logged session the athlete gets
+a feedback card — a coach message, a **fulfillment index (0-100)** and an
+actual-vs-planned comparison (load, duration, intensity, plus pace/distance
+when logged) with per-metric verdicts. All numbers and verdicts are computed
+deterministically in the engine (`src/lib/engine/feedback.ts`); when
+`ANTHROPIC_API_KEY` is set, Claude rewrites only the coach message in a warmer
+voice from those fixed facts (`src/lib/coachFeedback.ts`) — without a key the
+deterministic text ships as-is.
+
 Every knob (±1 step, ±3% cap, ACWR 0.8/1.3/1.5) is a starting value from training
 literature, tuned in beta with real logs — which is why the audit log exists from day 1.
 

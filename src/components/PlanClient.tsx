@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { GeneratedSession } from "@/lib/engine";
+import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
 import { SessionCard, type LogAction } from "./SessionCard";
+import { FeedbackCard } from "./FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 
 export interface ClientSession {
@@ -48,6 +49,7 @@ export function PlanClient(props: Props) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   const currentPhase = phaseOf(props.currentWeek.week_number);
@@ -71,7 +73,12 @@ export function PlanClient(props: Props) {
       });
       const data = await res.json();
       const reason = data?.adaptation?.adjustments?.[0]?.reason;
-      setToast(reason ?? (action === "skip" ? "Skipped — no make-up pile-up." : "Logged ✅"));
+      if (data?.feedback && action !== "skip") {
+        setFeedback(data.feedback);
+        if (reason) setToast(reason);
+      } else {
+        setToast(reason ?? (action === "skip" ? "Skipped — no make-up pile-up." : "Logged ✅"));
+      }
       router.refresh();
     } catch {
       setToast("Something went wrong logging that.");
@@ -195,6 +202,20 @@ export function PlanClient(props: Props) {
           </div>
         </aside>
       </div>
+
+      {feedback && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12"
+          onClick={() => setFeedback(null)}
+        >
+          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 text-center text-sm font-semibold text-muted">
+              Training feedback
+            </div>
+            <FeedbackCard feedback={feedback} onClose={() => setFeedback(null)} />
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div

@@ -8,6 +8,7 @@ export * from "./weeklyGoal";
 export * from "./prognosis";
 export * from "./generate";
 export * from "./adaptive";
+export * from "./feedback";
 
 import type { AthleteProfile, AthleteState } from "./types";
 import { defaultPaceZones, defaultStationTiers } from "./constants";

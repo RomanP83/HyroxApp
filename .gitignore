@@ -31,3 +31,7 @@ coverage
 # typescript
 *.tsbuildinfo
 *.log
+
+# playwright
+test-results
+playwright-report

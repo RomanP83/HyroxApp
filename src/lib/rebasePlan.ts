@@ -1,0 +1,69 @@
+// ============================================================================
+// Rebase (Roadmap B3, plan §5): "Rebase generiert immer ab heute neu statt
+// alte Wochen zu mutieren." Regenerates the plan from today's remaining weeks
+// to the same race date via the engine + the atomic persist_plan RPC (which
+// also abandons the old plan in the same transaction). The Stripe payment id
+// carries over — a paid race cycle stays paid across a rebase.
+// Runs with the service-role client (nightly cron and the injury-recovery
+// route both call it after ownership is established).
+// ============================================================================
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { generatePlan, type AthleteProfile } from "@/lib/engine";
+import { loadLibrary, persistPlan } from "@/lib/persistPlan";
+import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
+
+function weeksUntil(raceDate: string): number {
+  const ms = new Date(raceDate).getTime() - Date.now();
+  return Math.max(2, Math.min(20, Math.ceil(ms / (7 * 86_400_000))));
+}
+
+export async function rebasePlan(
+  admin: SupabaseClient,
+  planId: string,
+  reason: string,
+): Promise<string | null> {
+  const { data: plan } = await admin
+    .from("plans")
+    .select("id, profile_id, race_id, race_date, stripe_payment_id")
+    .eq("id", planId)
+    .single();
+  if (!plan) return null;
+
+  const [{ data: profileRow }, { data: stateRow }] = await Promise.all([
+    admin.from("athlete_profiles").select("*").eq("id", plan.profile_id).single(),
+    admin.from("athlete_state").select("*").eq("profile_id", plan.profile_id).single(),
+  ]);
+  if (!profileRow || !stateRow) return null;
+
+  const profile = profileRow as AthleteProfile;
+  const state = stateFromRow(stateRow as AthleteStateRow);
+  const library = await loadLibrary(admin);
+
+  const generated = generatePlan({
+    profile,
+    state,
+    library,
+    weeksToRace: weeksUntil(plan.race_date),
+  });
+
+  const newPlanId = await persistPlan(
+    admin,
+    {
+      profileId: plan.profile_id,
+      raceDate: plan.race_date,
+      raceId: plan.race_id,
+      stripePaymentId: plan.stripe_payment_id,
+    },
+    generated,
+  );
+
+  await admin.from("plan_adjustments").insert({
+    plan_id: newPlanId,
+    layer: "macro",
+    trigger: "pause",
+    action_taken: { type: "rebase", from_plan: planId },
+    reason,
+  });
+
+  return newPlanId;
+}

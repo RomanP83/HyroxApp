@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { GeneratedSession, RenderedBlock } from "@/lib/engine";
+import type { Division, GeneratedSession, RenderedBlock } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
+import { signDeepLink } from "@/lib/telegram";
+import type { SessionBlockJoinRow } from "@/lib/dbTypes";
 
 export const dynamic = "force-dynamic";
 
@@ -19,18 +21,26 @@ export default async function PlanPage({
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id, division")
+    .select("id, division, telegram_chat_id")
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
+
+  // B1: HMAC deep link for the bot; only offered while not yet connected.
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME;
+  const telegramLink =
+    botUsername && !profile.telegram_chat_id
+      ? `https://t.me/${botUsername}?start=${signDeepLink(profile.id)}`
+      : null;
 
   const { data: plan } = await supabase
     .from("plans")
     .select("id, race_date, status, total_weeks, stripe_payment_id")
     .eq("profile_id", profile.id)
+    .in("status", ["active", "paused", "rehab"])
     .order("generated_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!plan) {
     return (
@@ -82,18 +92,21 @@ export default async function PlanPage({
   const clientSessions: ClientSession[] = (sessionRows ?? []).map((s: any) => {
     // A1/K1: locked weeks never ship their blocks to the browser — the lock
     // must live server-side, not as a UI overlay over fully delivered data.
+    const joinRows = (s.session_blocks ?? []) as SessionBlockJoinRow[];
     const blocks: RenderedBlock[] = locked
       ? []
-      : (s.session_blocks ?? [])
-          .sort((a: any, b: any) => a.sort_order - b.sort_order)
-          .map((sb: any) => ({
+      : joinRows
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((sb) => ({
             block_id: sb.block_id,
-            slug: sb.workout_blocks?.slug,
-            block_type: sb.workout_blocks?.block_type,
-            station: sb.workout_blocks?.station ?? null,
+            slug: sb.workout_blocks?.slug ?? undefined,
+            block_type: (sb.workout_blocks?.block_type ?? "main") as RenderedBlock["block_type"],
+            station: (sb.workout_blocks?.station ?? null) as RenderedBlock["station"],
             content: sb.workout_blocks?.content ?? [],
             sort_order: sb.sort_order,
-            load_adjustments: sb.load_adjustments ?? { division: profile.division },
+            load_adjustments: (sb.load_adjustments ?? {
+              division: profile.division as Division,
+            }) as RenderedBlock["load_adjustments"],
           }));
     const session: GeneratedSession = {
       day_hint: s.day_hint,
@@ -112,6 +125,8 @@ export default async function PlanPage({
       planId={plan.id}
       profileId={profile.id}
       paid={paid}
+      planStatus={plan.status}
+      telegramLink={telegramLink}
       raceDate={plan.race_date}
       phases={phases ?? []}
       weeks={weekList}

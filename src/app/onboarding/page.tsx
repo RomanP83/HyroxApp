@@ -29,12 +29,25 @@ export default function Onboarding() {
   const [fiveKMin, setFiveKMin] = useState(22);
   const [fiveKSec, setFiveKSec] = useState(30);
   const [raceDate, setRaceDate] = useState("");
+  const [raceId, setRaceId] = useState<string | null>(null);
+  const [races, setRaces] = useState<
+    { id: string; name: string; city: string | null; event_date: string }[]
+  >([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setSignedIn(!!data.user);
       setReady(true);
     });
+    // B5: real event calendar (races is public-read); empty table degrades to
+    // the free date picker.
+    supabase
+      .from("races")
+      .select("id, name, city, event_date")
+      .gte("event_date", new Date().toISOString().slice(0, 10))
+      .order("event_date", { ascending: true })
+      .limit(60)
+      .then(({ data }) => setRaces(data ?? []));
   }, [supabase]);
 
   async function sendMagicLink() {
@@ -61,6 +74,7 @@ export default function Onboarding() {
           training_days_per_week: days,
           equipment_access: equipment,
           race_date: raceDate,
+          race_id: raceId,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "generation failed");
@@ -176,8 +190,38 @@ export default function Onboarding() {
         <div className="space-y-4">
           <h1 className="text-2xl font-bold">When’s your race?</h1>
           <p className="text-muted">The whole plan is built backward from this date. Taper is never negotiable.</p>
+          {races.length > 0 && (
+            <Field label="Pick your event">
+              <select
+                className="input"
+                value={raceId ?? ""}
+                onChange={(e) => {
+                  const id = e.target.value || null;
+                  setRaceId(id);
+                  const race = races.find((r) => r.id === id);
+                  if (race) setRaceDate(race.event_date);
+                }}
+              >
+                <option value="">— custom date below —</option>
+                {races.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                    {r.city ? ` · ${r.city}` : ""} · {new Date(r.event_date).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Race date">
-            <input className="input" type="date" value={raceDate} onChange={(e) => setRaceDate(e.target.value)} />
+            <input
+              className="input"
+              type="date"
+              value={raceDate}
+              onChange={(e) => {
+                setRaceDate(e.target.value);
+                setRaceId(null); // manual date overrides the event pick
+              }}
+            />
           </Field>
           {error && <p className="text-danger text-sm">{error}</p>}
           <div className="flex gap-2">

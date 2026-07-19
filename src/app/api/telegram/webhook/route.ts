@@ -60,7 +60,10 @@ export async function POST(req: Request) {
     // A5/M1: the chat pressing the button must be the plan owner's connected
     // chat — callback_data is client-controlled and must not log foreign
     // sessions (and thereby recalibrate foreign plans).
-    const ownerChatId = (session as any).plans?.athlete_profiles?.telegram_chat_id;
+    const owned = session as unknown as {
+      plans: { athlete_profiles: { telegram_chat_id: string | null } };
+    };
+    const ownerChatId = owned.plans?.athlete_profiles?.telegram_chat_id;
     if (!ownerChatId || String(ownerChatId) !== String(cb.message?.chat?.id)) {
       await tgAnswerCallback(cb.id, "This session belongs to a different account.");
       return NextResponse.json({ ok: true });

@@ -10,11 +10,16 @@ import {
   microCalibrate,
   stationForWeek,
   type AthleteProfile,
-  type AthleteState,
   type LoadEntry,
   type Station,
 } from "@/lib/engine";
 import type { BenchmarkSample } from "@/lib/engine";
+import {
+  stateFromRow,
+  type AthleteStateRow,
+  type LogWithSessionRow,
+  type SessionWithWeekRow,
+} from "@/lib/dbTypes";
 
 export interface MicroOutcome {
   adjustments: { action_taken: Record<string, unknown>; reason: string }[];
@@ -26,17 +31,18 @@ export async function applyMicroForSession(
   sessionId: string,
 ): Promise<MicroOutcome | null> {
   // 1) Session + its week + plan.
-  const { data: session } = await admin
+  const { data: sessionRaw } = await admin
     .from("sessions")
     .select(
       "id, session_type, plan_id, intensity_rpe_target, planned_duration_min, plan_weeks!inner(week_number)",
     )
     .eq("id", sessionId)
     .single();
-  if (!session) return null;
+  if (!sessionRaw) return null;
+  const session = sessionRaw as unknown as SessionWithWeekRow;
 
-  const planId = session.plan_id as string;
-  const weekNumber = (session as any).plan_weeks.week_number as number;
+  const planId = session.plan_id;
+  const weekNumber = session.plan_weeks.week_number;
 
   // 2) The log we just wrote.
   const { data: log } = await admin
@@ -68,44 +74,28 @@ export async function applyMicroForSession(
   if (!profileRow || !stateRow) return null;
 
   const profile = profileRow as AthleteProfile;
-  const state: AthleteState = {
-    acute_load_7d: Number(stateRow.acute_load_7d),
-    chronic_load_28d: Number(stateRow.chronic_load_28d),
-    acwr: Number(stateRow.acwr),
-    pace_zones: stateRow.pace_zones,
-    station_tiers: stateRow.station_tiers,
-    predicted_race_time_sec: stateRow.predicted_race_time_sec,
-    strength_modifier: Number(stateRow.strength_modifier ?? 1),
-    pace_zones_ref:
-      stateRow.pace_zones_ref && Object.keys(stateRow.pace_zones_ref).length
-        ? stateRow.pace_zones_ref
-        : stateRow.pace_zones,
-    pace_ref_at: stateRow.pace_ref_at ?? null,
-  };
+  const state = stateFromRow(stateRow as AthleteStateRow);
 
   // 4) Load history + previous same-type delta (from this race cycle).
-  const { data: logs } = await admin
+  const { data: logsRaw } = await admin
     .from("session_logs")
     .select(
       "completed_at, rpe_actual, duration_actual_min, session_id, sessions!inner(session_type, intensity_rpe_target, plan_id)",
     )
     .eq("sessions.plan_id", planId)
     .order("completed_at", { ascending: false });
+  const logs = (logsRaw ?? []) as unknown as LogWithSessionRow[];
 
-  const loadHistory: LoadEntry[] = (logs ?? []).map((l: any) => ({
+  const loadHistory: LoadEntry[] = logs.map((l) => ({
     at: l.completed_at,
     srpe: (l.rpe_actual ?? 0) * (l.duration_actual_min ?? 0),
   }));
 
-  const priorSameType = (logs ?? [])
-    .filter(
-      (l: any) =>
-        l.session_id !== sessionId &&
-        l.sessions.session_type === session.session_type,
-    )
-    .sort((a: any, b: any) => (a.completed_at < b.completed_at ? 1 : -1))[0];
+  const priorSameType = logs
+    .filter((l) => l.session_id !== sessionId && l.sessions.session_type === session.session_type)
+    .sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))[0];
   const previousSameTypeDelta = priorSameType
-    ? (priorSameType.rpe_actual ?? 0) - (priorSameType as any).sessions.intensity_rpe_target
+    ? (priorSameType.rpe_actual ?? 0) - priorSameType.sessions.intensity_rpe_target
     : undefined;
 
   // 5) Benchmarks for prognosis.

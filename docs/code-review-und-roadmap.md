@@ -85,18 +85,18 @@ Aufwände in Solo-Dev-Wochen à 15–20 h (wie §6 des Produktplans).
 | A8 | Alt-Pläne bei Neu-Generierung auf `abandoned` | M7 | ✅ in RPC (0004) |
 | A9 | `stationForWeek` in die Engine, Duplikate löschen | S1 | ✅ `fill.ts` Export |
 
-### Phase B — MVP wirklich komplett (2–3 Wochen)
+### Phase B — MVP wirklich komplett ✅ umgesetzt (19.07.2026)
 
-| # | Maßnahme | Bezug |
-|---|---|---|
-| B1 | **Telegram-Check-in-Cron**: abends 4-Button-Nachricht an Nutzer mit heutiger Session; „Connect Telegram“-Button (HMAC-Deep-Link ist fertig) im Plan-UI | M2, PP5 |
-| B2 | **Benchmark-UI + Route**: Formular je `benchmark_definition`, schreibt `benchmark_results`, triggert Prognose-Update | M6, §2 |
-| B3 | **Makro-Direktiven anwenden**: `trim_week` reduziert Restwochen-Dauern ×0,85; `rebase` generiert ab heute neu (Engine-`generatePlan` ab Restwochen wiederverwenden); `ramp_up` als 2-Wochen-Multiplikator | M5, §5 |
-| B4 | **Injury-Flag im UI** → `plans.status = rehab`, Mobility-Wochen rendern (Engine-Pfad existiert) | §5 |
-| B5 | **Event-Kalender**: Python/Firecrawl-Scraper → `races`; Onboarding-Dropdown statt freiem Datum | §4 — aktuell 0 % gebaut |
-| B6 | Stripe-Verify-Endpoint statt `?paid=1`-Kosmetik | S2 |
-| B7 | E2E-Smoke-Test (Playwright) + CI (Typecheck, Tests, Build) | S7 |
-| B8 | Generierte Supabase-Typen; `any`-Joins entfernen | S5 |
+| # | Maßnahme | Bezug | Status |
+|---|---|---|---|
+| B1 | **Telegram-Check-in-Cron** + „Connect Telegram”-Karte im Plan-UI (HMAC-Deep-Link) | M2, PP5 | ✅ `cron/telegram-checkin`, 18:00 UTC |
+| B2 | **Benchmark-UI + Route** mit Prognose-Update + Audit-Eintrag | M6, §2 | ✅ `/benchmarks` + `api/benchmarks` |
+| B3 | **Makro-Direktiven anwenden**: trim ×0,85, ramp_up 2 Wochen ×0,8, Auto-Deload skaliert Sessions, Rebase generiert via `persist_plan` ab heute neu | M5, §5 | ✅ `rebasePlan.ts`, Migration 0006 |
+| B4 | **Injury-Flag im UI** → Reha-Modus + Rebase bei Reaktivierung | §5 | ✅ `api/plans/injury` + Banner. Hinweis: Reha zeigt Banner/Low-Impact-Guidance; dedizierte Mobility-Wochen-Generierung → Phase C |
+| B5 | **Event-Kalender**: Firecrawl-Scraper → `races`; Onboarding-Dropdown mit Custom-Fallback | §4 | ✅ `scripts/scrape_races.py` (erster Lauf manuell verifizieren) |
+| B6 | Stripe-Verify-Endpoint statt `?paid=1` | S2 | ✅ `api/stripe/verify` |
+| B7 | E2E-Smoke (Playwright) + CI (Typecheck, Tests, Build, E2E) | S7 | ✅ `e2e/` + `.github/workflows/ci.yml` |
+| B8 | Typisierte Join-Shapes statt `any` (`dbTypes.ts` + `stateFromRow`) | S5 | ✅ Hinweis: echte Codegen (`supabase gen types`) folgt, sobald CI gegen eine Instanz läuft |
 
 ### Phase C — V2-Features nach ersten zahlenden Nutzern (4–6 Wochen)
 

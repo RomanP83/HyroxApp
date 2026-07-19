@@ -30,7 +30,9 @@ export async function POST(req: Request) {
   const session = await stripe().checkout.sessions.create({
     mode: "payment",
     line_items: [{ price: process.env.STRIPE_RACE_CYCLE_PRICE_ID!, quantity: 1 }],
-    success_url: `${appUrl}/plan?paid=1`,
+    // B6: the placeholder lets /plan verify the payment directly with Stripe
+    // on return, independent of webhook timing.
+    success_url: `${appUrl}/plan?checkout_session={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/plan?canceled=1`,
     client_reference_id: parsed.data.planId,
     metadata: { plan_id: parsed.data.planId, user_id: user.id },

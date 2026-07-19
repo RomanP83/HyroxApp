@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
@@ -33,6 +33,7 @@ interface Props {
   planId: string;
   profileId: string;
   paid: boolean;
+  planStatus: string;
   raceDate: string;
   phases: PhaseMeta[];
   weeks: WeekMeta[];
@@ -41,6 +42,8 @@ interface Props {
   state: any;
   adjustments: string[];
   locked: boolean;
+  /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
+  telegramLink: string | null;
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
@@ -53,6 +56,46 @@ export function PlanClient(props: Props) {
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   const currentPhase = phaseOf(props.currentWeek.week_number);
+
+  // B6: returning from Stripe — verify the checkout session server-side
+  // instead of trusting a query flag, then clean the URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutSession = params.get("checkout_session");
+    if (!checkoutSession) return;
+    fetch("/api/stripe/verify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ checkout_session_id: checkoutSession }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.paid) setToast("Payment confirmed — your full race cycle is unlocked. 🎉");
+        router.replace("/plan");
+        router.refresh();
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function injury(action: "activate" | "recover") {
+    const res = await fetch("/api/plans/injury", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setToast(
+        action === "activate"
+          ? "Rehab mode on — low-impact until you reactivate."
+          : "Plan rebuilt from today. Welcome back!",
+      );
+      router.refresh();
+    } else {
+      setToast(data.error ?? "Something went wrong.");
+    }
+  }
 
   async function log(sessionId: string, action: LogAction, target: number) {
     setBusy(sessionId);
@@ -105,6 +148,9 @@ export function PlanClient(props: Props) {
           Hyrox<span className="text-accent">·</span>Hub
         </span>
         <div className="flex items-center gap-2 text-sm">
+          <Link href="/benchmarks" className="btn-ghost">
+            Benchmarks
+          </Link>
           <span className="pill">Race {new Date(props.raceDate).toLocaleDateString()}</span>
           {!props.paid && (
             <button className="btn-primary" onClick={unlock}>
@@ -113,6 +159,18 @@ export function PlanClient(props: Props) {
           )}
         </div>
       </div>
+
+      {props.planStatus === "rehab" && (
+        <div className="card border-warn/50 bg-surface2 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm">
+            🩹 <b>Rehab mode.</b> Stick to mobility and low-impact work — no plan stop, no lost
+            progress. When you&apos;re ready, the plan rebuilds from that day.
+          </div>
+          <button className="btn-primary" onClick={() => injury("recover")}>
+            I&apos;m back — rebuild my plan
+          </button>
+        </div>
+      )}
 
       {!props.paid && (
         <div className="card border-accent/40 bg-surface2 text-sm">
@@ -181,6 +239,36 @@ export function PlanClient(props: Props) {
                 <Row k="Race" v={fmtPace(props.state.pace_zones?.race_sec_km)} />
                 <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
               </div>
+            </div>
+          )}
+
+          {props.telegramLink && (
+            <div className="card">
+              <div className="mb-1 text-sm font-semibold">📲 One-tap logging via Telegram</div>
+              <p className="mb-3 text-xs text-muted">
+                Get an evening check-in with 4 buttons — log the session without opening the app.
+              </p>
+              <a
+                href={props.telegramLink}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-primary w-full"
+              >
+                Connect Telegram
+              </a>
+            </div>
+          )}
+
+          {props.planStatus !== "rehab" && (
+            <div className="card">
+              <div className="mb-1 text-sm font-semibold">Injured?</div>
+              <p className="mb-3 text-xs text-muted">
+                Switch to low-impact rehab mode — the plan pauses gracefully and rebuilds from the
+                day you&apos;re back.
+              </p>
+              <button className="btn-ghost w-full" onClick={() => injury("activate")}>
+                🩹 Flag an injury
+              </button>
             </div>
           )}
 

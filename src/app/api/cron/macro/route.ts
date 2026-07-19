@@ -1,16 +1,40 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { macroGuardrails, type AthleteState } from "@/lib/engine";
+import { macroGuardrails } from "@/lib/engine";
+import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
+import { rebasePlan } from "@/lib/rebasePlan";
 
 export const runtime = "nodejs";
 
 // Layer-2 macro-guardrails, run nightly (Vercel Cron / pg_cron equivalent).
 // ACWR watch, auto-deload, rebase, rehab — see Implementation Plan §5 Layer 2.
+// Since Phase B (B3) the directives are APPLIED, not just audited.
 function authed(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   // A2/M8: never run open in production — a missing secret only passes in dev.
   if (!secret) return process.env.NODE_ENV !== "production";
   return req.headers.get("authorization") === `Bearer ${secret}`;
+}
+
+/** Scale the planned duration of not-yet-logged sessions in given weeks. */
+async function scaleSessions(
+  admin: SupabaseClient,
+  weekIds: string[],
+  multiplier: number,
+): Promise<void> {
+  if (!weekIds.length) return;
+  const { data: sessions } = await admin
+    .from("sessions")
+    .select("id, planned_duration_min")
+    .in("week_id", weekIds)
+    .in("status", ["planned", "moved"]);
+  for (const s of sessions ?? []) {
+    await admin
+      .from("sessions")
+      .update({ planned_duration_min: Math.max(15, Math.round(s.planned_duration_min * multiplier)) })
+      .eq("id", s.id);
+  }
 }
 
 export async function POST(req: Request) {
@@ -40,29 +64,19 @@ export async function POST(req: Request) {
       .order("completed_at", { ascending: false });
 
     const recent14 = (logs ?? []).filter(
-      (l: any) => now - new Date(l.completed_at).getTime() <= 14 * 86_400_000,
+      (l) => now - new Date(l.completed_at).getTime() <= 14 * 86_400_000,
     );
     const avgRpe14d =
       recent14.length > 0
-        ? recent14.reduce((s: number, l: any) => s + (l.rpe_actual ?? 0), 0) / recent14.length
+        ? recent14.reduce((s, l) => s + (l.rpe_actual ?? 0), 0) / recent14.length
         : null;
     // A2/K2: without logs, "days inactive" counts from plan creation — a plan
     // generated on Monday must not be rebased in its first night.
     const daysSinceLastSession = logs?.length
-      ? Math.floor((now - new Date((logs[0] as any).completed_at).getTime()) / 86_400_000)
+      ? Math.floor((now - new Date(logs[0].completed_at).getTime()) / 86_400_000)
       : Math.floor((now - new Date(plan.generated_at).getTime()) / 86_400_000);
 
-    const state: AthleteState = {
-      acute_load_7d: Number(stateRow.acute_load_7d),
-      chronic_load_28d: Number(stateRow.chronic_load_28d),
-      acwr: Number(stateRow.acwr),
-      pace_zones: stateRow.pace_zones,
-      station_tiers: stateRow.station_tiers,
-      predicted_race_time_sec: stateRow.predicted_race_time_sec,
-      strength_modifier: Number(stateRow.strength_modifier ?? 1),
-      pace_zones_ref: stateRow.pace_zones_ref ?? stateRow.pace_zones,
-      pace_ref_at: stateRow.pace_ref_at ?? null,
-    };
+    const state = stateFromRow(stateRow as AthleteStateRow);
 
     const { directives, adjustments } = macroGuardrails({
       state,
@@ -73,9 +87,12 @@ export async function POST(req: Request) {
     });
 
     const applied: string[] = [];
+    let rebasedTo: string | null = null;
+
     for (const d of directives) {
       if (d.type === "none") continue;
       applied.push(d.type);
+
       if (d.type === "auto_deload") {
         // Turn the next upcoming week into a deload.
         const { data: nextWeek } = await admin
@@ -85,25 +102,48 @@ export async function POST(req: Request) {
           .eq("status", "upcoming")
           .order("week_number", { ascending: true })
           .limit(1)
-          .single();
+          .maybeSingle();
         if (nextWeek) {
           await admin.from("plan_weeks").update({ is_deload: true }).eq("id", nextWeek.id);
+          await scaleSessions(admin, [nextWeek.id], 0.6);
         }
+      } else if (d.type === "trim_week") {
+        // B3: actually reduce the remaining sessions of the current week.
+        const { data: curWeek } = await admin
+          .from("plan_weeks")
+          .select("id")
+          .eq("plan_id", plan.id)
+          .eq("status", "current")
+          .maybeSingle();
+        if (curWeek) await scaleSessions(admin, [curWeek.id], d.multiplier);
+      } else if (d.type === "ramp_up") {
+        // B3: eased re-entry — scale the next two upcoming weeks down.
+        const { data: weeks } = await admin
+          .from("plan_weeks")
+          .select("id")
+          .eq("plan_id", plan.id)
+          .eq("status", "upcoming")
+          .order("week_number", { ascending: true })
+          .limit(d.weeks);
+        await scaleSessions(admin, (weeks ?? []).map((w) => w.id), 0.8);
       } else if (d.type === "rehab") {
         await admin.from("plans").update({ status: "rehab" }).eq("id", plan.id);
       } else if (d.type === "rebase") {
-        await admin
-          .from("plan_weeks")
-          .update({ status: "rebased" })
-          .eq("plan_id", plan.id)
-          .eq("status", "current");
+        // B3: regenerate from today — never mutate past weeks (§5).
+        rebasedTo = await rebasePlan(
+          admin,
+          plan.id,
+          adjustments.find((a) => a.trigger === "pause")?.reason ??
+            "Plan rebuilt from today after a training break.",
+        );
       }
-      // trim_week / ramp_up are recorded as adjustments for the UI to surface.
     }
 
-    if (adjustments.length) {
+    // Rebase writes its own audit row on the NEW plan; skip the duplicate.
+    const auditRows = adjustments.filter((a) => !(rebasedTo && a.trigger === "pause"));
+    if (auditRows.length) {
       await admin.from("plan_adjustments").insert(
-        adjustments.map((a) => ({
+        auditRows.map((a) => ({
           plan_id: plan.id,
           layer: a.layer,
           trigger: a.trigger,

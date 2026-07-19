@@ -113,7 +113,7 @@ Aufwände in Solo-Dev-Wochen à 15–20 h (wie §6 des Produktplans).
 - **DACH-SEO** ✅: deutsche Landingpage `/de` + Exact-Match-Keyword-Seiten `/de/hyrox-trainingsplan-{8,12,16}-wochen` (Phasen-Tabellen live aus `splitPhases()`, FAQ mit JSON-LD, hreflang-Alternates), `sitemap.xml` + `robots.txt`. Hinweis: App-UI (Onboarding/Plan) bleibt vorerst Englisch — vollständige App-i18n ist der nächste D1-Schritt.
 - **Engine-Tuning-Infrastruktur** ✅: `engine_config`-Tabelle je `engine_version` (Migration 0007, geseedet mit den Literatur-Startwerten), `EngineTuning`-Override in Mikro- und Makro-Engine, Loader mit 5-min-Cache — Beta-Tuning per SQL-UPDATE statt Deploy. Beta-KPIs (`beta_kpis`-View + Telegram-Connect-Quote inkl. 30-%-Schwelle) über `GET /api/admin/kpis` (Bearer `CRON_SECRET`).
 - **E-Mail-Fallback-Reminder** ✅: Check-in-Cron heißt jetzt `/api/cron/checkin` und schickt bei nicht verbundenem Telegram die Abend-Erinnerung via Resend (`RESEND_API_KEY`/`EMAIL_FROM`).
-- **PWA + Push**, **Coach-Dashboard (B2B)**, **volle Wearables** — weiterhin bewusst nicht gebaut, wie im Produktplan begründet.
+- **PWA + Push**, **Coach-Dashboard (B2B)** — weiterhin bewusst nicht gebaut, wie im Produktplan begründet. **Wearables**: auf expliziten Wunsch wurde zusätzlich zu Strava ein **Garmin-Sync (nur Läufe)** ergänzt — OAuth2/PKCE + Push-Webhook, gemeinsamer `autoLogRun`-Pfad mit Strava, keine HRV-/Recovery-Daten (der volle Wearable-Import bleibt offen).
 
 ### Empfohlene Reihenfolge
 

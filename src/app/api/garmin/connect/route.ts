@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { authorizeUrl, stravaConfigured } from "@/lib/strava";
+import { authorizeUrl, garminConfigured } from "@/lib/garmin";
 
-// C2: kick off the Strava OAuth flow for the signed-in athlete.
+// Garmin sync: kick off the OAuth2/PKCE flow for the signed-in athlete.
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!stravaConfigured()) return NextResponse.json({ error: "strava_not_configured" }, { status: 404 });
+  if (!garminConfigured()) return NextResponse.json({ error: "garmin_not_configured" }, { status: 404 });
 
   const supabase = supabaseServer();
   const {

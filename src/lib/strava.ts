@@ -7,9 +7,9 @@
 // ============================================================================
 import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { applyMicroForSession } from "@/lib/adaptiveRunner";
+import { autoLogRun, paceSecPerKm } from "@/lib/autoLogRun";
 
-const RUN_SESSION_TYPES = ["run_easy", "run_intervals", "compromised_run"];
+export { paceSecPerKm }; // shared with Garmin; re-exported for existing callers
 
 export function stravaConfigured(): boolean {
   return Boolean(process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET);
@@ -109,15 +109,9 @@ export async function accessTokenFor(
   return t.access_token;
 }
 
-/** Pace in sec/km from raw meters + seconds; null when degenerate. */
-export function paceSecPerKm(distanceM: number, movingTimeS: number): number | null {
-  if (!distanceM || distanceM < 400 || !movingTimeS) return null;
-  return Math.round(movingTimeS / (distanceM / 1000));
-}
-
 /**
- * Webhook worker: fetch the activity, and if it's a Run, log it against the
- * best-matching planned run session of the current week (today first).
+ * Webhook worker: fetch the activity, and if it's a Run, hand it to the shared
+ * auto-logging path (match to a planned session -> log -> micro-calibrate).
  */
 export async function processActivity(
   admin: SupabaseClient,
@@ -144,54 +138,11 @@ export async function processActivity(
   const pace = paceSecPerKm(act.distance, act.moving_time);
   if (pace == null) return null;
 
-  // Match: active plan -> current week -> unlogged run session, today first.
-  const { data: plan } = await admin
-    .from("plans")
-    .select("id")
-    .eq("profile_id", profile.id)
-    .eq("status", "active")
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!plan) return null;
-
-  const { data: week } = await admin
-    .from("plan_weeks")
-    .select("id")
-    .eq("plan_id", plan.id)
-    .eq("status", "current")
-    .maybeSingle();
-  if (!week) return null;
-
-  const todayHint = ((new Date().getUTCDay() + 6) % 7) + 1;
-  const { data: candidates } = await admin
-    .from("sessions")
-    .select("id, day_hint, session_type, intensity_rpe_target")
-    .eq("week_id", week.id)
-    .in("session_type", RUN_SESSION_TYPES)
-    .in("status", ["planned", "moved"]);
-  if (!candidates?.length) return null;
-
-  const session =
-    candidates.find((s) => s.day_hint === todayHint) ??
-    [...candidates].sort((a, b) => a.day_hint - b.day_hint)[0];
-
-  const durationMin = Math.max(1, Math.round(act.moving_time / 60));
-  const { error } = await admin.from("session_logs").upsert(
-    {
-      session_id: session.id,
-      completed_as_planned: false,
-      rpe_actual: session.intensity_rpe_target, // effort unknown — pace carries the signal
-      duration_actual_min: durationMin,
-      block_results: [{ pace_actual_sec_km: pace, distance_actual_m: Math.round(act.distance) }],
-      notes: `Auto-logged from Strava: ${act.name ?? "Run"}`,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_id" },
-  );
-  if (error) return null;
-
-  await admin.from("sessions").update({ status: "done" }).eq("id", session.id);
-  await applyMicroForSession(admin, session.id);
-  return session.id;
+  return autoLogRun(admin, profile.id, {
+    paceSecKm: pace,
+    durationMin: act.moving_time / 60,
+    distanceM: act.distance,
+    source: "Strava",
+    name: act.name,
+  });
 }

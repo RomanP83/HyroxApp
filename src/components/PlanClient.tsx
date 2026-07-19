@@ -48,6 +48,8 @@ interface Props {
   telegramLink: string | null;
   /** Strava OAuth entry point; null when connected/unconfigured (C2). */
   stravaConnectUrl: string | null;
+  /** Garmin OAuth entry point; null when connected/unconfigured. */
+  garminConnectUrl: string | null;
   /** Whether the subscription tier is configured (C4). */
   subscriptionAvailable: boolean;
 }
@@ -273,15 +275,24 @@ export function PlanClient(props: Props) {
             ) : null;
           })()}
 
-          {props.stravaConnectUrl && (
+          {(props.stravaConnectUrl || props.garminConnectUrl) && (
             <div className="card">
-              <div className="mb-1 text-sm font-semibold">🏃 Auto-log runs from Strava</div>
+              <div className="mb-1 text-sm font-semibold">🏃 Auto-log your runs</div>
               <p className="mb-3 text-xs text-muted">
-                Your run paces flow straight into the pace calibration — no manual entry.
+                Run paces flow straight into the pace calibration — no manual entry.
               </p>
-              <a href={props.stravaConnectUrl} className="btn-primary w-full">
-                Connect Strava
-              </a>
+              <div className="space-y-2">
+                {props.stravaConnectUrl && (
+                  <a href={props.stravaConnectUrl} className="btn-primary w-full">
+                    Connect Strava
+                  </a>
+                )}
+                {props.garminConnectUrl && (
+                  <a href={props.garminConnectUrl} className="btn-ghost w-full">
+                    Connect Garmin
+                  </a>
+                )}
+              </div>
             </div>
           )}
 

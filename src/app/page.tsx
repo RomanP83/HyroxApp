@@ -22,6 +22,9 @@ export default function Home() {
           Hyrox<span className="text-accent">·</span>Hub
         </span>
         <nav className="flex items-center gap-3 text-sm">
+          <Link href="/de" className="text-muted hover:text-ink">
+            🇩🇪 Deutsch
+          </Link>
           <Link href="/demo" className="text-muted hover:text-ink">
             Live demo
           </Link>

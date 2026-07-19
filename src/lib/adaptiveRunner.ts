@@ -20,6 +20,7 @@ import {
   type LogWithSessionRow,
   type SessionWithWeekRow,
 } from "@/lib/dbTypes";
+import { loadTuning } from "@/lib/engineConfig";
 
 export interface MicroOutcome {
   adjustments: { action_taken: Record<string, unknown>; reason: string }[];
@@ -128,10 +129,12 @@ export async function applyMicroForSession(
   const station: Station | undefined =
     session.session_type === "station_work" ? stationForWeek(weekNumber) : undefined;
 
-  // 7) Run the pure engine.
+  // 7) Run the pure engine (calibration constants from engine_config, D2).
+  const tuning = await loadTuning(admin);
   const result = microCalibrate({
     state,
     profile,
+    tuning,
     sessionType: session.session_type,
     station,
     rpeTarget: session.intensity_rpe_target,

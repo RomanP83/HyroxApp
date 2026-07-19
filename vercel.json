@@ -5,7 +5,7 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/telegram-checkin",
+      "path": "/api/cron/checkin",
       "schedule": "0 18 * * *"
     }
   ]

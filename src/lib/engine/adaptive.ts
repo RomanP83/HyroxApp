@@ -13,24 +13,7 @@ import type {
   SessionType,
   Station,
 } from "./types";
-import {
-  RPE_DELTA_UP_THRESHOLD,
-  RPE_DELTA_DOWN_THRESHOLD,
-  PACE_STEP_SEC_KM,
-  PACE_WEEKLY_CAP_PCT,
-  PACE_REF_WINDOW_DAYS,
-  TIER_MIN,
-  TIER_MAX,
-  STRENGTH_STEP,
-  STRENGTH_MODIFIER_MIN,
-  STRENGTH_MODIFIER_MAX,
-  ACWR_SOFT,
-  ACWR_HARD,
-  ACWR_LOW,
-  ACWR_SOFT_TRIM,
-  RPE_HIGH_14D,
-  INACTIVE_REBASE_DAYS,
-} from "./constants";
+import { TIER_MIN, TIER_MAX, DEFAULT_TUNING, type EngineTuning } from "./constants";
 import { predictRaceTime, type BenchmarkSample } from "./prognosis";
 
 export interface AdjustmentRecord {
@@ -108,6 +91,8 @@ export interface MicroInput {
   loadHistory: LoadEntry[]; // sRPE entries incl. the session just logged
   benchmarks?: BenchmarkSample[];
   now?: Date;
+  /** Calibration overrides (Phase D2) — merged over DEFAULT_TUNING. */
+  tuning?: Partial<EngineTuning>;
 }
 
 export interface MicroResult {
@@ -120,13 +105,13 @@ function clampTier(v: number): number {
 }
 
 /**
- * Clamp a proposed pace-zone value to ±3% of the WEEKLY reference snapshot
+ * Clamp a proposed pace-zone value to ±capPct of the WEEKLY reference snapshot
  * (A7). Multiple logs in one week share the same reference, so total drift
  * per week stays bounded — the per-log cap alone allowed ~12%/week at 4 logs.
  */
-function capPaceToRef(refValue: number, proposed: number): number {
-  const lo = Math.round(refValue * (1 - PACE_WEEKLY_CAP_PCT));
-  const hi = Math.round(refValue * (1 + PACE_WEEKLY_CAP_PCT));
+function capPaceToRef(refValue: number, proposed: number, capPct: number): number {
+  const lo = Math.round(refValue * (1 - capPct));
+  const hi = Math.round(refValue * (1 + capPct));
   return Math.max(lo, Math.min(hi, Math.round(proposed)));
 }
 
@@ -146,6 +131,7 @@ export function microCalibrate(input: MicroInput): MicroResult {
     now = new Date(),
   } = input;
 
+  const T: EngineTuning = { ...DEFAULT_TUNING, ...(input.tuning ?? {}) };
   const adjustments: AdjustmentRecord[] = [];
   const next: AthleteState = {
     ...state,
@@ -163,7 +149,7 @@ export function microCalibrate(input: MicroInput): MicroResult {
   // older than the window; otherwise every log this week caps against it.
   const refStale =
     !state.pace_ref_at ||
-    now.getTime() - new Date(state.pace_ref_at).getTime() >= PACE_REF_WINDOW_DAYS * DAY;
+    now.getTime() - new Date(state.pace_ref_at).getTime() >= T.pace_ref_window_days * DAY;
   const paceRef: PaceZones = refStale ? { ...state.pace_zones } : state.pace_zones_ref;
   next.pace_zones_ref = paceRef;
   next.pace_ref_at = refStale ? now.toISOString() : state.pace_ref_at;
@@ -171,9 +157,9 @@ export function microCalibrate(input: MicroInput): MicroResult {
   // 2) Goal calibration by session type. Delta = actual - target.
   const delta = rpeActual - rpeTarget;
   const tooEasyStreak =
-    delta <= RPE_DELTA_UP_THRESHOLD &&
-    (previousSameTypeDelta ?? 0) <= RPE_DELTA_UP_THRESHOLD; // needs 2 in a row
-  const tooHard = delta >= RPE_DELTA_DOWN_THRESHOLD; // immediate
+    delta <= T.rpe_delta_up_threshold &&
+    (previousSameTypeDelta ?? 0) <= T.rpe_delta_up_threshold; // needs 2 in a row
+  const tooHard = delta >= T.rpe_delta_down_threshold; // immediate
 
   // Direction: +1 harder (up), -1 easier (down), 0 hold. One step only.
   const step = tooHard ? -1 : tooEasyStreak ? 1 : 0;
@@ -197,9 +183,9 @@ export function microCalibrate(input: MicroInput): MicroResult {
       }
     } else if (zoneKey) {
       const from = state.pace_zones[zoneKey];
-      // Up = faster = fewer seconds/km; capped to ±3% of the weekly reference.
-      const proposed = from + (step > 0 ? -PACE_STEP_SEC_KM : PACE_STEP_SEC_KM);
-      const to = capPaceToRef(paceRef[zoneKey], proposed);
+      // Up = faster = fewer seconds/km; capped to ±cap% of the weekly reference.
+      const proposed = from + (step > 0 ? -T.pace_step_sec_km : T.pace_step_sec_km);
+      const to = capPaceToRef(paceRef[zoneKey], proposed, T.pace_weekly_cap_pct);
       if (to !== from) {
         next.pace_zones[zoneKey] = to;
         adjustments.push({
@@ -219,8 +205,8 @@ export function microCalibrate(input: MicroInput): MicroResult {
       const to =
         Math.round(
           Math.max(
-            STRENGTH_MODIFIER_MIN,
-            Math.min(STRENGTH_MODIFIER_MAX, from + step * STRENGTH_STEP),
+            T.strength_modifier_min,
+            Math.min(T.strength_modifier_max, from + step * T.strength_step),
           ) * 100,
         ) / 100;
       if (to !== from) {
@@ -244,7 +230,7 @@ export function microCalibrate(input: MicroInput): MicroResult {
     const zoneKey = PACE_ZONE_FOR[sessionType];
     if (zoneKey) {
       const from = next.pace_zones[zoneKey];
-      const to = capPaceToRef(paceRef[zoneKey], actualPaceSecKm);
+      const to = capPaceToRef(paceRef[zoneKey], actualPaceSecKm, T.pace_weekly_cap_pct);
       if (to !== from) {
         next.pace_zones[zoneKey] = to;
         adjustments.push({
@@ -281,6 +267,8 @@ export interface MacroInput {
   daysSinceLastSession: number;
   injuryFlag: boolean;
   planStatus: string;
+  /** Calibration overrides (Phase D2) — merged over DEFAULT_TUNING. */
+  tuning?: Partial<EngineTuning>;
 }
 
 export type MacroDirective =
@@ -298,6 +286,7 @@ export interface MacroResult {
 
 export function macroGuardrails(input: MacroInput): MacroResult {
   const { state, avgRpe14d, daysSinceLastSession, injuryFlag, planStatus } = input;
+  const T: EngineTuning = { ...DEFAULT_TUNING, ...(input.tuning ?? {}) };
   const directives: MacroDirective[] = [];
   const adjustments: AdjustmentRecord[] = [];
 
@@ -314,7 +303,7 @@ export function macroGuardrails(input: MacroInput): MacroResult {
   }
 
   // Long inactivity -> rebase from today.
-  if (daysSinceLastSession >= INACTIVE_REBASE_DAYS) {
+  if (daysSinceLastSession >= T.inactive_rebase_days) {
     directives.push({ type: "rebase" });
     adjustments.push({
       layer: "macro",
@@ -326,27 +315,27 @@ export function macroGuardrails(input: MacroInput): MacroResult {
   }
 
   // ACWR + sustained strain guardrails.
-  const highStrain = avgRpe14d != null && avgRpe14d >= RPE_HIGH_14D;
-  if (state.acwr > ACWR_HARD || highStrain) {
+  const highStrain = avgRpe14d != null && avgRpe14d >= T.rpe_high_14d;
+  if (state.acwr > T.acwr_hard || highStrain) {
     directives.push({ type: "auto_deload" });
     adjustments.push({
       layer: "macro",
-      trigger: state.acwr > ACWR_HARD ? "acwr_high" : "rpe_trend",
+      trigger: state.acwr > T.acwr_hard ? "acwr_high" : "rpe_trend",
       action_taken: { type: "auto_deload", acwr: state.acwr, avg_rpe_14d: avgRpe14d },
       reason:
-        state.acwr > ACWR_HARD
-          ? `Training load spiked (ACWR ${state.acwr} > ${ACWR_HARD}) — next week becomes a deload so you absorb the work instead of digging a hole.`
+        state.acwr > T.acwr_hard
+          ? `Training load spiked (ACWR ${state.acwr} > ${T.acwr_hard}) — next week becomes a deload so you absorb the work instead of digging a hole.`
           : `Your average effort has sat very high (${avgRpe14d?.toFixed(1)}/10 over 14 days) — inserting a deload to protect adaptation.`,
     });
-  } else if (state.acwr > ACWR_SOFT) {
-    directives.push({ type: "trim_week", multiplier: ACWR_SOFT_TRIM });
+  } else if (state.acwr > T.acwr_soft) {
+    directives.push({ type: "trim_week", multiplier: T.acwr_soft_trim });
     adjustments.push({
       layer: "macro",
       trigger: "acwr_high",
-      action_taken: { type: "trim_week", acwr: state.acwr, multiplier: ACWR_SOFT_TRIM },
+      action_taken: { type: "trim_week", acwr: state.acwr, multiplier: T.acwr_soft_trim },
       reason: `Load is running a little hot (ACWR ${state.acwr}) — trimming the rest of this week ~15% to keep you on the right side of the ramp.`,
     });
-  } else if (state.acwr < ACWR_LOW && daysSinceLastSession >= 3) {
+  } else if (state.acwr < T.acwr_low && daysSinceLastSession >= 3) {
     directives.push({ type: "ramp_up", weeks: 2 });
     adjustments.push({
       layer: "macro",

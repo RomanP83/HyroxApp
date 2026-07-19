@@ -74,6 +74,44 @@ export const ACWR_SOFT_TRIM = 0.85;
 export const RPE_HIGH_14D = 8.5; // sustained high strain -> auto-deload
 export const INACTIVE_REBASE_DAYS = 7;
 
+// ── Tunable calibration constants (Phase D2) ─────────────────────────────────
+// Everything a beta might want to adjust lives in this shape. The compiled
+// values below are the defaults; the server merges engine_config (DB, keyed by
+// engine_version) over them — tuning without a deploy, still deterministic.
+export interface EngineTuning {
+  rpe_delta_up_threshold: number;
+  rpe_delta_down_threshold: number;
+  pace_step_sec_km: number;
+  pace_weekly_cap_pct: number;
+  pace_ref_window_days: number;
+  strength_step: number;
+  strength_modifier_min: number;
+  strength_modifier_max: number;
+  acwr_soft: number;
+  acwr_hard: number;
+  acwr_low: number;
+  acwr_soft_trim: number;
+  rpe_high_14d: number;
+  inactive_rebase_days: number;
+}
+
+export const DEFAULT_TUNING: EngineTuning = {
+  rpe_delta_up_threshold: RPE_DELTA_UP_THRESHOLD,
+  rpe_delta_down_threshold: RPE_DELTA_DOWN_THRESHOLD,
+  pace_step_sec_km: PACE_STEP_SEC_KM,
+  pace_weekly_cap_pct: PACE_WEEKLY_CAP_PCT,
+  pace_ref_window_days: PACE_REF_WINDOW_DAYS,
+  strength_step: STRENGTH_STEP,
+  strength_modifier_min: STRENGTH_MODIFIER_MIN,
+  strength_modifier_max: STRENGTH_MODIFIER_MAX,
+  acwr_soft: ACWR_SOFT,
+  acwr_hard: ACWR_HARD,
+  acwr_low: ACWR_LOW,
+  acwr_soft_trim: ACWR_SOFT_TRIM,
+  rpe_high_14d: RPE_HIGH_14D,
+  inactive_rebase_days: INACTIVE_REBASE_DAYS,
+};
+
 // ── Default pace zones derived from a 5k time (fallback if unknown) ──────────
 export const DEFAULT_5K_SECONDS = 1500; // 25:00
 

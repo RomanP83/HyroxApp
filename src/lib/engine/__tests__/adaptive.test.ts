@@ -184,6 +184,33 @@ describe("micro-calibration — step rules", () => {
     expect(afterWeek1).toBe(Math.round(ref * 0.97)); // week 1 stayed capped
   });
 
+  it("tuning overrides change calibration behavior without a deploy (D2)", () => {
+    const state = base();
+    const from = state.pace_zones.easy_sec_km;
+    // Default step is 5 s/km; tuned to 2 s/km the same log moves less.
+    const res = microCalibrate({
+      state, profile: p, sessionType: "run_easy",
+      rpeTarget: 5, rpeActual: 3, previousSameTypeDelta: -2, durationActualMin: 45,
+      loadHistory: [{ at: new Date(), srpe: 135 }],
+      tuning: { pace_step_sec_km: 2 },
+    } as MicroInput);
+    expect(res.state.pace_zones.easy_sec_km).toBe(from - 2);
+
+    // Macro thresholds are tunable too: acwr_hard lowered to 1.1 triggers
+    // an auto-deload that the default (1.5) would not.
+    const warm = { ...state, acwr: 1.2 };
+    const strict = macroGuardrails({
+      state: warm, avgRpe14d: 6, daysSinceLastSession: 1, injuryFlag: false,
+      planStatus: "active", tuning: { acwr_hard: 1.1 },
+    });
+    expect(strict.directives.some((d) => d.type === "auto_deload")).toBe(true);
+    const lax = macroGuardrails({
+      state: warm, avgRpe14d: 6, daysSinceLastSession: 1, injuryFlag: false,
+      planStatus: "active",
+    });
+    expect(lax.directives.some((d) => d.type === "auto_deload")).toBe(false);
+  });
+
   it("caps tiers within 1..3", () => {
     let state = base();
     state = { ...state, station_tiers: { ...state.station_tiers, wall_balls: 3 } };

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { tgSendMessage, quickLogKeyboard } from "@/lib/telegram";
+import { sendEmail, checkinEmailHtml, emailConfigured } from "@/lib/email";
 
 export const runtime = "nodejs";
 
-// B1 (fixes M2): the evening check-in that actually SENDS the 4-button
-// quick-log message — the adherence + data lever from plan §4/PP5. Runs via
-// cron; finds every connected athlete with an unlogged session scheduled for
-// today and pings them once.
+// Evening check-in (B1 + D3): finds every athlete with an unlogged session
+// scheduled for today and pings them — via the Telegram 4-button quick-log
+// when connected (the adherence + data lever, PP5), otherwise via a Resend
+// email fallback (§7 open question 4: the channel for the <30%-connect case).
 function authed(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return process.env.NODE_ENV !== "production";
@@ -21,8 +22,11 @@ function todayDayHint(now: Date = new Date()): number {
 
 export async function POST(req: Request) {
   if (!authed(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!process.env.TELEGRAM_BOT_TOKEN) {
-    return NextResponse.json({ ok: true, skipped: "telegram not configured" });
+
+  const telegramOn = Boolean(process.env.TELEGRAM_BOT_TOKEN);
+  const emailOn = emailConfigured();
+  if (!telegramOn && !emailOn) {
+    return NextResponse.json({ ok: true, skipped: "no channel configured" });
   }
 
   const admin = supabaseAdmin();
@@ -30,10 +34,11 @@ export async function POST(req: Request) {
 
   const { data: profiles } = await admin
     .from("athlete_profiles")
-    .select("id, telegram_chat_id")
-    .not("telegram_chat_id", "is", null);
+    .select("id, user_id, telegram_chat_id");
 
-  let sent = 0;
+  let sentTelegram = 0;
+  let sentEmail = 0;
+
   for (const profile of profiles ?? []) {
     const { data: plan } = await admin
       .from("plans")
@@ -67,18 +72,34 @@ export async function POST(req: Request) {
       .select("session_id")
       .in("session_id", sessions.map((s) => s.id));
     const loggedIds = new Set((logged ?? []).map((l) => l.session_id));
+    const due = sessions.filter((s) => !loggedIds.has(s.id) && s.session_type !== "rest");
+    if (!due.length) continue;
 
-    for (const s of sessions.filter((s) => !loggedIds.has(s.id) && s.session_type !== "rest")) {
-      await tgSendMessage(
-        profile.telegram_chat_id!,
-        `🏋️ Today's session: <b>${s.title}</b> (${s.planned_duration_min} min).\nDid you get it done? One tap logs it — and tunes your plan.`,
-        quickLogKeyboard(s.id),
-      );
-      sent++;
+    if (profile.telegram_chat_id && telegramOn) {
+      for (const s of due) {
+        await tgSendMessage(
+          profile.telegram_chat_id,
+          `🏋️ Today's session: <b>${s.title}</b> (${s.planned_duration_min} min).\nDid you get it done? One tap logs it — and tunes your plan.`,
+          quickLogKeyboard(s.id),
+        );
+        sentTelegram++;
+      }
+    } else if (emailOn) {
+      // D3: email fallback — one mail per athlete, first due session leads.
+      const { data: userInfo } = await admin.auth.admin.getUserById(profile.user_id);
+      const email = userInfo?.user?.email;
+      if (email) {
+        const ok = await sendEmail(
+          email,
+          `Today's session: ${due[0].title}`,
+          checkinEmailHtml(due[0].title, due[0].planned_duration_min),
+        );
+        if (ok) sentEmail++;
+      }
     }
   }
 
-  return NextResponse.json({ ok: true, sent });
+  return NextResponse.json({ ok: true, sent_telegram: sentTelegram, sent_email: sentEmail });
 }
 
 export const GET = POST;

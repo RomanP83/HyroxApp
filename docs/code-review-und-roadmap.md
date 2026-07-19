@@ -110,12 +110,12 @@ Priorisierung folgt §2 „Should-Have“, sortiert nach Aufwand/Nutzen:
 6. **Doubles-Trainingslogik** (1–2 Wo) — Partner-Sessions, geteilte Stationen; erst wenn Phase-0/Beta-Daten Doubles-Nachfrage zeigen (§7 offene Frage 3).
 7. **Nutrition-Basics pro Phase** (Content, 0,5 Wo) — statischer Content je Phase inkl. Race-Week Carb-Loading.
 
-### Phase D — Später / strategisch
+### Phase D — Später / strategisch ✅ umgesetzt (19.07.2026)
 
-- **DACH-Lokalisierung + SEO-Landingpages** („Hyrox Trainingsplan 12 Wochen“) — laut §7 der unbesetzte Distributionskanal und als Differenzierung ggü. RoxFit/RMR wichtiger als weitere Features.
-- **Engine-Tuning-Infrastruktur**: Kalibrierungskonstanten (`constants.ts`) pro `engine_version` in eine DB-Tabelle heben → Beta-Tuning ohne Deploy; Beta-KPI „Anteil Logs mit echtem RPE-Input“ (§7) als Admin-Query.
-- **E-Mail-Fallback-Reminder** (Resend), falls Telegram-Connect-Quote < 30 % (§7 offene Frage 4).
-- **PWA + Push**, **Coach-Dashboard (B2B)**, **volle Wearables** — bewusst hinten, wie im Produktplan begründet.
+- **DACH-SEO** ✅: deutsche Landingpage `/de` + Exact-Match-Keyword-Seiten `/de/hyrox-trainingsplan-{8,12,16}-wochen` (Phasen-Tabellen live aus `splitPhases()`, FAQ mit JSON-LD, hreflang-Alternates), `sitemap.xml` + `robots.txt`. Hinweis: App-UI (Onboarding/Plan) bleibt vorerst Englisch — vollständige App-i18n ist der nächste D1-Schritt.
+- **Engine-Tuning-Infrastruktur** ✅: `engine_config`-Tabelle je `engine_version` (Migration 0007, geseedet mit den Literatur-Startwerten), `EngineTuning`-Override in Mikro- und Makro-Engine, Loader mit 5-min-Cache — Beta-Tuning per SQL-UPDATE statt Deploy. Beta-KPIs (`beta_kpis`-View + Telegram-Connect-Quote inkl. 30-%-Schwelle) über `GET /api/admin/kpis` (Bearer `CRON_SECRET`).
+- **E-Mail-Fallback-Reminder** ✅: Check-in-Cron heißt jetzt `/api/cron/checkin` und schickt bei nicht verbundenem Telegram die Abend-Erinnerung via Resend (`RESEND_API_KEY`/`EMAIL_FROM`).
+- **PWA + Push**, **Coach-Dashboard (B2B)**, **volle Wearables** — weiterhin bewusst nicht gebaut, wie im Produktplan begründet.
 
 ### Empfohlene Reihenfolge
 

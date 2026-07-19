@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { macroGuardrails } from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 import { rebasePlan } from "@/lib/rebasePlan";
+import { loadTuning } from "@/lib/engineConfig";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const results: Record<string, string[]> = {};
+  const tuning = await loadTuning(admin);
 
   for (const plan of plans ?? []) {
     const { data: stateRow } = await admin
@@ -84,6 +86,7 @@ export async function POST(req: Request) {
       daysSinceLastSession,
       injuryFlag: false,
       planStatus: plan.status,
+      tuning,
     });
 
     const applied: string[] = [];

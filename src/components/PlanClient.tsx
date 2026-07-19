@@ -9,6 +9,17 @@ import { FeedbackCard } from "./FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
 import type { PhaseType } from "@/lib/engine";
+import { haptic } from "@/lib/haptics";
+import {
+  ChartIcon,
+  LeafIcon,
+  LockIcon,
+  MedicalIcon,
+  RunIcon,
+  SendIcon,
+  SparkIcon,
+  TargetIcon,
+} from "./icons";
 
 export interface ClientSession {
   id: string;
@@ -59,8 +70,11 @@ const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, har
 export function PlanClient(props: Props) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<{ sessionId: string; action: LogAction } | null>(null);
   const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
+  // Perceived speed (#6): flip the card state the instant the tap lands;
+  // the server round-trip only confirms (or reverts on error).
+  const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped">>({});
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   const currentPhase = phaseOf(props.currentWeek.week_number);
@@ -106,7 +120,9 @@ export function PlanClient(props: Props) {
   }
 
   async function log(sessionId: string, action: LogAction, target: number) {
-    setBusy(sessionId);
+    setBusy({ sessionId, action });
+    // Instant feedback (#6): the card flips before the network answers.
+    setOptimistic((m) => ({ ...m, [sessionId]: action === "skip" ? "skipped" : "done" }));
     try {
       const body =
         action === "skip"
@@ -122,17 +138,29 @@ export function PlanClient(props: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) throw new Error("log failed");
       const data = await res.json();
       const reason = data?.adaptation?.adjustments?.[0]?.reason;
       if (data?.feedback && action !== "skip") {
+        haptic("milestone");
         setFeedback(data.feedback);
         if (reason) setToast(reason);
       } else {
-        setToast(reason ?? (action === "skip" ? "Skipped — no make-up pile-up." : "Logged ✅"));
+        setToast(
+          reason ??
+            (action === "skip"
+              ? "Skipped — life happens. No make-up pile-up, the plan bends."
+              : "Nice work — session logged."),
+        );
       }
       router.refresh();
     } catch {
-      setToast("Something went wrong logging that.");
+      // Revert the optimistic flip — honesty beats speed.
+      setOptimistic((m) => {
+        const { [sessionId]: _, ...rest } = m;
+        return rest;
+      });
+      setToast("Hmm, that didn't save. Give it another tap.");
     } finally {
       setBusy(null);
     }
@@ -157,9 +185,11 @@ export function PlanClient(props: Props) {
         </span>
         <div className="flex items-center gap-2 text-sm">
           <Link href="/progress" className="btn-ghost">
+            <ChartIcon size={16} />
             Progress
           </Link>
           <Link href="/benchmarks" className="btn-ghost">
+            <TargetIcon size={16} />
             Benchmarks
           </Link>
           <span className="pill">Race {new Date(props.raceDate).toLocaleDateString()}</span>
@@ -172,10 +202,13 @@ export function PlanClient(props: Props) {
       </div>
 
       {props.planStatus === "rehab" && (
-        <div className="card border-warn/50 bg-surface2 flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm">
-            🩹 <b>Rehab mode.</b> Stick to mobility and low-impact work — no plan stop, no lost
-            progress. When you&apos;re ready, the plan rebuilds from that day.
+        <div className="card border-warn/50 bg-surface2 flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+          <div className="flex items-start gap-3 text-sm">
+            <MedicalIcon size={18} className="mt-0.5 shrink-0 text-warn" />
+            <span>
+              <b>Rehab mode.</b> Stick to mobility and low-impact work — no plan stop, no lost
+              progress. When you&apos;re ready, the plan rebuilds from that day.
+            </span>
           </div>
           <button className="btn-primary" onClick={() => injury("recover")}>
             I&apos;m back — rebuild my plan
@@ -185,9 +218,12 @@ export function PlanClient(props: Props) {
 
       {!props.paid && (
         <div className="card border-accent/40 bg-surface2 flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span>
-            🔓 <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every
-            week’s sessions, weights and paces — one-time price, for your race.
+          <span className="flex items-start gap-3">
+            <LockIcon size={18} className="mt-0.5 shrink-0 text-accent" />
+            <span>
+              <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every
+              week’s sessions, weights and paces — one-time price, for your race.
+            </span>
           </span>
           {props.subscriptionAvailable && (
             <button className="btn-ghost" onClick={() => unlock("subscription")}>
@@ -235,9 +271,10 @@ export function PlanClient(props: Props) {
             <SessionCard
               key={cs.id}
               session={cs.session}
-              status={cs.status}
+              status={optimistic[cs.id] ?? cs.status}
               locked={props.locked}
-              onLog={props.locked || busy ? undefined : (a) => log(cs.id, a, cs.session.intensity_rpe_target)}
+              busyAction={busy?.sessionId === cs.id ? busy.action : null}
+              onLog={props.locked ? undefined : (a) => log(cs.id, a, cs.session.intensity_rpe_target)}
             />
           ))}
         </div>
@@ -265,7 +302,9 @@ export function PlanClient(props: Props) {
             const tip = phase ? PHASE_NUTRITION[phase] : undefined;
             return tip ? (
               <div className="card">
-                <div className="mb-1 text-sm font-semibold">🥗 {tip.headline}</div>
+                <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+                  <LeafIcon size={16} className="text-ok" /> {tip.headline}
+                </div>
                 <ul className="space-y-1 text-xs text-muted">
                   {tip.points.map((pt) => (
                     <li key={pt}>• {pt}</li>
@@ -277,7 +316,9 @@ export function PlanClient(props: Props) {
 
           {(props.stravaConnectUrl || props.garminConnectUrl) && (
             <div className="card">
-              <div className="mb-1 text-sm font-semibold">🏃 Auto-log your runs</div>
+              <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+                <RunIcon size={16} className="text-accent2" /> Auto-log your runs
+              </div>
               <p className="mb-3 text-xs text-muted">
                 Run paces flow straight into the pace calibration — no manual entry.
               </p>
@@ -298,7 +339,9 @@ export function PlanClient(props: Props) {
 
           {props.telegramLink && (
             <div className="card">
-              <div className="mb-1 text-sm font-semibold">📲 One-tap logging via Telegram</div>
+              <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+                <SendIcon size={16} className="text-accent2" /> One-tap logging via Telegram
+              </div>
               <p className="mb-3 text-xs text-muted">
                 Get an evening check-in with 4 buttons — log the session without opening the app.
               </p>
@@ -321,22 +364,30 @@ export function PlanClient(props: Props) {
                 day you&apos;re back.
               </p>
               <button className="btn-ghost w-full" onClick={() => injury("activate")}>
-                🩹 Flag an injury
+                <MedicalIcon size={16} />
+                Flag an injury
               </button>
             </div>
           )}
 
           <div className="card">
-            <div className="mb-2 text-sm font-semibold">Why your plan changed</div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <SparkIcon size={16} className="text-accent2" /> Why your plan changed
+            </div>
             {props.adjustments.length === 0 ? (
               <div className="text-xs text-muted">
-                Log sessions and the engine will explain every adjustment here.
+                You&apos;re all caught up — nothing needed adjusting yet. Every change the engine
+                makes will be explained here, in plain words.
               </div>
             ) : (
               <ul className="space-y-2 text-xs">
                 {props.adjustments.map((r, i) => (
-                  <li key={i} className="rounded border border-line bg-surface2 p-2">
-                    ⚙️ {r}
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 rounded border border-line bg-surface2 p-2 animate-fade-up"
+                  >
+                    <SparkIcon size={14} className="mt-0.5 shrink-0 text-accent2" />
+                    <span>{r}</span>
                   </li>
                 ))}
               </ul>
@@ -350,7 +401,7 @@ export function PlanClient(props: Props) {
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12"
           onClick={() => setFeedback(null)}
         >
-          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg animate-pop-in" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-center text-sm font-semibold text-muted">
               Training feedback
             </div>
@@ -361,10 +412,11 @@ export function PlanClient(props: Props) {
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg"
+          className="fixed bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg animate-fade-up"
           onClick={() => setToast(null)}
         >
-          ⚙️ {toast}
+          <SparkIcon size={14} className="shrink-0 text-accent2" />
+          {toast}
         </div>
       )}
     </main>

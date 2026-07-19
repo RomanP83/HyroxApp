@@ -65,7 +65,7 @@ export function FeedbackCard({ feedback, onClose }: Props) {
         </div>
         <div className="relative mt-3 h-2 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-ok">
           <div
-            className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-base"
+            className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-base transition-all duration-700 ease-out"
             style={{ left: `calc(${feedback.score}% - 8px)` }}
           />
         </div>
@@ -77,8 +77,12 @@ export function FeedbackCard({ feedback, onClose }: Props) {
           Actual vs. planned
         </div>
         <div className="space-y-2">
-          {feedback.metrics.map((m) => (
-            <div key={m.key} className="rounded-lg border border-line bg-surface2 p-3">
+          {feedback.metrics.map((m, i) => (
+            <div
+              key={m.key}
+              className="rounded-lg border border-line bg-surface2 p-3 animate-fade-up"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
               <div className="flex items-center justify-between gap-3">
                 <div className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">
                   {m.label}

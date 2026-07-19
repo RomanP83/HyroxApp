@@ -18,14 +18,14 @@ test("demo: generate → log → feedback card → adaptation feed", async ({ pa
   await expect(page.locator("text=RPE target").first()).toBeVisible();
 
   // Log a session as harder than planned → training feedback opens.
-  await page.locator("text=🔥 Harder").first().click();
+  await page.getByRole("button", { name: "Harder" }).first().click();
   await expect(page.locator("text=Training feedback")).toBeVisible();
   await expect(page.locator("text=Fulfillment index")).toBeVisible();
   await expect(page.locator("text=TOO HARD").first()).toBeVisible();
   await page.locator('button[aria-label="Close"]').click();
 
   // Log another session as planned → perfect score headline.
-  await page.locator("text=✅ As planned").first().click();
+  await page.getByRole("button", { name: "As planned" }).first().click();
   await expect(page.locator("text=Dialed in!")).toBeVisible();
   await page.locator('button[aria-label="Close"]').click();
 

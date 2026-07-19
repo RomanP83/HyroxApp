@@ -98,6 +98,24 @@ function XLabels({ labels, scale }: { labels: string[]; scale: Scale }) {
   );
 }
 
+/** Empty state (#3): never a bare "no data" — say what fills it + one action. */
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line py-8 text-center">
+      <svg viewBox="0 0 24 24" width={28} height={28} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="text-muted" aria-hidden="true">
+        <path d="M3 3v18h18" />
+        <path d="M7 14l4-4 3 3 5-6" strokeDasharray="2 3" />
+      </svg>
+      <p className="max-w-xs text-sm text-muted">
+        This chart fills up as you train — every logged session adds a point.
+      </p>
+      <a href="/plan" className="text-sm font-semibold text-accent hover:underline">
+        Log today&apos;s session →
+      </a>
+    </div>
+  );
+}
+
 function DataTable({ rows, cols }: { rows: (string | number)[][]; cols: string[] }) {
   return (
     <details className="mt-2 text-xs text-muted">
@@ -144,7 +162,7 @@ export function LineChart({
   refLines?: { y: number; label: string }[];
   domain?: [number, number];
 }) {
-  if (!series.length) return <p className="text-sm text-muted">Not enough data yet — log a few sessions first.</p>;
+  if (!series.length) return <EmptyState />;
   const all = [...series.map((p) => p.y), ...(secondary ?? []).map((p) => p.y), ...refLines.map((r) => r.y)];
   const scale = makeScale(series.length, all, domain);
   const path = (pts: Pt[]) =>
@@ -215,7 +233,7 @@ export function BarChart({
   fmt?: (v: number) => string;
   domain?: [number, number];
 }) {
-  if (!bars.length) return <p className="text-sm text-muted">Not enough data yet.</p>;
+  if (!bars.length) return <EmptyState />;
   const scale = makeScale(bars.length, bars.map((b) => b.y), domain ?? [0, Math.max(...bars.map((b) => b.y), 1)]);
   const innerW = W - PAD.left - PAD.right;
   const bw = Math.min(24, (innerW / bars.length) * 0.6);

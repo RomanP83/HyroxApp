@@ -42,8 +42,12 @@ describe("chart components", () => {
     expect(html).toContain('stroke="#26333f"'); // recessive 1px gridlines
   });
 
-  it("empty series degrade to a friendly message", () => {
-    expect(renderToStaticMarkup(<LineChart series={[]} />)).toContain("Not enough data");
-    expect(renderToStaticMarkup(<BarChart bars={[]} />)).toContain("Not enough data");
+  it("empty series render a guiding empty state with one clear action", () => {
+    const line = renderToStaticMarkup(<LineChart series={[]} />);
+    expect(line).toContain("fills up as you train");
+    expect(line).toContain('href="/plan"');
+    const bar = renderToStaticMarkup(<BarChart bars={[]} />);
+    expect(bar).toContain("fills up as you train");
+    expect(bar).toContain('href="/plan"');
   });
 });

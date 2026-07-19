@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
+import { fmtClock, PHASE_COLORS, titleCase } from "@/lib/format";
+import { CheckIcon, SpinnerIcon } from "@/components/icons";
+import { haptic } from "@/lib/haptics";
 
 type Division = "open" | "pro" | "doubles" | "masters_open";
 type Level = "beginner" | "intermediate" | "advanced";
@@ -11,6 +15,10 @@ type Equipment = "full_gym" | "home_minimal" | "hybrid";
 
 export const dynamic = "force-dynamic";
 
+// Onboarding per the design cheatsheet: guide clearly, show value quickly,
+// friendly language, no friction. Chips instead of dropdowns; a live plan
+// preview (the engine runs in-browser) is the "show value" moment before
+// anyone commits to anything.
 export default function Onboarding() {
   const router = useRouter();
   const [supabase] = useState(() => supabaseBrowser());
@@ -50,6 +58,28 @@ export default function Onboarding() {
       .then(({ data }) => setRaces(data ?? []));
   }, [supabase]);
 
+  // Live preview: the same engine that builds the real plan, in the browser.
+  const preview = useMemo(() => {
+    if (!raceDate) return null;
+    const ms = new Date(raceDate).getTime() - Date.now();
+    if (Number.isNaN(ms) || ms <= 0) return null;
+    const weeks = Math.max(4, Math.min(20, Math.ceil(ms / (7 * 86_400_000))));
+    const profile: AthleteProfile = {
+      id: "preview",
+      division,
+      experience_level: level,
+      five_k_seconds: fiveKMin * 60 + fiveKSec,
+      station_estimates: {},
+      training_days_per_week: days,
+      equipment_access: equipment,
+    };
+    return {
+      weeks,
+      split: splitPhases(weeks),
+      predicted: initialAthleteState(profile).predicted_race_time_sec,
+    };
+  }, [raceDate, division, level, days, equipment, fiveKMin, fiveKSec]);
+
   async function sendMagicLink() {
     setError(null);
     const { error } = await supabase.auth.signInWithOtp({
@@ -63,6 +93,7 @@ export default function Onboarding() {
   async function submit() {
     setSubmitting(true);
     setError(null);
+    haptic("confirm");
     try {
       const res = await fetch("/api/plans/generate", {
         method: "POST",
@@ -81,23 +112,38 @@ export default function Onboarding() {
       router.push("/plan");
     } catch (e) {
       setError((e as Error).message);
-    } finally {
       setSubmitting(false);
     }
   }
 
-  if (!ready) return <main className="p-8 text-muted">Loading…</main>;
+  if (!ready) {
+    return (
+      <main className="mx-auto max-w-xl space-y-4 pt-8">
+        <div className="skeleton h-8 w-40" />
+        <div className="skeleton h-32 w-full" />
+        <div className="skeleton h-32 w-full" />
+      </main>
+    );
+  }
 
   if (!signedIn) {
     return (
-      <main className="mx-auto max-w-md space-y-4 pt-16">
+      <main className="mx-auto max-w-md space-y-4 pt-16 animate-fade-up">
         <Link href="/" className="text-sm text-muted hover:text-ink">
           ← Home
         </Link>
         <h1 className="text-2xl font-bold">Create your account</h1>
-        <p className="text-muted">We’ll email you a magic link — no password to remember.</p>
+        <p className="text-muted">
+          We&apos;ll email you a sign-in link — no password to remember, nothing to forget.
+        </p>
         {sent ? (
-          <div className="card text-ok">✅ Check your inbox for the sign-in link.</div>
+          <div className="card flex items-center gap-3 text-ok animate-pop-in">
+            <CheckIcon size={20} />
+            <div>
+              <div className="font-semibold">Link is on its way!</div>
+              <div className="text-sm text-muted">Check your inbox and tap it to continue.</div>
+            </div>
+          </div>
         ) : (
           <div className="space-y-3">
             <input
@@ -129,69 +175,107 @@ export default function Onboarding() {
         <Link href="/" className="text-sm text-muted hover:text-ink">
           ← Home
         </Link>
-        <span className="pill">Step {step} of 2</span>
+        <span className="pill">{step === 1 ? "Step 1 of 2 · About you" : "Step 2 of 2 · Your race"}</span>
+      </div>
+      {/* progress that moves — a small "something is happening" moment */}
+      <div className="h-1 w-full overflow-hidden rounded-full bg-surface2">
+        <div
+          className="h-full rounded-full bg-accent transition-all duration-500"
+          style={{ width: step === 1 ? "50%" : "100%" }}
+        />
       </div>
 
       {step === 1 && (
-        <div className="space-y-4">
-          <h1 className="text-2xl font-bold">Tell us about you</h1>
-          <p className="text-muted">
-            This is the personalisation proof — your plan will be measurably different from your
-            neighbour’s from day one.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Division">
-              <select className="input" value={division} onChange={(e) => setDivision(e.target.value as Division)}>
-                <option value="open">Open</option>
-                <option value="pro">Pro</option>
-                <option value="doubles">Doubles</option>
-                <option value="masters_open">Masters Open</option>
-              </select>
-            </Field>
-            <Field label="Experience level">
-              <select className="input" value={level} onChange={(e) => setLevel(e.target.value as Level)}>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </Field>
-            <Field label="Training days / week">
-              <select className="input" value={days} onChange={(e) => setDays(Number(e.target.value))}>
-                {[3, 4, 5, 6].map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Equipment">
-              <select className="input" value={equipment} onChange={(e) => setEquipment(e.target.value as Equipment)}>
-                <option value="full_gym">Full gym</option>
-                <option value="hybrid">Hybrid</option>
-                <option value="home_minimal">Home / minimal</option>
-              </select>
-            </Field>
-            <Field label="5K time">
-              <div className="flex items-center gap-2">
-                <input className="input" type="number" value={fiveKMin} onChange={(e) => setFiveKMin(Number(e.target.value))} />
-                <span className="text-muted">min</span>
-                <input className="input" type="number" value={fiveKSec} onChange={(e) => setFiveKSec(Number(e.target.value))} />
-                <span className="text-muted">sec</span>
-              </div>
-            </Field>
+        <div className="space-y-5 animate-fade-up" key="step1">
+          <div>
+            <h1 className="text-2xl font-bold">Tell us about you</h1>
+            <p className="text-muted">
+              Four quick taps and one honest 5K time — that&apos;s all the engine needs to make
+              your plan measurably yours.
+            </p>
           </div>
+
+          <ChipGroup
+            label="Your division"
+            options={[
+              ["open", "Open"],
+              ["pro", "Pro"],
+              ["doubles", "Doubles"],
+              ["masters_open", "Masters"],
+            ]}
+            value={division}
+            onChange={(v) => setDivision(v as Division)}
+          />
+          <ChipGroup
+            label="How seasoned are you?"
+            options={[
+              ["beginner", "New to this"],
+              ["intermediate", "Trained before"],
+              ["advanced", "Competitive"],
+            ]}
+            value={level}
+            onChange={(v) => setLevel(v as Level)}
+          />
+          <ChipGroup
+            label="Training days per week"
+            options={[
+              ["3", "3 days"],
+              ["4", "4 days"],
+              ["5", "5 days"],
+              ["6", "6 days"],
+            ]}
+            value={String(days)}
+            onChange={(v) => setDays(Number(v))}
+          />
+          <ChipGroup
+            label="Where do you train?"
+            options={[
+              ["full_gym", "Full gym"],
+              ["hybrid", "Mix of both"],
+              ["home_minimal", "Home / minimal"],
+            ]}
+            value={equipment}
+            onChange={(v) => setEquipment(v as Equipment)}
+          />
+
+          <div>
+            <label className="label">Your 5K time (best guess is totally fine)</label>
+            <div className="flex items-center gap-2">
+              <input
+                className="input"
+                type="number"
+                value={fiveKMin}
+                onChange={(e) => setFiveKMin(Number(e.target.value))}
+              />
+              <span className="text-muted">min</span>
+              <input
+                className="input"
+                type="number"
+                value={fiveKSec}
+                onChange={(e) => setFiveKSec(Number(e.target.value))}
+              />
+              <span className="text-muted">sec</span>
+            </div>
+          </div>
+
           <button className="btn-primary" onClick={() => setStep(2)}>
-            Next →
+            Next: pick your race →
           </button>
         </div>
       )}
 
       {step === 2 && (
-        <div className="space-y-4">
-          <h1 className="text-2xl font-bold">When’s your race?</h1>
-          <p className="text-muted">The whole plan is built backward from this date. Taper is never negotiable.</p>
+        <div className="space-y-5 animate-fade-up" key="step2">
+          <div>
+            <h1 className="text-2xl font-bold">When&apos;s your race?</h1>
+            <p className="text-muted">
+              Everything is planned backward from this date — and the taper is never negotiable.
+            </p>
+          </div>
+
           {races.length > 0 && (
-            <Field label="Pick your event">
+            <div>
+              <label className="label">Pick your event</label>
               <select
                 className="input"
                 value={raceId ?? ""}
@@ -202,7 +286,7 @@ export default function Onboarding() {
                   if (race) setRaceDate(race.event_date);
                 }}
               >
-                <option value="">— custom date below —</option>
+                <option value="">— or set a custom date below —</option>
                 {races.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
@@ -210,9 +294,10 @@ export default function Onboarding() {
                   </option>
                 ))}
               </select>
-            </Field>
+            </div>
           )}
-          <Field label="Race date">
+          <div>
+            <label className="label">Race date</label>
             <input
               className="input"
               type="date"
@@ -222,14 +307,61 @@ export default function Onboarding() {
                 setRaceId(null); // manual date overrides the event pick
               }}
             />
-          </Field>
+          </div>
+
+          {/* Show value quickly: the plan skeleton, generated live. */}
+          {preview && (
+            <div className="card animate-pop-in">
+              <div className="mb-2 text-sm font-semibold">
+                Here&apos;s the shape of your {preview.weeks}-week plan
+              </div>
+              <div className="mb-2 flex h-3 gap-0.5 overflow-hidden rounded-full">
+                {preview.split.map((p) => (
+                  <div
+                    key={p.phase_type}
+                    className="transition-all duration-500"
+                    style={{
+                      background: PHASE_COLORS[p.phase_type],
+                      flexGrow: p.weeks,
+                    }}
+                    title={`${titleCase(p.phase_type)}: ${p.weeks} weeks`}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3 text-xs text-muted">
+                {preview.split.map((p) => (
+                  <span key={p.phase_type} className="flex items-center gap-1">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ background: PHASE_COLORS[p.phase_type] }}
+                    />
+                    {titleCase(p.phase_type)} · {p.weeks}w
+                  </span>
+                ))}
+              </div>
+              {preview.predicted != null && (
+                <p className="mt-3 text-sm text-muted">
+                  First finish-time estimate:{" "}
+                  <b className="text-ink">{fmtClock(preview.predicted)}</b> — it sharpens with
+                  every session you log.
+                </p>
+              )}
+            </div>
+          )}
+
           {error && <p className="text-danger text-sm">{error}</p>}
           <div className="flex gap-2">
-            <button className="btn-ghost" onClick={() => setStep(1)}>
+            <button className="btn-ghost" onClick={() => setStep(1)} disabled={submitting}>
               ← Back
             </button>
             <button className="btn-primary" onClick={submit} disabled={!raceDate || submitting}>
-              {submitting ? "Building your plan…" : "Build my plan →"}
+              {submitting ? (
+                <>
+                  <SpinnerIcon size={16} /> Building your plan…
+                </>
+              ) : (
+                "Looks right — build my plan"
+              )}
             </button>
           </div>
         </div>
@@ -238,11 +370,36 @@ export default function Onboarding() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function ChipGroup({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: [string, string][];
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <div>
       <label className="label">{label}</label>
-      {children}
+      <div className="flex flex-wrap gap-2">
+        {options.map(([v, text]) => (
+          <button
+            key={v}
+            type="button"
+            className={`chip ${value === v ? "chip-active" : ""}`}
+            onClick={() => {
+              haptic("tap");
+              onChange(v);
+            }}
+          >
+            {value === v && <CheckIcon size={14} className="mr-1.5" />}
+            {text}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

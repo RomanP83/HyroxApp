@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtClock } from "@/lib/format";
+import { TargetIcon } from "./icons";
 
 export interface BenchmarkDef {
   id: string;
@@ -159,10 +160,10 @@ export function BenchmarksClient({
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg animate-fade-up"
           onClick={() => setToast(null)}
         >
-          📊 {toast}
+          <span className="flex items-center gap-2"><TargetIcon size={14} className="shrink-0 text-accent2" />{toast}</span>
         </div>
       )}
     </main>

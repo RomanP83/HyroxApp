@@ -45,9 +45,15 @@ export default async function PlanPage({
     .maybeSingle();
 
   if (!plan) {
+    // Empty state (#3): explain what belongs here + one clear action.
     return (
-      <main className="space-y-4 pt-16 text-center">
-        <h1 className="text-2xl font-bold">No plan yet</h1>
+      <main className="mx-auto max-w-md space-y-4 pt-20 text-center animate-fade-up">
+        <div className="text-4xl">🏁</div>
+        <h1 className="text-2xl font-bold">Your plan starts here</h1>
+        <p className="text-muted">
+          Two minutes of questions, and the engine builds a week-by-week plan backward from your
+          race date — week 1 free.
+        </p>
         <Link href="/onboarding" className="btn-primary">
           Build my plan →
         </Link>

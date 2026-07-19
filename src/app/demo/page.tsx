@@ -24,6 +24,8 @@ import { DEMO_LIBRARY } from "@/lib/demoLibrary";
 import { SessionCard, type LogAction } from "@/components/SessionCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
+import { SparkIcon } from "@/components/icons";
+import { haptic } from "@/lib/haptics";
 
 export default function DemoPage() {
   const [division, setDivision] = useState<Division>("open");
@@ -97,6 +99,7 @@ export default function DemoPage() {
     lastDelta.current[sessionType] = clampedRpe - rpeTarget;
 
     // Trainingsfeedback (deterministic — same engine module the API uses).
+    haptic("milestone");
     setFeedback(
       computeSessionFeedback({
         sessionType: sessionType as SessionType,
@@ -275,17 +278,20 @@ export default function DemoPage() {
             </div>
 
             <div className="card">
-              <div className="mb-2 text-sm font-semibold">Adaptation log</div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <SparkIcon size={16} className="text-accent2" /> Adaptation log
+              </div>
               {feed.length === 0 ? (
                 <div className="text-xs text-muted">
-                  Log a session as “Harder”/“Easier” to see the engine respond — every change is
+                  All quiet so far — log a session as “Harder” or “Easier” and watch the engine respond. Every change is
                   explained.
                 </div>
               ) : (
                 <ul className="space-y-2 text-xs">
                   {feed.slice(0, 8).map((r, i) => (
-                    <li key={i} className="rounded border border-line bg-surface2 p-2">
-                      ⚙️ {r}
+                    <li key={i} className="flex items-start gap-2 rounded border border-line bg-surface2 p-2 animate-fade-up">
+                      <SparkIcon size={14} className="mt-0.5 shrink-0 text-accent2" />
+                      <span>{r}</span>
                     </li>
                   ))}
                 </ul>
@@ -300,7 +306,7 @@ export default function DemoPage() {
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12"
           onClick={() => setFeedback(null)}
         >
-          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg animate-pop-in" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-center text-sm font-semibold text-muted">
               Training feedback
             </div>

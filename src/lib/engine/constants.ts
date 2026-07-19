@@ -8,7 +8,7 @@
 import type { PhaseType, SessionType, PaceZones, StationTiers } from "./types";
 import { STATIONS } from "./types";
 
-export const ENGINE_VERSION = "v1.1";
+export const ENGINE_VERSION = "v1.2";
 
 // ── Macro phase-split lookup (weeks_to_race -> [base, build, peak, taper]) ────
 // Taper is never negotiable (PP4).
@@ -59,8 +59,12 @@ export const RPE_DELTA_DOWN_THRESHOLD = 2; // too hard -> step down immediately
 export const PACE_STEP_SEC_KM = 5; // one step = 5 s/km faster
 export const LOAD_STEP_PCT = 0.05; // one step = +5% load
 export const PACE_WEEKLY_CAP_PCT = 0.03; // ±3% per week — no runaway
+export const PACE_REF_WINDOW_DAYS = 7; // pace-cap snapshot renews weekly (A7)
 export const TIER_MIN = 1;
 export const TIER_MAX = 3;
+export const STRENGTH_STEP = 0.05; // one strength calibration step = ±5% (A6)
+export const STRENGTH_MODIFIER_MIN = 0.8;
+export const STRENGTH_MODIFIER_MAX = 1.2;
 
 // ACWR guardrails (§5 Layer 2)
 export const ACWR_SOFT = 1.3; // trim remaining week x0.85

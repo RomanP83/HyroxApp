@@ -73,6 +73,11 @@ export interface AthleteState {
   pace_zones: PaceZones;
   station_tiers: StationTiers;
   predicted_race_time_sec: number | null;
+  /** Persisted strength-load multiplier the ±5% calibration steps (A6). */
+  strength_modifier: number;
+  /** Weekly snapshot the ±3% pace cap is measured against (A7). */
+  pace_zones_ref: PaceZones;
+  pace_ref_at: string | null;
 }
 
 export interface WorkoutBlock {
@@ -101,6 +106,8 @@ export interface RenderedBlock {
     division: Division;
     station_tier?: number;
     pace_sec_km?: number;
+    /** Multiplier on the block's template loads (strength calibration, A6). */
+    strength_modifier?: number;
     note?: string;
   };
 }

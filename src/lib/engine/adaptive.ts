@@ -18,8 +18,12 @@ import {
   RPE_DELTA_DOWN_THRESHOLD,
   PACE_STEP_SEC_KM,
   PACE_WEEKLY_CAP_PCT,
+  PACE_REF_WINDOW_DAYS,
   TIER_MIN,
   TIER_MAX,
+  STRENGTH_STEP,
+  STRENGTH_MODIFIER_MIN,
+  STRENGTH_MODIFIER_MAX,
   ACWR_SOFT,
   ACWR_HARD,
   ACWR_LOW,
@@ -58,10 +62,11 @@ export interface LoadState {
   acwr: number;
 }
 
+const DAY = 86_400_000;
+
 export function computeLoadState(history: LoadEntry[], now: Date = new Date()): LoadState {
   const ms = (d: string | Date) => new Date(d).getTime();
   const t = now.getTime();
-  const DAY = 86_400_000;
 
   const acute = history
     .filter((e) => t - ms(e.at) < 7 * DAY)
@@ -114,11 +119,15 @@ function clampTier(v: number): number {
   return Math.max(TIER_MIN, Math.min(TIER_MAX, v));
 }
 
-/** Move a pace zone by `deltaSec`, but never more than ±3% of its value. */
-function capPace(current: number, deltaSec: number): number {
-  const cap = current * PACE_WEEKLY_CAP_PCT;
-  const applied = Math.max(-cap, Math.min(cap, deltaSec));
-  return Math.round(current + applied);
+/**
+ * Clamp a proposed pace-zone value to ±3% of the WEEKLY reference snapshot
+ * (A7). Multiple logs in one week share the same reference, so total drift
+ * per week stays bounded — the per-log cap alone allowed ~12%/week at 4 logs.
+ */
+function capPaceToRef(refValue: number, proposed: number): number {
+  const lo = Math.round(refValue * (1 - PACE_WEEKLY_CAP_PCT));
+  const hi = Math.round(refValue * (1 + PACE_WEEKLY_CAP_PCT));
+  return Math.max(lo, Math.min(hi, Math.round(proposed)));
 }
 
 export function microCalibrate(input: MicroInput): MicroResult {
@@ -150,6 +159,15 @@ export function microCalibrate(input: MicroInput): MicroResult {
   next.chronic_load_28d = load.chronic_load_28d;
   next.acwr = load.acwr;
 
+  // Weekly pace reference (A7): renew the snapshot when it is missing or
+  // older than the window; otherwise every log this week caps against it.
+  const refStale =
+    !state.pace_ref_at ||
+    now.getTime() - new Date(state.pace_ref_at).getTime() >= PACE_REF_WINDOW_DAYS * DAY;
+  const paceRef: PaceZones = refStale ? { ...state.pace_zones } : state.pace_zones_ref;
+  next.pace_zones_ref = paceRef;
+  next.pace_ref_at = refStale ? now.toISOString() : state.pace_ref_at;
+
   // 2) Goal calibration by session type. Delta = actual - target.
   const delta = rpeActual - rpeTarget;
   const tooEasyStreak =
@@ -179,8 +197,9 @@ export function microCalibrate(input: MicroInput): MicroResult {
       }
     } else if (zoneKey) {
       const from = state.pace_zones[zoneKey];
-      // Up = faster = fewer seconds/km.
-      const to = capPace(from, step > 0 ? -PACE_STEP_SEC_KM : PACE_STEP_SEC_KM);
+      // Up = faster = fewer seconds/km; capped to ±3% of the weekly reference.
+      const proposed = from + (step > 0 ? -PACE_STEP_SEC_KM : PACE_STEP_SEC_KM);
+      const to = capPaceToRef(paceRef[zoneKey], proposed);
       if (to !== from) {
         next.pace_zones[zoneKey] = to;
         adjustments.push({
@@ -194,24 +213,38 @@ export function microCalibrate(input: MicroInput): MicroResult {
         });
       }
     } else if (sessionType === "strength") {
-      adjustments.push({
-        layer: "micro",
-        trigger: "session_logged",
-        action_taken: { type: step > 0 ? "load_up" : "load_down", pct: step > 0 ? 5 : -5 },
-        reason:
-          step > 0
-            ? `Strength load nudged +5% for next block — you're clearing the working sets comfortably.`
-            : `Strength load eased -5% — last session read harder than planned.`,
-      });
+      // A6: the modifier is persisted state and applied by fill.ts — the
+      // shown reason now describes something that actually happens.
+      const from = state.strength_modifier;
+      const to =
+        Math.round(
+          Math.max(
+            STRENGTH_MODIFIER_MIN,
+            Math.min(STRENGTH_MODIFIER_MAX, from + step * STRENGTH_STEP),
+          ) * 100,
+        ) / 100;
+      if (to !== from) {
+        next.strength_modifier = to;
+        adjustments.push({
+          layer: "micro",
+          trigger: "session_logged",
+          action_taken: { type: step > 0 ? "load_up" : "load_down", from, to },
+          reason:
+            step > 0
+              ? `Strength load stepped up to ×${to.toFixed(2)} — you're clearing the working sets comfortably.`
+              : `Strength load eased to ×${to.toFixed(2)} — last session read harder than planned.`,
+        });
+      }
     }
   }
 
-  // 3) Pace-zone update from an actual run pace (manual or Strava), capped ±3%.
+  // 3) Pace-zone update from an actual run pace (manual or Strava), capped to
+  //    ±3% of the weekly reference (A7).
   if (actualPaceSecKm != null) {
     const zoneKey = PACE_ZONE_FOR[sessionType];
     if (zoneKey) {
-      const from = state.pace_zones[zoneKey];
-      const to = capPace(from, actualPaceSecKm - from);
+      const from = next.pace_zones[zoneKey];
+      const to = capPaceToRef(paceRef[zoneKey], actualPaceSecKm);
       if (to !== from) {
         next.pace_zones[zoneKey] = to;
         adjustments.push({

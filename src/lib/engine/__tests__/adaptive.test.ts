@@ -108,6 +108,82 @@ describe("micro-calibration — step rules", () => {
     expect(changePct).toBeLessThanOrEqual(0.031);
   });
 
+  it("strength calibration persists a modifier that fill.ts can apply (A6)", () => {
+    const state = base();
+    expect(state.strength_modifier).toBe(1.0);
+    // Two consecutive too-easy strength sessions → +5%.
+    const up = microCalibrate({
+      state, profile: p, sessionType: "strength",
+      rpeTarget: 7, rpeActual: 5, previousSameTypeDelta: -2, durationActualMin: 60,
+      loadHistory: [{ at: new Date(), srpe: 300 }],
+    } as MicroInput);
+    expect(up.state.strength_modifier).toBeCloseTo(1.05, 5);
+    expect(up.adjustments.some((a) => a.action_taken.type === "load_up")).toBe(true);
+
+    // One too-hard session → immediate -5% from the new value.
+    const down = microCalibrate({
+      state: up.state, profile: p, sessionType: "strength",
+      rpeTarget: 6, rpeActual: 9, durationActualMin: 60,
+      loadHistory: [{ at: new Date(), srpe: 540 }],
+    } as MicroInput);
+    expect(down.state.strength_modifier).toBeCloseTo(1.0, 5);
+  });
+
+  it("strength modifier is clamped to [0.8, 1.2]", () => {
+    let state = { ...base(), strength_modifier: 1.2 };
+    const res = microCalibrate({
+      state, profile: p, sessionType: "strength",
+      rpeTarget: 7, rpeActual: 5, previousSameTypeDelta: -2, durationActualMin: 60,
+      loadHistory: [{ at: new Date(), srpe: 300 }],
+    } as MicroInput);
+    expect(res.state.strength_modifier).toBe(1.2);
+    // No adjustment logged when nothing changed — no empty promises (PP1).
+    expect(res.adjustments.some((a) => a.action_taken.type === "load_up")).toBe(false);
+  });
+
+  it("pace drift within one week is capped at ±3% of the weekly snapshot (A7)", () => {
+    let state = base();
+    const ref = state.pace_zones.easy_sec_km;
+    const day0 = new Date("2026-07-06T08:00:00Z");
+    // 6 too-easy easy runs in the same week — each wants -5 s/km.
+    for (let i = 0; i < 6; i++) {
+      const at = new Date(day0.getTime() + i * 86_400_000);
+      const res = microCalibrate({
+        state, profile: p, sessionType: "run_easy",
+        rpeTarget: 5, rpeActual: 3, previousSameTypeDelta: -2, durationActualMin: 45,
+        loadHistory: [{ at, srpe: 135 }], now: at,
+      } as MicroInput);
+      state = res.state;
+    }
+    const drift = (ref - state.pace_zones.easy_sec_km) / ref;
+    expect(drift).toBeLessThanOrEqual(0.031); // ≤3% per week, not 5s × 6 logs
+    expect(state.pace_zones.easy_sec_km).toBe(Math.round(ref * 0.97));
+  });
+
+  it("pace cap window renews after 7 days — next week can step further (A7)", () => {
+    let state = base();
+    const ref = state.pace_zones.easy_sec_km;
+    const week1 = new Date("2026-07-06T08:00:00Z");
+    for (let i = 0; i < 6; i++) {
+      const at = new Date(week1.getTime() + i * 86_400_000);
+      state = microCalibrate({
+        state, profile: p, sessionType: "run_easy",
+        rpeTarget: 5, rpeActual: 3, previousSameTypeDelta: -2, durationActualMin: 45,
+        loadHistory: [{ at, srpe: 135 }], now: at,
+      } as MicroInput).state;
+    }
+    const afterWeek1 = state.pace_zones.easy_sec_km;
+    // 8 days after the snapshot was taken: reference renews at current zones.
+    const week2 = new Date(week1.getTime() + 8 * 86_400_000);
+    state = microCalibrate({
+      state, profile: p, sessionType: "run_easy",
+      rpeTarget: 5, rpeActual: 3, previousSameTypeDelta: -2, durationActualMin: 45,
+      loadHistory: [{ at: week2, srpe: 135 }], now: week2,
+    } as MicroInput).state;
+    expect(state.pace_zones.easy_sec_km).toBeLessThan(afterWeek1);
+    expect(afterWeek1).toBe(Math.round(ref * 0.97)); // week 1 stayed capped
+  });
+
   it("caps tiers within 1..3", () => {
     let state = base();
     state = { ...state, station_tiers: { ...state.station_tiers, wall_balls: 3 } };

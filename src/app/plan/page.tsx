@@ -77,18 +77,24 @@ export default async function PlanPage({
     .eq("week_id", current.id)
     .order("sort_order", { ascending: true });
 
+  const locked = current.week_number > 1 && !paid;
+
   const clientSessions: ClientSession[] = (sessionRows ?? []).map((s: any) => {
-    const blocks: RenderedBlock[] = (s.session_blocks ?? [])
-      .sort((a: any, b: any) => a.sort_order - b.sort_order)
-      .map((sb: any) => ({
-        block_id: sb.block_id,
-        slug: sb.workout_blocks?.slug,
-        block_type: sb.workout_blocks?.block_type,
-        station: sb.workout_blocks?.station ?? null,
-        content: sb.workout_blocks?.content ?? [],
-        sort_order: sb.sort_order,
-        load_adjustments: sb.load_adjustments ?? { division: profile.division },
-      }));
+    // A1/K1: locked weeks never ship their blocks to the browser — the lock
+    // must live server-side, not as a UI overlay over fully delivered data.
+    const blocks: RenderedBlock[] = locked
+      ? []
+      : (s.session_blocks ?? [])
+          .sort((a: any, b: any) => a.sort_order - b.sort_order)
+          .map((sb: any) => ({
+            block_id: sb.block_id,
+            slug: sb.workout_blocks?.slug,
+            block_type: sb.workout_blocks?.block_type,
+            station: sb.workout_blocks?.station ?? null,
+            content: sb.workout_blocks?.content ?? [],
+            sort_order: sb.sort_order,
+            load_adjustments: sb.load_adjustments ?? { division: profile.division },
+          }));
     const session: GeneratedSession = {
       day_hint: s.day_hint,
       session_type: s.session_type,
@@ -100,8 +106,6 @@ export default async function PlanPage({
     };
     return { id: s.id, session, status: s.status };
   });
-
-  const locked = current.week_number > 1 && !paid;
 
   return (
     <PlanClient

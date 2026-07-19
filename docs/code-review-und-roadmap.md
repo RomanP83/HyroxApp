@@ -71,19 +71,19 @@ Tabellen, Prognose-Anbindung und Benchmark-*Sessions* existieren, aber es gibt k
 
 Aufwände in Solo-Dev-Wochen à 15–20 h (wie §6 des Produktplans).
 
-### Phase A — Korrektheit & Vertrauen (1–1,5 Wochen) → Voraussetzung für Beta
+### Phase A — Korrektheit & Vertrauen ✅ umgesetzt (19.07.2026, Engine v1.2)
 
-| # | Maßnahme | Behebt |
-|---|---|---|
-| A1 | Gesperrte Blöcke serverseitig strippen | K1 |
-| A2 | Cron-Fallback auf `generated_at`; Prod-Pflicht für `CRON_SECRET` | K2, M8 |
-| A3 | `moved`-Sessions loggbar machen | K3 |
-| A4 | `persistPlan` als Postgres-RPC (atomar + 1 Roundtrip) | K4 |
-| A5 | Telegram-Ownership-Check | M1 |
-| A6 | `strength_modifier` in `athlete_state` + Anwendung in `fill.ts` + Test | M3 |
-| A7 | Wochen-Snapshot für den Pace-Cap + Test | M4 |
-| A8 | Alt-Pläne bei Neu-Generierung auf `abandoned` | M7 |
-| A9 | `stationForWeek` in die Engine, Duplikate löschen | S1 |
+| # | Maßnahme | Behebt | Status |
+|---|---|---|---|
+| A1 | Gesperrte Blöcke serverseitig strippen | K1 | ✅ `plan/page.tsx` |
+| A2 | Cron-Fallback auf `generated_at`; Prod-Pflicht für `CRON_SECRET` | K2, M8 | ✅ `cron/macro/route.ts` |
+| A3 | `moved`-Sessions loggbar machen | K3 | ✅ `SessionCard.tsx` |
+| A4 | `persistPlan` als Postgres-RPC (atomar + 1 Roundtrip) | K4 | ✅ Migration 0004 |
+| A5 | Telegram-Ownership-Check | M1 | ✅ `telegram/webhook` |
+| A6 | `strength_modifier` in `athlete_state` + Anwendung in `fill.ts` + Test | M3 | ✅ Migration 0005 |
+| A7 | Wochen-Snapshot für den Pace-Cap + Test | M4 | ✅ `adaptive.ts` |
+| A8 | Alt-Pläne bei Neu-Generierung auf `abandoned` | M7 | ✅ in RPC (0004) |
+| A9 | `stationForWeek` in die Engine, Duplikate löschen | S1 | ✅ `fill.ts` Export |
 
 ### Phase B — MVP wirklich komplett (2–3 Wochen)
 

@@ -8,18 +8,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   microCalibrate,
-  STATIONS,
+  stationForWeek,
   type AthleteProfile,
   type AthleteState,
   type LoadEntry,
   type Station,
 } from "@/lib/engine";
 import type { BenchmarkSample } from "@/lib/engine";
-
-/** Station a station_work session targeted, mirroring fill.ts rotation. */
-function stationForWeek(weekNumber: number): Station {
-  return STATIONS[(weekNumber - 1) % STATIONS.length];
-}
 
 export interface MicroOutcome {
   adjustments: { action_taken: Record<string, unknown>; reason: string }[];
@@ -80,6 +75,12 @@ export async function applyMicroForSession(
     pace_zones: stateRow.pace_zones,
     station_tiers: stateRow.station_tiers,
     predicted_race_time_sec: stateRow.predicted_race_time_sec,
+    strength_modifier: Number(stateRow.strength_modifier ?? 1),
+    pace_zones_ref:
+      stateRow.pace_zones_ref && Object.keys(stateRow.pace_zones_ref).length
+        ? stateRow.pace_zones_ref
+        : stateRow.pace_zones,
+    pace_ref_at: stateRow.pace_ref_at ?? null,
   };
 
   // 4) Load history + previous same-type delta (from this race cycle).
@@ -162,6 +163,9 @@ export async function applyMicroForSession(
       pace_zones: result.state.pace_zones,
       station_tiers: result.state.station_tiers,
       predicted_race_time_sec: result.state.predicted_race_time_sec,
+      strength_modifier: result.state.strength_modifier,
+      pace_zones_ref: result.state.pace_zones_ref,
+      pace_ref_at: result.state.pace_ref_at,
       last_recalc_at: new Date().toISOString(),
     })
     .eq("profile_id", profileId);

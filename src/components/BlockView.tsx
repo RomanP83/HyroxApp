@@ -39,6 +39,11 @@ export function BlockView({ block }: { block: RenderedBlock }) {
         {block.load_adjustments.pace_sec_km != null && (
           <span className="pill text-accent2">{fmtPace(block.load_adjustments.pace_sec_km)}</span>
         )}
+        {block.load_adjustments.strength_modifier != null && (
+          <span className="pill text-accent2">
+            load ×{block.load_adjustments.strength_modifier.toFixed(2)}
+          </span>
+        )}
       </div>
       <ul className="space-y-1 text-sm">
         {items.map((it, i) => {

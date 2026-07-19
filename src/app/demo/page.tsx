@@ -8,6 +8,7 @@ import {
   initialAthleteState,
   microCalibrate,
   STATIONS,
+  stationForWeek,
   type AthleteProfile,
   type AthleteState,
   type Division,
@@ -23,10 +24,6 @@ import { DEMO_LIBRARY } from "@/lib/demoLibrary";
 import { SessionCard, type LogAction } from "@/components/SessionCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
-
-function stationForWeek(weekNumber: number): Station {
-  return STATIONS[(weekNumber - 1) % STATIONS.length];
-}
 
 export default function DemoPage() {
   const [division, setDivision] = useState<Division>("open");

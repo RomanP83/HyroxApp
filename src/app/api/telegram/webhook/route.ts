@@ -47,11 +47,22 @@ export async function POST(req: Request) {
 
     const { data: session } = await admin
       .from("sessions")
-      .select("id, intensity_rpe_target, planned_duration_min")
+      .select(
+        "id, intensity_rpe_target, planned_duration_min, plans!inner(athlete_profiles!inner(telegram_chat_id))",
+      )
       .eq("id", sessionId)
       .single();
     if (!session) {
       await tgAnswerCallback(cb.id, "Session not found.");
+      return NextResponse.json({ ok: true });
+    }
+
+    // A5/M1: the chat pressing the button must be the plan owner's connected
+    // chat — callback_data is client-controlled and must not log foreign
+    // sessions (and thereby recalibrate foreign plans).
+    const ownerChatId = (session as any).plans?.athlete_profiles?.telegram_chat_id;
+    if (!ownerChatId || String(ownerChatId) !== String(cb.message?.chat?.id)) {
+      await tgAnswerCallback(cb.id, "This session belongs to a different account.");
       return NextResponse.json({ ok: true });
     }
 

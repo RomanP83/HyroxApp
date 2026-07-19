@@ -21,6 +21,14 @@ function variantFor(profile: AthleteProfile): EquipmentVariant {
   return profile.equipment_access === "home_minimal" ? "home" : "gym";
 }
 
+/**
+ * Single source of truth for the weekly station rotation (A9). Used by plan
+ * generation, the adaptive runner, and the demo — keep them from drifting.
+ */
+export function stationForWeek(weekNumber: number): Station {
+  return STATIONS[(weekNumber - 1) % STATIONS.length];
+}
+
 /** Which pace zone a session type runs at. */
 function paceForSession(state: AthleteState, type: SessionType): number | undefined {
   const z = state.pace_zones;
@@ -112,7 +120,7 @@ export function fillSession(
   }
 
   // Station rotation: the primary station this week for station_work.
-  const rotatedStation = STATIONS[(weekNumber - 1) % STATIONS.length];
+  const rotatedStation = stationForWeek(weekNumber);
   const isStationWork = slot.session_type === "station_work";
   const station = isStationWork ? rotatedStation : undefined;
   const targetTier = station ? state.station_tiers[station] ?? 2 : undefined;
@@ -132,11 +140,18 @@ export function fillSession(
     targetTier,
   });
   if (main) {
+    // A6: strength sessions carry the live calibration multiplier so the UI
+    // can render the adjusted loads the engine promised.
+    const strengthMod =
+      slot.session_type === "strength" && state.strength_modifier !== 1
+        ? state.strength_modifier
+        : undefined;
     blocks.push(
       render(main, profile, order++, {
         division: profile.division,
         station_tier: targetTier,
         pace_sec_km: pace,
+        strength_modifier: strengthMod,
         note: station ? `${station} focus @ tier ${targetTier}` : undefined,
       }),
     );

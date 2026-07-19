@@ -33,6 +33,7 @@ export function SessionCard({ session, onLog, status = "planned", locked }: Prop
             <span className="font-semibold">{session.title}</span>
             {status === "done" && <span className="text-ok">✓</span>}
             {status === "skipped" && <span className="text-muted">skipped</span>}
+            {status === "moved" && <span className="pill">moved</span>}
           </div>
           <div className="mt-1 text-xs text-muted">
             {titleCase(session.session_type)} · {session.planned_duration_min} min · RPE target{" "}
@@ -55,7 +56,8 @@ export function SessionCard({ session, onLog, status = "planned", locked }: Prop
         </div>
       )}
 
-      {onLog && !isRest && status === "planned" && (
+      {/* A3/K3: a moved session is still a planned session — keep it loggable. */}
+      {onLog && !isRest && (status === "planned" || status === "moved") && (
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button className="btn-primary" onClick={() => onLog("planned")}>
             ✅ As planned

@@ -98,17 +98,15 @@ Aufwände in Solo-Dev-Wochen à 15–20 h (wie §6 des Produktplans).
 | B7 | E2E-Smoke (Playwright) + CI (Typecheck, Tests, Build, E2E) | S7 | ✅ `e2e/` + `.github/workflows/ci.yml` |
 | B8 | Typisierte Join-Shapes statt `any` (`dbTypes.ts` + `stateFromRow`) | S5 | ✅ Hinweis: echte Codegen (`supabase gen types`) folgt, sobald CI gegen eine Instanz läuft |
 
-### Phase C — V2-Features nach ersten zahlenden Nutzern (4–6 Wochen)
+### Phase C — V2-Features ✅ umgesetzt (19.07.2026, außer C6)
 
-Priorisierung folgt §2 „Should-Have“, sortiert nach Aufwand/Nutzen:
-
-1. **Fortschritts-Visualisierung** (1 Wo) — Compliance, RPE-Trend, ACWR-Kurve, Benchmark-Verlauf, Prognose-Trend. *Alle Daten liegen bereits in `session_logs`/`plan_adjustments`/`athlete_state` — es fehlt nur UI.* Schnellster sichtbarer Mehrwert.
-2. **Strava-Sync (nur Läufe)** (1,5–2 Wo) — OAuth + Webhook, gelaufene Paces → `block_results.pace_actual_sec_km` → vorhandene Pace-Kalibrierung. Eine API, ersetzt manuelle Laufzeiten (§2 V2).
-3. **Wochen-Review** (0,5 Wo) — 5-Minuten-Sonntags-Zusammenfassung (HYFIT-Muster, PP5): was gelogged, was die Engine geändert hat, was nächste Woche kommt. Nutzt den Adjustments-Feed.
-4. **Subscription-Tier** (1 Wo) — Stripe Subscriptions für Mehrfach-Racer/Off-Season; nur bauen, wenn Retention-Daten es stützen (§2).
-5. **Volle Home-/Minimal-Bibliothek** (Content, 1 Wo) — heute existiert 1 Home-Alternative pro Typ; Scaling-Bibliothek ausbauen.
-6. **Doubles-Trainingslogik** (1–2 Wo) — Partner-Sessions, geteilte Stationen; erst wenn Phase-0/Beta-Daten Doubles-Nachfrage zeigen (§7 offene Frage 3).
-7. **Nutrition-Basics pro Phase** (Content, 0,5 Wo) — statischer Content je Phase inkl. Race-Week Carb-Loading.
+1. **Fortschritts-Visualisierung** ✅ — `/progress`: KPI-Row, Wochen-Compliance (Bars), RPE Soll vs. Ist (2 Serien, validierte Palette), ACWR-Kurve (täglich aus der Log-Historie via `computeLoadState` rückgerechnet, Guardrail-Referenzlinien), Prognose-Verlauf, Benchmark-Small-Multiples. Pure Server-SVG nach Dataviz-Spezifikation (Marks, Legende, Tooltips, Data-Table je Chart).
+2. **Strava-Sync (nur Läufe)** ✅ — OAuth (`/api/strava/connect|callback`, HMAC-State) + Webhook (`/api/strava/webhook`): neue Runs werden der passenden geplanten Lauf-Session zugeordnet und mit echter Pace gelogged → speist die bestehende Pace-Kalibrierung. Connect-Karte im Plan-UI.
+3. **Wochen-Review** ✅ — `buildWeeklyReview()` + Sonntags-Cron `/api/cron/weekly-review` (17:00 UTC So): gelogged/Ziel, Engine-Änderungen mit Begründungen, Prognose, Vorschau nächste Woche. Telegram zuerst, E-Mail-Fallback.
+4. **Subscription-Tier** ✅ (schlank) — `tier: “subscription”` im Checkout (`STRIPE_SUBSCRIPTION_PRICE_ID`), Webhook pflegt `subscription_status` am Profil über den Lifecycle, aktives Abo schaltet alle Pläne frei („Multi-racer? Subscribe instead”-Button).
+5. **Home-/Minimal-Bibliothek** ✅ — 10 eigen-autorisierte Home-Blöcke je Station (Seed `0003_workout_blocks_home.sql`), explizite Kurzhantel-/Rucksack-Lasten.
+6. **Doubles-Trainingslogik** ⏸ bewusst offen — laut §7 erst bauen, wenn Phase-0/Beta-Daten Doubles-Nachfrage zeigen.
+7. **Nutrition-Basics pro Phase** ✅ — statischer Content je Phase inkl. Race-Week-Carb-Load (`src/lib/nutrition.ts`), Karte in der Wochenansicht.
 
 ### Phase D — Später / strategisch ✅ umgesetzt (19.07.2026)
 

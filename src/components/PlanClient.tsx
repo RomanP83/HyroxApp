@@ -7,6 +7,8 @@ import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
 import { SessionCard, type LogAction } from "./SessionCard";
 import { FeedbackCard } from "./FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
+import { PHASE_NUTRITION } from "@/lib/nutrition";
+import type { PhaseType } from "@/lib/engine";
 
 export interface ClientSession {
   id: string;
@@ -44,6 +46,10 @@ interface Props {
   locked: boolean;
   /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
   telegramLink: string | null;
+  /** Strava OAuth entry point; null when connected/unconfigured (C2). */
+  stravaConnectUrl: string | null;
+  /** Whether the subscription tier is configured (C4). */
+  subscriptionAvailable: boolean;
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
@@ -130,11 +136,11 @@ export function PlanClient(props: Props) {
     }
   }
 
-  async function unlock() {
+  async function unlock(tier: "race_cycle" | "subscription" = "race_cycle") {
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ planId: props.planId }),
+      body: JSON.stringify({ planId: props.planId, tier }),
     });
     const data = await res.json();
     if (data.url) window.location.href = data.url;
@@ -148,12 +154,15 @@ export function PlanClient(props: Props) {
           Hyrox<span className="text-accent">·</span>Hub
         </span>
         <div className="flex items-center gap-2 text-sm">
+          <Link href="/progress" className="btn-ghost">
+            Progress
+          </Link>
           <Link href="/benchmarks" className="btn-ghost">
             Benchmarks
           </Link>
           <span className="pill">Race {new Date(props.raceDate).toLocaleDateString()}</span>
           {!props.paid && (
-            <button className="btn-primary" onClick={unlock}>
+            <button className="btn-primary" onClick={() => unlock()}>
               Unlock full plan
             </button>
           )}
@@ -173,9 +182,16 @@ export function PlanClient(props: Props) {
       )}
 
       {!props.paid && (
-        <div className="card border-accent/40 bg-surface2 text-sm">
-          🔓 <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every week’s
-          sessions, weights and paces — one-time price, for your race.
+        <div className="card border-accent/40 bg-surface2 flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span>
+            🔓 <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every
+            week’s sessions, weights and paces — one-time price, for your race.
+          </span>
+          {props.subscriptionAvailable && (
+            <button className="btn-ghost" onClick={() => unlock("subscription")}>
+              Multi-racer? Subscribe instead
+            </button>
+          )}
         </div>
       )}
 
@@ -239,6 +255,33 @@ export function PlanClient(props: Props) {
                 <Row k="Race" v={fmtPace(props.state.pace_zones?.race_sec_km)} />
                 <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
               </div>
+            </div>
+          )}
+
+          {(() => {
+            const phase = currentPhase?.phase_type as PhaseType | undefined;
+            const tip = phase ? PHASE_NUTRITION[phase] : undefined;
+            return tip ? (
+              <div className="card">
+                <div className="mb-1 text-sm font-semibold">🥗 {tip.headline}</div>
+                <ul className="space-y-1 text-xs text-muted">
+                  {tip.points.map((pt) => (
+                    <li key={pt}>• {pt}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null;
+          })()}
+
+          {props.stravaConnectUrl && (
+            <div className="card">
+              <div className="mb-1 text-sm font-semibold">🏃 Auto-log runs from Strava</div>
+              <p className="mb-3 text-xs text-muted">
+                Your run paces flow straight into the pace calibration — no manual entry.
+              </p>
+              <a href={props.stravaConnectUrl} className="btn-primary w-full">
+                Connect Strava
+              </a>
             </div>
           )}
 

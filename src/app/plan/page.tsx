@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import type { Division, GeneratedSession, RenderedBlock } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import { signDeepLink } from "@/lib/telegram";
+import { stravaConfigured } from "@/lib/strava";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function PlanPage({
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id, division, telegram_chat_id")
+    .select("id, division, telegram_chat_id, strava_athlete_id, subscription_status")
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
@@ -53,7 +54,13 @@ export default async function PlanPage({
     );
   }
 
-  const paid = !!plan.stripe_payment_id;
+  // C4: a per-plan purchase OR an active subscription unlocks the plan.
+  const paid = Boolean(plan.stripe_payment_id) || profile.subscription_status === "active";
+
+  // C2: Strava connect entry point (hidden once connected / when unconfigured).
+  const stravaConnectUrl =
+    stravaConfigured() && !profile.strava_athlete_id ? "/api/strava/connect" : null;
+  const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
 
   const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }] =
     await Promise.all([
@@ -127,6 +134,8 @@ export default async function PlanPage({
       paid={paid}
       planStatus={plan.status}
       telegramLink={telegramLink}
+      stravaConnectUrl={stravaConnectUrl}
+      subscriptionAvailable={subscriptionAvailable}
       raceDate={plan.race_date}
       phases={phases ?? []}
       weeks={weekList}

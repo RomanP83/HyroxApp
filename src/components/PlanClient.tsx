@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
-import { SessionCard, type LogAction } from "./SessionCard";
+import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthSetInput } from "./SessionCard";
 import { FeedbackCard } from "./FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
@@ -13,6 +13,7 @@ import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
   ChartIcon,
+  DumbbellIcon,
   LeafIcon,
   LockIcon,
   MedicalIcon,
@@ -26,6 +27,8 @@ export interface ClientSession {
   id: string;
   session: GeneratedSession;
   status: "planned" | "done" | "skipped" | "moved";
+  /** The athlete's own strength day, when this session is one. */
+  strength?: { templateName: string; exercises: StrengthExerciseInput[] } | null;
 }
 
 interface WeekMeta {
@@ -127,7 +130,12 @@ export function PlanClient(props: Props) {
     }
   }
 
-  async function log(sessionId: string, action: LogAction, target: number) {
+  async function log(
+    sessionId: string,
+    action: LogAction,
+    target: number,
+    strengthSets?: StrengthSetInput[],
+  ) {
     setBusy({ sessionId, action });
     // Instant feedback (#6): the card flips before the network answers.
     setOptimistic((m) => ({ ...m, [sessionId]: action === "skip" ? "skipped" : "done" }));
@@ -135,12 +143,15 @@ export function PlanClient(props: Props) {
       const body =
         action === "skip"
           ? { skip: true }
-          : action === "planned"
-            ? { completed_as_planned: true }
-            : {
-                completed_as_planned: false,
-                rpe_actual: Math.max(1, Math.min(10, target + ACTION_RPE[action])),
-              };
+          : {
+              ...(action === "planned"
+                ? { completed_as_planned: true }
+                : {
+                    completed_as_planned: false,
+                    rpe_actual: Math.max(1, Math.min(10, target + ACTION_RPE[action])),
+                  }),
+              ...(strengthSets?.length ? { strength_sets: strengthSets } : {}),
+            };
       const res = await fetch(`/api/sessions/${sessionId}/log`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -149,11 +160,19 @@ export function PlanClient(props: Props) {
       if (!res.ok) throw new Error("log failed");
       const data = await res.json();
       const reason = data?.adaptation?.adjustments?.[0]?.reason;
+      // A new weight to consider outranks the generic confirmation: it is the
+      // one thing that needs the athlete's decision.
+      const suggestion = data?.strength?.suggestions?.[0];
+      if (suggestion) {
+        setToast(
+          `${suggestion.exercise}: ${suggestion.reason} Take it on the strength page whenever you want.`,
+        );
+      }
       if (data?.feedback && action !== "skip") {
         haptic("milestone");
         setFeedback(data.feedback);
-        if (reason) setToast(reason);
-      } else {
+        if (reason && !suggestion) setToast(reason);
+      } else if (!suggestion) {
         setToast(
           reason ??
             (action === "skip"
@@ -222,6 +241,10 @@ export function PlanClient(props: Props) {
           <Link href="/season" className="btn-ghost">
             <CalendarIcon size={16} />
             Season
+          </Link>
+          <Link href="/strength" className="btn-ghost">
+            <DumbbellIcon size={16} />
+            Strength
           </Link>
           <Link href="/progress" className="btn-ghost">
             <ChartIcon size={16} />
@@ -313,7 +336,12 @@ export function PlanClient(props: Props) {
               status={optimistic[cs.id] ?? cs.status}
               locked={props.locked}
               busyAction={busy?.sessionId === cs.id ? busy.action : null}
-              onLog={props.locked ? undefined : (a) => log(cs.id, a, cs.session.intensity_rpe_target)}
+              onLog={
+                props.locked
+                  ? undefined
+                  : (a, sets) => log(cs.id, a, cs.session.intensity_rpe_target, sets)
+              }
+              strength={cs.strength ?? null}
               onReset={props.locked ? undefined : () => reset(cs.id)}
               resetting={resetting === cs.id}
               showSlot={doubleDays.has(cs.session.day_hint)}

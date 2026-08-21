@@ -19,10 +19,34 @@ const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export type LogAction = "planned" | "harder" | "easier" | "skip";
 
+/** One exercise of the athlete's own strength day, ready to be filled in. */
+export interface StrengthExerciseInput {
+  id: string;
+  name: string;
+  sets: number;
+  rep_min: number | null;
+  rep_max: number | null;
+  load_kg: number | null;
+  superset_group: string | null;
+}
+
+export interface StrengthSetInput {
+  exercise_id: string;
+  exercise_name: string;
+  set_number: number;
+  reps: number | null;
+  load_kg: number | null;
+}
+
 interface Props {
   session: GeneratedSession;
   /** When provided, renders the 4-button quick-log row. */
-  onLog?: (action: LogAction) => void;
+  onLog?: (action: LogAction, strengthSets?: StrengthSetInput[]) => void;
+  /**
+   * The athlete's own strength day for this session. Turns the card into a
+   * fillable sheet: reps and kilos per set, sent along with the quick-log tap.
+   */
+  strength?: { templateName: string; exercises: StrengthExerciseInput[] } | null;
   status?: "planned" | "done" | "skipped" | "moved";
   locked?: boolean;
   /** Which action is in flight — shows a spinner on that button (speed #6). */
@@ -51,13 +75,36 @@ export function SessionCard({
   onReset,
   resetting,
   showSlot,
+  strength,
 }: Props) {
   const [open, setOpen] = useState(false);
+  // Keyed "<exerciseId>:<setNumber>" — only what the athlete actually typed.
+  const [entries, setEntries] = useState<Record<string, { reps?: number; load?: number }>>({});
   const isRest = session.session_type === "rest";
+
+  function collectSets(): StrengthSetInput[] | undefined {
+    if (!strength) return undefined;
+    const out: StrengthSetInput[] = [];
+    for (const exercise of strength.exercises) {
+      for (let setNumber = 1; setNumber <= exercise.sets; setNumber++) {
+        const entry = entries[`${exercise.id}:${setNumber}`];
+        if (!entry || (entry.reps == null && entry.load == null)) continue;
+        out.push({
+          exercise_id: exercise.id,
+          exercise_name: exercise.name,
+          set_number: setNumber,
+          reps: entry.reps ?? null,
+          // An empty weight field means "as programmed".
+          load_kg: entry.load ?? exercise.load_kg,
+        });
+      }
+    }
+    return out.length ? out : undefined;
+  }
 
   function press(action: LogAction) {
     haptic(action === "planned" ? "confirm" : "tap");
-    onLog?.(action);
+    onLog?.(action, action === "skip" ? undefined : collectSets());
   }
 
   function pressReset() {
@@ -138,6 +185,76 @@ export function SessionCard({
           ) : (
             session.blocks.map((b) => <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />)
           )}
+        </div>
+      )}
+
+      {strength && onLog && !isRest && (status === "planned" || status === "moved") && (
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold">{strength.templateName}</span>
+            <span className="text-muted">reps · kg per set</span>
+          </div>
+          {strength.exercises.map((exercise) => (
+            <div key={exercise.id} className="rounded-lg border border-line bg-surface2 p-2">
+              <div className="mb-1 flex flex-wrap items-baseline gap-2 text-sm">
+                <span className="font-medium">{exercise.name}</span>
+                {exercise.superset_group && <span className="pill">SS {exercise.superset_group}</span>}
+                <span className="text-xs text-muted">
+                  {exercise.sets}×{" "}
+                  {exercise.rep_min === exercise.rep_max
+                    ? exercise.rep_min ?? "—"
+                    : `${exercise.rep_min ?? "?"}–${exercise.rep_max ?? "?"}`}{" "}
+                  · {exercise.load_kg == null ? "bodyweight" : `${exercise.load_kg} kg`}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: exercise.sets }, (_, i) => i + 1).map((setNumber) => (
+                  <span key={setNumber} className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted">S{setNumber}</span>
+                    <input
+                      className="input w-14 px-2 py-1 text-right font-mono text-xs"
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      placeholder={String(exercise.rep_max ?? exercise.rep_min ?? "")}
+                      aria-label={`${exercise.name} set ${setNumber} reps`}
+                      onChange={(e) =>
+                        setEntries((m) => ({
+                          ...m,
+                          [`${exercise.id}:${setNumber}`]: {
+                            ...m[`${exercise.id}:${setNumber}`],
+                            reps: e.target.value === "" ? undefined : Number(e.target.value),
+                          },
+                        }))
+                      }
+                    />
+                    <input
+                      className="input w-16 px-2 py-1 text-right font-mono text-xs"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      inputMode="decimal"
+                      placeholder={exercise.load_kg == null ? "BW" : String(exercise.load_kg)}
+                      aria-label={`${exercise.name} set ${setNumber} weight`}
+                      onChange={(e) =>
+                        setEntries((m) => ({
+                          ...m,
+                          [`${exercise.id}:${setNumber}`]: {
+                            ...m[`${exercise.id}:${setNumber}`],
+                            load: e.target.value === "" ? undefined : Number(e.target.value),
+                          },
+                        }))
+                      }
+                    />
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+          <p className="text-[11px] text-muted">
+            Leave a field empty and it logs as programmed. Clear every set at the top of the range
+            and the plan offers you the next weight — it never changes it on its own.
+          </p>
         </div>
       )}
 

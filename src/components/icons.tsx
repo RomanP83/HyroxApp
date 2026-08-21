@@ -144,6 +144,12 @@ export const UndoIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const DumbbellIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" />
+  </Svg>
+);
+
 export const SpinnerIcon = ({ size = 18, className }: IconProps) => (
   <svg
     viewBox="0 0 24 24"

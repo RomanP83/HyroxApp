@@ -32,16 +32,19 @@ Next.js (App Router, Vercel)
   ├─ Onboarding wizard (magic-link)     src/app/onboarding/page.tsx
   ├─ Week view + 1-tap logging          src/app/plan/page.tsx + components/PlanClient.tsx
   ├─ Season view (the year plan)        src/app/season/page.tsx + components/SeasonClient.tsx
+  ├─ Strength days (own programming)    src/app/strength/page.tsx + components/StrengthClient.tsx
   ├─ Live in-browser engine demo        src/app/demo/page.tsx   ← no backend needed
   ├─ Knowledge review (operator)        src/app/admin/knowledge/page.tsx
   └─ API routes                         src/app/api/**
         /plans/generate  · /sessions/[id]/log (POST log · DELETE undo) · /sessions/[id]/move
         /stripe/checkout · /stripe/webhook    · /telegram/webhook · /cron/macro
         /admin/knowledge/documents · /admin/knowledge/proposals · /seasons
+        /strength/templates
 
 Supabase (Postgres + Auth + RLS)        supabase/migrations + supabase/seed
   ├─ athlete_profiles · athlete_state (engine-owned "living" fitness state)
   ├─ seasons → season_races + season_blocks (the year above the plan)
+  ├─ strength_templates → strength_exercises + strength_set_logs (own lifting)
   ├─ plans → plan_phases → plan_weeks → sessions → session_blocks
   ├─ workout_blocks (read-only library, own IP) · benchmark_*
   ├─ knowledge_documents → knowledge_proposals (PDF ingestion, operator-only)
@@ -126,7 +129,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 113 tests covering:
+`npm test` runs 142 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -145,9 +148,40 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 - Double days: at most two sessions per day and never two in the same half,
   never two hard sessions on one day, the PM session lighter and shorter than
   the morning it follows, and suppressed in taper/deload/benchmark weeks.
+- Strength import: a real Excel sheet (rep ranges, supersets, a bodyweight row,
+  a numbering column) parsed exactly, plus the double-progression rules and a
+  render test of the fillable session card.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
+
+---
+
+## Your own strength programming
+
+Most lifters already keep their strength work in a sheet. Paste it in at `/strength` — copying a
+range out of Excel puts tab-separated text on the clipboard, and the parser reads it as it is:
+
+```
+1   Bankdrücken mit KH                     2   6 - 8    22   12   8
+6   Hammer curls mit KH im Supersatz       2   10 - 12  16   10   10
+7   Face Pulls (am Kabelzug) im Supersatz  2   12 - 15  27   12   12
+    Dips                                                     15   15
+```
+
+The numbering column is skipped, `6 - 8` becomes a rep range, the two rows marked *im Supersatz* are
+paired, and Dips — no sets, no weight — becomes a bodyweight exercise with two sets. You see the
+parse **before** anything is saved.
+
+From then on every strength session in the plan is *your* day (several days rotate week by week),
+with your kilos rather than the library's per-division loads. The session card turns into a sheet:
+reps and kilos per set, empty means "as programmed". One tap on the quick-log row files the session
+and the sets together.
+
+**Progression suggests, it never overwrites.** Clear the top of the rep range on every set and the
+app offers the next weight (`Every set hit 8 reps at 22 kg — 24.5 kg is the next step.`); land under
+the bottom twice in a row and it offers a step down. The number only changes when you take it. You
+programmed the day; the app does the arithmetic.
 
 ---
 

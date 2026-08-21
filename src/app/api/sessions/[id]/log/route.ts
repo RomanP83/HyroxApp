@@ -5,6 +5,7 @@ import { applyMicroForSession } from "@/lib/adaptiveRunner";
 import { computeSessionFeedback, type FeedbackInput } from "@/lib/engine";
 import { enrichFeedbackWithAI } from "@/lib/coachFeedback";
 import { resetSessionLog } from "@/lib/resetSession";
+import { recordStrengthSets } from "@/lib/strength/record";
 
 // 1-Tap logging (PP5). Default is "completed as planned" — the engine writes
 // planned values as actuals. Deviations arrive via rpe_actual / block_results.
@@ -15,6 +16,23 @@ const Body = z.object({
   block_results: z.array(z.record(z.any())).nullable().optional(),
   notes: z.string().max(2000).optional(),
   skip: z.boolean().optional(),
+  /**
+   * Per-set detail for a strength session (reps + kg). Optional: the 1-tap log
+   * still works exactly as before, this just carries the numbers when the
+   * athlete filled them in.
+   */
+  strength_sets: z
+    .array(
+      z.object({
+        exercise_id: z.string().uuid().nullable().optional(),
+        exercise_name: z.string().min(1).max(120),
+        set_number: z.number().int().min(1).max(12),
+        reps: z.number().int().min(0).max(200).nullable().optional(),
+        load_kg: z.number().min(0).max(1000).nullable().optional(),
+      }),
+    )
+    .max(60)
+    .optional(),
 });
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -52,13 +70,29 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     ? session.planned_duration_min
     : (body.duration_actual_min ?? session.planned_duration_min);
 
+  // Strength detail first: block_results then carries the real sets, so the
+  // engine and the feedback card see what was actually lifted.
+  const strength = body.strength_sets?.length
+    ? await recordStrengthSets(supabase, sessionId, body.strength_sets)
+    : null;
+  const blockResults = body.strength_sets?.length
+    ? body.strength_sets.map((s) => ({
+        exercise: s.exercise_name,
+        set_number: s.set_number,
+        reps_actual: s.reps ?? null,
+        load_actual: s.load_kg ?? null,
+      }))
+    : body.completed_as_planned
+      ? null
+      : (body.block_results ?? null);
+
   const { error: logErr } = await supabase.from("session_logs").upsert(
     {
       session_id: sessionId,
       completed_as_planned: body.completed_as_planned,
       rpe_actual: rpe,
       duration_actual_min: duration,
-      block_results: body.completed_as_planned ? null : (body.block_results ?? null),
+      block_results: blockResults,
       notes: body.notes ?? null,
       completed_at: new Date().toISOString(),
     },
@@ -102,7 +136,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   );
   await supabase.from("session_logs").update({ feedback }).eq("session_id", sessionId);
 
-  return NextResponse.json({ ok: true, adaptation: outcome, feedback });
+  return NextResponse.json({ ok: true, adaptation: outcome, feedback, strength });
 }
 
 // ── Undo a logged day (mis-tap on Harder/Easier/Skip) ──────────────────────

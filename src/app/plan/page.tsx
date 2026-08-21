@@ -76,7 +76,7 @@ export default async function PlanPage({
     garminConfigured() && !profile.garmin_user_id ? "/api/garmin/connect" : null;
   const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
 
-  const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }] =
+  const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }] =
     await Promise.all([
       supabase.from("plan_phases").select("phase_type, start_week, end_week").eq("plan_id", plan.id),
       supabase
@@ -91,6 +91,13 @@ export default async function PlanPage({
         .eq("plan_id", plan.id)
         .order("created_at", { ascending: false })
         .limit(8),
+      supabase
+        .from("strength_templates")
+        .select(
+          "id, name, sort_order, strength_exercises(id, position, name, sets, rep_min, rep_max, load_kg, superset_group)",
+        )
+        .eq("profile_id", profile.id)
+        .order("sort_order", { ascending: true }),
     ]);
 
   const weekList = weeks ?? [];
@@ -109,6 +116,41 @@ export default async function PlanPage({
     .order("sort_order", { ascending: true });
 
   const locked = current.week_number > 1 && !paid;
+
+  // The athlete's own strength day replaces the library's main block. Several
+  // days rotate by week, so Tag A / Tag B alternate the way they would in the
+  // sheet. Nothing is written: the plan tree stays as generated, this is how
+  // the week is *shown* and logged.
+  const templates = (strengthTemplates ?? []) as unknown as {
+    id: string;
+    name: string;
+    strength_exercises: {
+      id: string;
+      position: number;
+      name: string;
+      sets: number;
+      rep_min: number | null;
+      rep_max: number | null;
+      load_kg: number | string | null;
+      superset_group: string | null;
+    }[];
+  }[];
+  const usable = templates.filter((t) => t.strength_exercises?.length);
+  const strengthTemplate = usable.length
+    ? usable[(current.week_number - 1) % usable.length]
+    : null;
+  const strengthExercises = (strengthTemplate?.strength_exercises ?? [])
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      sets: e.sets,
+      rep_min: e.rep_min,
+      rep_max: e.rep_max,
+      load_kg: e.load_kg == null ? null : Number(e.load_kg),
+      superset_group: e.superset_group,
+    }));
 
   const clientSessions: ClientSession[] = (sessionRows ?? []).map((s: any) => {
     // A1/K1: locked weeks never ship their blocks to the browser — the lock
@@ -139,6 +181,35 @@ export default async function PlanPage({
       sort_order: s.sort_order,
       blocks,
     };
+    // A strength session shows the athlete's own exercises instead of the
+    // library block — warm-up and mobility around it stay as generated.
+    if (strengthTemplate && s.session_type === "strength" && !locked) {
+      session.blocks = [
+        ...blocks.filter((b) => b.block_type !== "main"),
+        {
+          block_id: strengthTemplate.id,
+          slug: "personal_strength_day",
+          block_type: "main",
+          station: null,
+          sort_order: 1,
+          content: strengthExercises.map((e) => ({
+            exercise: e.name,
+            sets: e.sets,
+            rep_min: e.rep_min,
+            rep_max: e.rep_max,
+            load_kg: e.load_kg,
+            superset_group: e.superset_group,
+          })),
+          load_adjustments: { division: profile.division as Division },
+        },
+      ];
+      return {
+        id: s.id,
+        session,
+        status: s.status,
+        strength: { templateName: strengthTemplate.name, exercises: strengthExercises },
+      };
+    }
     return { id: s.id, session, status: s.status };
   });
 

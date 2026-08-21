@@ -80,3 +80,8 @@ test("demo: double days put a second, lighter session on a hard morning", async 
   await page.getByLabel("Next week").click();
   await expect(page.getByText("PM", { exact: true })).toHaveCount(0);
 });
+
+test("the strength page is behind the profile gate", async ({ page }) => {
+  await page.goto("/strength");
+  await expect(page).toHaveURL(/onboarding/);
+});

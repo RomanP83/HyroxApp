@@ -8,9 +8,23 @@ interface ContentItem {
   distance_m?: number;
   rest_sec?: number;
   load_by_division?: Record<string, string>;
+  // A personal strength template speaks in the athlete's own numbers: a rep
+  // range instead of one figure, kilos instead of division loads.
+  rep_min?: number | null;
+  rep_max?: number | null;
+  load_kg?: number | null;
+  superset_group?: string | null;
+}
+
+function repsFor(item: ContentItem): string {
+  if (item.rep_min != null || item.rep_max != null) {
+    return item.rep_min === item.rep_max ? `${item.rep_min}` : `${item.rep_min ?? "?"}–${item.rep_max ?? "?"}`;
+  }
+  return item.reps != null ? String(item.reps) : "";
 }
 
 function loadFor(item: ContentItem, division: Division): string | null {
+  if (item.load_kg != null) return `${item.load_kg} kg`;
   if (!item.load_by_division) return null;
   // Doubles/masters fall back to the closest base division weight.
   const key =
@@ -48,13 +62,15 @@ export function BlockView({ block }: { block: RenderedBlock }) {
       <ul className="space-y-1 text-sm">
         {items.map((it, i) => {
           const load = loadFor(it, division);
+          const reps = repsFor(it);
           return (
             <li key={i} className="flex flex-wrap items-baseline gap-x-2">
               <span className="font-medium">{it.exercise}</span>
+              {it.superset_group && <span className="pill">SS {it.superset_group}</span>}
               <span className="text-muted">
                 {it.sets ? `${it.sets}×` : ""}
-                {it.reps ? `${it.reps}` : ""}
-                {it.distance_m ? `${it.reps ? " · " : ""}${it.distance_m} m` : ""}
+                {reps}
+                {it.distance_m ? `${reps ? " · " : ""}${it.distance_m} m` : ""}
                 {load ? ` · ${load}` : ""}
                 {it.rest_sec ? ` · rest ${it.rest_sec}s` : ""}
               </span>

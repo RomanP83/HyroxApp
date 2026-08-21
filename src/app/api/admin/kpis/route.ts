@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { operatorGuard } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
 
 // Phase D2 / §7 beta metric: share of logs with REAL RPE input (athletes who
 // 1-tap everything get the macro-only experience), plus the Telegram connect
 // rate (§7 open question 4 — the trigger for the email fallback).
-// Guarded by the same operator secret as the crons.
-function authed(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return process.env.NODE_ENV !== "production";
-  return req.headers.get("authorization") === `Bearer ${secret}`;
-}
+// Guarded by the same operator secret as the crons (lib/adminAuth).
 
 export async function GET(req: Request) {
-  if (!authed(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const denied = operatorGuard(req);
+  if (denied) return denied;
   const admin = supabaseAdmin();
 
   const [{ data: kpis }, { count: profilesTotal }, { count: profilesConnected }] =

@@ -32,14 +32,17 @@ Next.js (App Router, Vercel)
   ├─ Onboarding wizard (magic-link)     src/app/onboarding/page.tsx
   ├─ Week view + 1-tap logging          src/app/plan/page.tsx + components/PlanClient.tsx
   ├─ Live in-browser engine demo        src/app/demo/page.tsx   ← no backend needed
+  ├─ Knowledge review (operator)        src/app/admin/knowledge/page.tsx
   └─ API routes                         src/app/api/**
         /plans/generate  · /sessions/[id]/log (POST log · DELETE undo) · /sessions/[id]/move
         /stripe/checkout · /stripe/webhook    · /telegram/webhook · /cron/macro
+        /admin/knowledge/documents · /admin/knowledge/proposals
 
 Supabase (Postgres + Auth + RLS)        supabase/migrations + supabase/seed
   ├─ athlete_profiles · athlete_state (engine-owned "living" fitness state)
   ├─ plans → plan_phases → plan_weeks → sessions → session_blocks
   ├─ workout_blocks (read-only library, own IP) · benchmark_*
+  ├─ knowledge_documents → knowledge_proposals (PDF ingestion, operator-only)
   └─ plan_adjustments (audit log of every adaptive action)
 
 The Engine (deterministic TypeScript)   src/lib/engine/**
@@ -120,7 +123,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 55 tests covering:
+`npm test` runs 62 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -130,9 +133,30 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
   overloaded / pause) asserting no oscillation and sane end states.
 - Session reset: the replay ordering that makes an undo deterministic, and the
   pre-log state snapshot round-trip.
+- Knowledge pipeline: proposal → `workout_blocks` row mapping, the calibration
+  key allow-list with its bounds, and the extraction fan-out.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
+
+---
+
+## Feeding it your own research (PDFs)
+
+Studies, review papers and training literature go in as **reviewed, structured changes** — never as
+context at generation time. Upload a PDF at `/admin/knowledge` (or bulk-load with
+`scripts/ingest_pdf.sh`); Claude reads it and proposes three kinds of change, each with a verbatim
+quote and page number:
+
+| Proposal | Lands in | Effect on the plan |
+|---|---|---|
+| library block | `workout_blocks` | the generator can pick it from the next plan on |
+| calibration constant | `engine_config` | one of 14 tunable keys, inside a fixed sanity range |
+| principle | nothing automatic | research note — a third-party programme never becomes a block (§7) |
+
+You approve or reject every proposal. The engine itself stays deterministic and LLM-free; documents
+you hold no rights to are marked `research_only` and can only ever yield principles and constants.
+Details and operating notes: [`docs/knowledge-pipeline.md`](docs/knowledge-pipeline.md).
 
 ---
 

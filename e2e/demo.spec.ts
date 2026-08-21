@@ -46,3 +46,10 @@ test("onboarding renders the signup gate", async ({ page }) => {
   await page.goto("/onboarding");
   await expect(page.locator("text=Create your account")).toBeVisible();
 });
+
+test("the knowledge admin is gated by the operator secret", async ({ page }) => {
+  await page.goto("/admin/knowledge");
+  await expect(page.locator("text=Operator access")).toBeVisible();
+  // The review surface itself must not render before the secret is accepted.
+  await expect(page.locator("text=Knowledge pipeline")).toHaveCount(0);
+});

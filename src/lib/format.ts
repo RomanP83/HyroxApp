@@ -23,6 +23,18 @@ export const PHASE_COLORS: Record<string, string> = {
   taper: "#6ea8fe",
 };
 
+/** Season block colours — the year view reuses the phase palette so a block
+ *  and the plan phase it later becomes read as the same thing. */
+export const SEASON_BLOCK_COLORS: Record<string, string> = {
+  post_race_recovery: "#8b93a7",
+  base: "#3ecf8e",
+  build: "#ffb020",
+  race_specific: "#ff5a1f",
+  bridge: "#c084fc",
+  taper: "#6ea8fe",
+  open_base: "#4b5563",
+};
+
 export function titleCase(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

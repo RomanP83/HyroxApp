@@ -53,3 +53,10 @@ test("the knowledge admin is gated by the operator secret", async ({ page }) => 
   // The review surface itself must not render before the secret is accepted.
   await expect(page.locator("text=Knowledge pipeline")).toHaveCount(0);
 });
+
+test("the season view is behind the profile gate", async ({ page }) => {
+  await page.goto("/season");
+  // No profile in a fresh browser: the year plan needs one, so it sends you
+  // to onboarding rather than rendering an empty calendar.
+  await expect(page).toHaveURL(/onboarding/);
+});

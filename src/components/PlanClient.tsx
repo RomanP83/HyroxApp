@@ -11,6 +11,7 @@ import { PHASE_NUTRITION } from "@/lib/nutrition";
 import type { PhaseType } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
+  CalendarIcon,
   ChartIcon,
   LeafIcon,
   LockIcon,
@@ -212,6 +213,10 @@ export function PlanClient(props: Props) {
           Hyrox<span className="text-accent">·</span>Hub
         </span>
         <div className="flex items-center gap-2 text-sm">
+          <Link href="/season" className="btn-ghost">
+            <CalendarIcon size={16} />
+            Season
+          </Link>
           <Link href="/progress" className="btn-ghost">
             <ChartIcon size={16} />
             Progress

@@ -31,21 +31,24 @@ Next.js (App Router, Vercel)
   ├─ Marketing / SEO landing            src/app/page.tsx
   ├─ Onboarding wizard (magic-link)     src/app/onboarding/page.tsx
   ├─ Week view + 1-tap logging          src/app/plan/page.tsx + components/PlanClient.tsx
+  ├─ Season view (the year plan)        src/app/season/page.tsx + components/SeasonClient.tsx
   ├─ Live in-browser engine demo        src/app/demo/page.tsx   ← no backend needed
   ├─ Knowledge review (operator)        src/app/admin/knowledge/page.tsx
   └─ API routes                         src/app/api/**
         /plans/generate  · /sessions/[id]/log (POST log · DELETE undo) · /sessions/[id]/move
         /stripe/checkout · /stripe/webhook    · /telegram/webhook · /cron/macro
-        /admin/knowledge/documents · /admin/knowledge/proposals
+        /admin/knowledge/documents · /admin/knowledge/proposals · /seasons
 
 Supabase (Postgres + Auth + RLS)        supabase/migrations + supabase/seed
   ├─ athlete_profiles · athlete_state (engine-owned "living" fitness state)
+  ├─ seasons → season_races + season_blocks (the year above the plan)
   ├─ plans → plan_phases → plan_weeks → sessions → session_blocks
   ├─ workout_blocks (read-only library, own IP) · benchmark_*
   ├─ knowledge_documents → knowledge_proposals (PDF ingestion, operator-only)
   └─ plan_adjustments (audit log of every adaptive action)
 
 The Engine (deterministic TypeScript)   src/lib/engine/**
+  ├─ season.ts    annual periodisation: macrocycles per race, mesocycles inside
   ├─ macro.ts     phase split (lookup + interpolation for crooked timelines)
   ├─ micro.ts     slot distribution per phase & training days
   ├─ fill.ts      block selection + load rendering from LIVE athlete_state
@@ -123,7 +126,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 62 tests covering:
+`npm test` runs 91 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -135,9 +138,37 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
   pre-log state snapshot round-trip.
 - Knowledge pipeline: proposal → `workout_blocks` row mapping, the calibration
   key allow-list with its bounds, and the extraction fan-out.
+- Season periodisation: every week allocated exactly once at any cycle length,
+  taper protected, deload rhythm, the multi-race bridge, weakness routing — plus
+  a render test of the year view.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
+
+---
+
+## Planning a whole year, not just one race
+
+`/season` takes your race calendar and plans the year backwards from every **A** race:
+
+```
+Race cycle 1 — Hyrox Open, 16 Jan          Race cycle 2 — Hyrox Pro, 15 May
+ base 4w │ build 4w │ specific 6w │ taper 2w   recovery 3w │ base 3w │ build 3w │ specific 6w │ taper 2w
+   ▲ deload w4        ▲ w8    ▲ w12                            ▲ w22
+```
+
+- **Taper is never negotiable** — 1–2 weeks at −40% volume, protected first when a cycle is short.
+- **Race specificity 6–8 weeks, build 6–10** — compromised running and pacing sims close to the race,
+  VO2max and lactate tolerance before that, base and heavy strength when the runway allows.
+- **2–3 weeks of recovery after every race**, then the next cycle starts.
+- **Deload every 4th training week** at −35%, never on a block's opening week.
+- **Multi-race logic**: a short gap between two A races becomes one re-build bridge focused on your
+  weaknesses instead of a squeezed cycle — and the season tells you why.
+- **B and C races** are planned as hard training days inside the block they fall in, not as peaks.
+
+Your weaknesses are routed to the block where they belong: strength work into base, lactate tolerance
+into build, race execution into the race-specific block. Details:
+[`docs/season-periodisation.md`](docs/season-periodisation.md).
 
 ---
 

@@ -112,6 +112,46 @@ export const DEFAULT_TUNING: EngineTuning = {
   inactive_rebase_days: INACTIVE_REBASE_DAYS,
 };
 
+// ── Season periodisation (annual macro layer, above the 4-20 week plan) ─────
+// The numbers a head coach would argue about, in one place. Everything the
+// season planner does is derived from these — no magic numbers in season.ts.
+export const SEASON_TUNING = {
+  /** Post-race recovery, by the priority of the race just finished. */
+  recovery_weeks: { A: 3, B: 2, C: 2 },
+  /** Taper length for an A race: the long form needs a long enough cycle. */
+  taper_weeks_long: 2,
+  taper_weeks_short: 1,
+  taper_long_cycle_min_weeks: 12,
+  /** Race-specific block (compromised running, pacing sims, bricks). */
+  race_specific_min_weeks: 3,
+  /** Once a cycle can carry it, the block gets the full coached minimum. */
+  race_specific_full_min_weeks: 6,
+  race_specific_full_from_weeks: 12,
+  race_specific_max_weeks: 8,
+  race_specific_share: 0.45,
+  /** Build block (VO2max, lactate tolerance, threshold, EMOMs). */
+  build_min_weeks: 3,
+  build_max_weeks: 10,
+  build_share: 0.6,
+  /** Below this, an inter-race gap becomes one re-build bridge, not a cycle. */
+  bridge_max_weeks: 4,
+  /** Deload every Nth TRAINING week of a cycle, at this volume. */
+  deload_every_n_weeks: 4,
+  deload_volume_multiplier: 0.65, // -35%
+  /** Planning horizon when the calendar runs out of races. */
+  default_horizon_weeks: 52,
+  /** Volume relative to the athlete's normal week, per block kind. */
+  volume: {
+    post_race_recovery: 0.55,
+    base: 1.0,
+    build: 1.1,
+    race_specific: 1.0,
+    bridge: 0.9,
+    taper: 0.6, // -40%
+    open_base: 0.85,
+  },
+} as const;
+
 // ── Default pace zones derived from a 5k time (fallback if unknown) ──────────
 export const DEFAULT_5K_SECONDS = 1500; // 25:00
 

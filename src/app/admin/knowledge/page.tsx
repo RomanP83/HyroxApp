@@ -16,6 +16,7 @@ interface DocumentRow {
   id: string;
   title: string;
   filename: string;
+  source_type: "pdf" | "note" | "proposals";
   license: License;
   status: string;
   summary: string | null;
@@ -41,6 +42,12 @@ interface ProposalRow {
   knowledge_documents: { title: string; license: License };
 }
 
+const SOURCE_LABEL: Record<string, string> = {
+  pdf: "PDF",
+  note: "note",
+  proposals: "ready-made",
+};
+
 const LICENSE_LABEL: Record<License, string> = {
   own: "own IP",
   licensed: "licensed",
@@ -53,6 +60,7 @@ export default function KnowledgeAdminPage() {
   const [docs, setDocs] = useState<DocumentRow[]>([]);
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [filter, setFilter] = useState("pending");
+  const [kind, setKind] = useState<"pdf" | "note" | "proposals">("pdf");
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -100,28 +108,71 @@ export default function KnowledgeAdminPage() {
 
   async function upload(form: HTMLFormElement) {
     const data = new FormData(form);
-    const file = data.get("pdf") as File | null;
-    if (!file) return;
+    const license = data.get("license");
+    const notes = data.get("notes") || null;
+    const titleField = String(data.get("title") || "").trim();
+
+    let body: Record<string, unknown> | null = null;
+    let label = "";
+
+    if (kind === "pdf") {
+      const file = data.get("pdf") as File | null;
+      if (!file || !file.size) {
+        setToast("Pick a PDF first.");
+        return;
+      }
+      label = file.name;
+      body = {
+        kind: "pdf",
+        title: titleField || file.name.replace(/\.pdf$/i, ""),
+        filename: file.name,
+        pdf_base64: await fileToBase64(file),
+        license,
+        notes,
+      };
+    } else if (kind === "note") {
+      const text = String(data.get("text") || "").trim();
+      if (text.length < 40) {
+        setToast("The note is too short — paste the summary you want read.");
+        return;
+      }
+      label = titleField || "the note";
+      body = { kind: "note", title: titleField || "Untitled note", text, license, notes };
+    } else {
+      const proposals = String(data.get("proposals") || "").trim();
+      if (!proposals) {
+        setToast("Paste the JSON your AI produced.");
+        return;
+      }
+      label = titleField || "the proposals";
+      body = {
+        kind: "proposals",
+        title: titleField || "Ready-made proposals",
+        proposals,
+        license,
+        notes,
+      };
+    }
+
     setBusy("upload");
-    setToast(`Reading "${file.name}" — extraction takes a moment.`);
+    setToast(
+      kind === "proposals"
+        ? `Validating ${label} — no model runs on this path.`
+        : `Reading ${label} — extraction takes a moment.`,
+    );
     try {
-      const base64 = await fileToBase64(file);
       const result = await call("/api/admin/knowledge/documents", {
         method: "POST",
-        body: JSON.stringify({
-          title: String(data.get("title") || file.name.replace(/\.pdf$/i, "")),
-          filename: file.name,
-          pdf_base64: base64,
-          license: data.get("license"),
-          notes: data.get("notes") || null,
-        }),
+        body: JSON.stringify(body),
       });
       if (result.status === "failed") {
         setToast(`Extraction failed: ${result.error}`);
       } else {
         const c = result.proposals;
+        const rejected = (result.rejected ?? []) as { list: string; index: number; error: string }[];
         setToast(
-          `Done — ${c.block} block(s), ${c.tuning} tuning change(s), ${c.principle} principle(s) waiting for review.`,
+          `Done — ${c.block} block(s), ${c.tuning} tuning change(s), ${c.principle} principle(s) waiting for review.` +
+            (rejected.length ? ` ${rejected.length} item(s) rejected: ${rejected[0].error}` : ""),
         );
       }
       form.reset();
@@ -130,6 +181,17 @@ export default function KnowledgeAdminPage() {
       setToast(e instanceof Error ? e.message : "upload failed");
     } finally {
       setBusy(null);
+    }
+  }
+
+  /** Hand the exact JSON contract to whichever AI the operator already uses. */
+  async function copyBrief() {
+    try {
+      const { brief } = await call("/api/admin/knowledge/brief");
+      await navigator.clipboard.writeText(brief);
+      setToast("Brief copied — paste it into your AI together with the source.");
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "could not load the brief");
     }
   }
 
@@ -196,7 +258,7 @@ export default function KnowledgeAdminPage() {
         </button>
       </div>
 
-      {/* ── Upload ─────────────────────────────────────────────────────── */}
+      {/* ── Add a source ──────────────────────────────────────────────── */}
       <form
         className="card space-y-3"
         onSubmit={(e) => {
@@ -204,12 +266,75 @@ export default function KnowledgeAdminPage() {
           void upload(e.currentTarget);
         }}
       >
-        <div className="text-sm font-semibold">Add a document</div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold">Add a source</div>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["pdf", "PDF"],
+                ["note", "AI summary / notes"],
+                ["proposals", "Ready-made proposals"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`chip ${kind === value ? "chip-active" : ""}`}
+                onClick={() => setKind(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {kind === "pdf" && (
           <div>
             <label className="label">PDF</label>
-            <input className="input" type="file" name="pdf" accept="application/pdf" required />
+            <input className="input" type="file" name="pdf" accept="application/pdf" />
+            <p className="mt-1 text-xs text-muted">
+              The model reads the file itself and cites the page each proposal comes from.
+            </p>
           </div>
+        )}
+
+        {kind === "note" && (
+          <div>
+            <label className="label">The summary or analysis</label>
+            <textarea
+              className="input min-h-[180px] font-mono text-xs"
+              name="text"
+              placeholder="Paste what your AI (or your coach) wrote about the study, the method, the training approach…"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Same extractor as a PDF, minus the pages: it structures the text into blocks,
+              calibration constants and principles — and treats second-hand claims with lower
+              confidence.
+            </p>
+          </div>
+        )}
+
+        {kind === "proposals" && (
+          <div>
+            <label className="label">Proposals in the app&apos;s JSON contract</label>
+            <textarea
+              className="input min-h-[180px] font-mono text-xs"
+              name="proposals"
+              placeholder={'{ "document_summary": "…", "blocks": [], "tunings": [], "principles": [] }'}
+            />
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <button type="button" className="btn-ghost" onClick={() => void copyBrief()}>
+                <SparkIcon size={16} />
+                Copy the brief for your AI
+              </button>
+              <p className="text-xs text-muted">
+                Nothing is generated here — the payload is validated and filed. No model, no tokens.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="label">Title</label>
             <input className="input" name="title" placeholder="Taper meta-analysis (Bosquet 2007)" />
@@ -222,18 +347,21 @@ export default function KnowledgeAdminPage() {
               <option value="own">Own IP — blocks allowed</option>
             </select>
           </div>
-          <div>
-            <label className="label">Note for the extractor (optional)</label>
-            <input className="input" name="notes" placeholder="Focus on the taper section" />
-          </div>
+          {kind !== "proposals" && (
+            <div className="sm:col-span-2">
+              <label className="label">Note for the extractor (optional)</label>
+              <input className="input" name="notes" placeholder="Focus on the taper section" />
+            </div>
+          )}
         </div>
+
         <p className="text-xs text-muted">
           A third-party programme stays <b>research only</b>: it can never become a library block —
-          principles are free, concrete plans are not.
+          principles are free, concrete plans are not. The rule holds on all three paths.
         </p>
         <button className="btn-primary" disabled={busy === "upload"}>
           {busy === "upload" ? <SpinnerIcon size={16} /> : <SparkIcon size={16} />}
-          Extract proposals
+          {kind === "proposals" ? "Validate and file" : "Extract proposals"}
         </button>
       </form>
 
@@ -252,6 +380,7 @@ export default function KnowledgeAdminPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{d.title}</span>
+                    <span className="pill">{SOURCE_LABEL[d.source_type] ?? d.source_type}</span>
                     <span className="pill">{LICENSE_LABEL[d.license]}</span>
                     {d.status === "failed" && <span className="pill text-warn">failed</span>}
                     {d.proposals.pending > 0 && (

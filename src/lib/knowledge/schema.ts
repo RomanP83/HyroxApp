@@ -24,7 +24,7 @@ import type {
 } from "@/lib/engine";
 
 // `satisfies` keeps these literal lists honest against the engine's unions.
-const SESSION_TYPE_VALUES = [
+export const SESSION_TYPE_VALUES = [
   "run_easy",
   "run_intervals",
   "compromised_run",
@@ -35,7 +35,7 @@ const SESSION_TYPE_VALUES = [
   "benchmark",
 ] as const satisfies readonly SessionType[];
 
-const STATION_VALUES = [
+export const STATION_VALUES = [
   "ski_erg",
   "sled_push",
   "sled_pull",
@@ -48,11 +48,11 @@ const STATION_VALUES = [
   "general",
 ] as const satisfies readonly Station[];
 
-const BLOCK_TYPE_VALUES = ["warmup", "main", "mobility", "finisher"] as const satisfies readonly BlockType[];
+export const BLOCK_TYPE_VALUES = ["warmup", "main", "mobility", "finisher"] as const satisfies readonly BlockType[];
 
-const EQUIPMENT_VARIANT_VALUES = ["gym", "home"] as const satisfies readonly EquipmentVariant[];
+export const EQUIPMENT_VARIANT_VALUES = ["gym", "home"] as const satisfies readonly EquipmentVariant[];
 
-const TUNING_KEYS = [
+export const TUNING_KEYS = [
   "rpe_delta_up_threshold",
   "rpe_delta_down_threshold",
   "pace_step_sec_km",
@@ -150,6 +150,8 @@ export const ExtractionSchema = z.object({
   principles: z.array(PrincipleProposalSchema),
 });
 
+export type KnowledgeLicense = "own" | "licensed" | "research_only";
+
 export type BlockProposal = z.infer<typeof BlockProposalSchema>;
 export type TuningProposal = z.infer<typeof TuningProposalSchema>;
 export type PrincipleProposal = z.infer<typeof PrincipleProposalSchema>;
@@ -236,4 +238,73 @@ export function refineTuning(key: string, value: unknown): Refined<{ key: Tuning
     return { ok: false, error: `${k}=${value} outside the allowed range ${min}..${max}` };
   }
   return { ok: true, value: { key: k, value } };
+}
+
+// ── Ready-made proposals (no model involved) ────────────────────────────────
+
+export interface ParsedExtraction {
+  extraction: Extraction;
+  /** Items that failed validation, with the reason — shown to the operator. */
+  rejected: { list: string; index: number; error: string }[];
+}
+
+function firstIssue(error: unknown): string {
+  const issues = (error as { issues?: { path: (string | number)[]; message: string }[] })?.issues;
+  if (!issues?.length) return "does not match the proposal schema";
+  const i = issues[0];
+  return `${i.path.join(".") || "root"}: ${i.message}`;
+}
+
+/**
+ * Validate proposals that arrive already structured — from another AI, a
+ * script, or a coach writing JSON by hand. Nothing is generated here: each
+ * item is checked against the same schema the extractor's output goes through,
+ * and whatever fails comes back with a reason instead of being dropped
+ * silently. The licence gate applies exactly as it does for a PDF.
+ */
+export function parseExtractionPayload(raw: unknown, license: KnowledgeLicense): ParsedExtraction {
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const rejected: ParsedExtraction["rejected"] = [];
+
+  const take = <T>(
+    key: "blocks" | "tunings" | "principles",
+    schema: { safeParse: (v: unknown) => { success: boolean; data?: T; error?: unknown } },
+  ): T[] => {
+    const list = source[key];
+    if (list == null) return [];
+    if (!Array.isArray(list)) {
+      rejected.push({ list: key, index: -1, error: `"${key}" must be an array` });
+      return [];
+    }
+    const out: T[] = [];
+    list.forEach((item, index) => {
+      const parsed = schema.safeParse(item);
+      if (parsed.success && parsed.data) out.push(parsed.data);
+      else rejected.push({ list: key, index, error: firstIssue(parsed.error) });
+    });
+    return out;
+  };
+
+  const blocks = take("blocks", BlockProposalSchema);
+  const tunings = take("tunings", TuningProposalSchema);
+  const principles = take("principles", PrincipleProposalSchema);
+
+  if (license === "research_only" && blocks.length) {
+    rejected.push({
+      list: "blocks",
+      index: -1,
+      error: `${blocks.length} block(s) dropped: a research_only source may only yield principles and calibration constants`,
+    });
+  }
+
+  return {
+    extraction: {
+      document_summary:
+        typeof source.document_summary === "string" ? source.document_summary : "",
+      blocks: license === "research_only" ? [] : blocks,
+      tunings,
+      principles,
+    },
+    rejected,
+  };
 }

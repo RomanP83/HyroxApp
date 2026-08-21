@@ -21,9 +21,10 @@ import {
   TUNING_BOUNDS,
   TuningProposalSchema,
   type Extraction,
+  type KnowledgeLicense,
 } from "./schema";
 
-export type KnowledgeLicense = "own" | "licensed" | "research_only";
+export type { KnowledgeLicense };
 
 /** 32 MB is the API's request ceiling; stay under it with room for the JSON. */
 export const MAX_PDF_BYTES = 25 * 1024 * 1024;
@@ -40,7 +41,7 @@ const TUNING_LIST = Object.entries(TUNING_BOUNDS)
   .map(([key, [min, max]]) => `  - ${key} (allowed ${min}..${max})`)
   .join("\n");
 
-const SYSTEM = `You are the research assistant of a Hyrox training platform. You read one source document (a study, a review paper, an article, or a training programme) and propose concrete, reviewable changes to the platform's own training system. A human reviews every proposal before anything is applied.
+const SYSTEM = `You are the research assistant of a Hyrox training platform. You read one source (a study, a review paper, an article, a training programme, or a summary somebody else already produced) and propose concrete, reviewable changes to the platform's own training system. A human reviews every proposal before anything is applied.
 
 The platform's plan engine is deterministic. It reads exactly two things you can influence:
 1. A workout-block library (its own IP) that the generator picks sessions from.
@@ -63,8 +64,8 @@ Report the proposed value, never a range. If the document only supports a direct
 Anything the platform should know but cannot express as a block or a constant: periodisation findings, taper evidence, injury-risk thresholds, pacing research. These are notes for the operator; they are never applied automatically.
 
 ## Evidence, on every single proposal
-- quote: a short verbatim snippet from the document that supports it (max ~40 words).
-- page: the 1-indexed PDF page that quote is on. Never guess a page.
+- quote: a short verbatim snippet from the source that supports it (max ~40 words).
+- page: the 1-indexed PDF page that quote is on. Never guess a page. For a source without pages, use 0.
 - confidence: 0..1, honest. Below 0.5 means "worth a look", not "do it".
 - rationale: one or two sentences on why this follows from the document.
 
@@ -113,24 +114,26 @@ function parseJsonPayload(text: string): Record<string, unknown> | null {
 }
 
 /**
- * Read one PDF and return proposals. Throws with a readable message — the
+ * Read one source and return proposals. Throws with a readable message — the
  * caller records it on the document row so a failed extraction is visible in
  * the admin UI instead of silently producing nothing.
  */
-export async function extractFromPdf(opts: {
-  pdfBase64: string;
+async function runExtraction(opts: {
+  content: Anthropic.ContentBlockParam[];
   title: string;
   license: KnowledgeLicense;
   notes?: string | null;
+  /** Extra instruction for the source kind (e.g. "no pages in this one"). */
+  sourceHint?: string;
 }): Promise<ExtractResult> {
   const client = anthropic();
   if (!client) throw new Error("ANTHROPIC_API_KEY is not configured");
 
-  // §7 as a hard gate, not a hope: a document we hold no rights to can only
+  // §7 as a hard gate, not a hope: a source we hold no rights to can only
   // ever yield principles and calibration numbers, never library blocks.
   const licenceLine =
     opts.license === "research_only"
-      ? `LICENCE: research_only. Do NOT propose any blocks for this document — return an empty "blocks" list. Principles and tunings only.`
+      ? `LICENCE: research_only. Do NOT propose any blocks for this source — return an empty "blocks" list. Principles and tunings only.`
       : `LICENCE: ${opts.license}. Blocks are allowed, but the copyright rule above still applies in full.`;
 
   const response = await client.messages.create({
@@ -143,16 +146,13 @@ export async function extractFromPdf(opts: {
       {
         role: "user",
         content: [
-          {
-            type: "document",
-            source: { type: "base64", media_type: "application/pdf", data: opts.pdfBase64 },
-            title: opts.title,
-          },
+          ...opts.content,
           {
             type: "text",
             text: [
-              `Document title: ${opts.title}`,
+              `Source title: ${opts.title}`,
               licenceLine,
+              opts.sourceHint,
               opts.notes ? `Operator note: ${opts.notes}` : null,
               "Extract proposals as specified.",
             ]
@@ -196,4 +196,55 @@ export async function extractFromPdf(opts: {
       output_tokens: response.usage.output_tokens,
     },
   };
+}
+
+/** A PDF, read by the model itself (no parser in between). */
+export function extractFromPdf(opts: {
+  pdfBase64: string;
+  title: string;
+  license: KnowledgeLicense;
+  notes?: string | null;
+}): Promise<ExtractResult> {
+  return runExtraction({
+    title: opts.title,
+    license: opts.license,
+    notes: opts.notes,
+    content: [
+      {
+        type: "document",
+        source: { type: "base64", media_type: "application/pdf", data: opts.pdfBase64 },
+        title: opts.title,
+      },
+    ],
+  });
+}
+
+/** Longest text a single note may carry (~40k tokens of input). */
+export const MAX_NOTE_CHARS = 120_000;
+
+/**
+ * Free text that was already read and analysed elsewhere — an AI summary, a
+ * coach's notes, a digest of several studies. Same extractor, same schema,
+ * same review queue; only the input differs, and there are no page numbers to
+ * anchor the evidence to.
+ */
+export function extractFromText(opts: {
+  text: string;
+  title: string;
+  license: KnowledgeLicense;
+  notes?: string | null;
+}): Promise<ExtractResult> {
+  const text = opts.text.trim();
+  if (text.length < 40) throw new Error("the note is too short to extract anything from");
+  if (text.length > MAX_NOTE_CHARS) {
+    throw new Error(`the note is ${text.length} characters — the limit is ${MAX_NOTE_CHARS}`);
+  }
+  return runExtraction({
+    title: opts.title,
+    license: opts.license,
+    notes: opts.notes,
+    sourceHint:
+      "This source is plain text that someone (often another AI) already summarised — it has no pages. Report page 0 and quote the sentence you are relying on. Treat its claims as second-hand: when it names a study, a number or a mechanism, that is what you cite; when it only asserts something, lower your confidence accordingly.",
+    content: [{ type: "text", text }],
+  });
 }

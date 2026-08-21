@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { knowledgeBrief } from "../brief";
 import {
   ExtractionSchema,
+  parseExtractionPayload,
   knowledgeSlug,
   refineBlock,
   refineTuning,
@@ -125,5 +127,95 @@ describe("proposalRows", () => {
     expect(rows.map((r) => r.kind)).toEqual(["block", "tuning", "principle"]);
     expect(rows[1].payload).toEqual({ key: "acwr_hard", value: 1.4 });
     expect(rows[2].page).toBe(3);
+  });
+});
+
+describe("parseExtractionPayload — proposals that arrive finished", () => {
+  const payload = {
+    document_summary: "Analysis produced elsewhere.",
+    blocks: [block],
+    tunings: [
+      {
+        summary: "Lower the hard ACWR ceiling",
+        rationale: "Injury risk rises above 1.4.",
+        quote: "risk increased sharply above 1.4",
+        page: 0,
+        confidence: 0.6,
+        key: "acwr_hard",
+        value: 1.4,
+      },
+    ],
+    principles: [
+      {
+        summary: "Taper: cut volume, hold intensity",
+        rationale: "Largest gains at 41-60% volume reduction.",
+        quote: "reductions of 41-60% produced the largest gains",
+        page: 0,
+        confidence: 0.9,
+        topic: "taper",
+      },
+    ],
+  };
+
+  it("accepts a well-formed payload without running a model", () => {
+    const { extraction, rejected } = parseExtractionPayload(payload, "own");
+    expect(rejected).toEqual([]);
+    expect(extraction.blocks).toHaveLength(1);
+    expect(extraction.tunings[0].key).toBe("acwr_hard");
+    expect(extraction.principles[0].topic).toBe("taper");
+  });
+
+  it("names what it rejected instead of dropping it silently", () => {
+    const { extraction, rejected } = parseExtractionPayload(
+      {
+        blocks: [{ ...block, difficulty_tier: "hard" }],
+        tunings: [{ ...payload.tunings[0], key: "drop_table" }],
+        principles: "not a list",
+      },
+      "own",
+    );
+    expect(extraction.blocks).toHaveLength(0);
+    expect(extraction.tunings).toHaveLength(0);
+    expect(rejected.map((r) => r.list).sort()).toEqual(["blocks", "principles", "tunings"]);
+    expect(rejected.find((r) => r.list === "blocks")?.error).toContain("difficulty_tier");
+  });
+
+  it("holds the copyright gate on this path too", () => {
+    const { extraction, rejected } = parseExtractionPayload(payload, "research_only");
+    expect(extraction.blocks).toEqual([]);
+    expect(extraction.tunings).toHaveLength(1);
+    expect(rejected[0].error).toContain("research_only");
+  });
+
+  it("treats junk as empty rather than throwing", () => {
+    expect(parseExtractionPayload(null, "own").extraction.principles).toEqual([]);
+    expect(parseExtractionPayload("nope", "own").extraction.blocks).toEqual([]);
+  });
+});
+
+describe("knowledgeBrief", () => {
+  const brief = knowledgeBrief();
+
+  it("hands out every tuning key with the bounds the validator enforces", () => {
+    for (const [key, [min, max]] of Object.entries(TUNING_BOUNDS)) {
+      expect(brief).toContain(key);
+      expect(brief).toContain(`(${min} … ${max})`);
+    }
+  });
+
+  it("lists the enums an external AI has to hit exactly", () => {
+    for (const type of ["station_work", "compromised_run", "full_sim"]) expect(brief).toContain(type);
+    for (const station of ["sled_push", "wall_balls"]) expect(brief).toContain(station);
+    expect(brief).toContain("COPYRIGHT RULE");
+  });
+
+  it("ships an example that the app itself accepts — contract and validator cannot drift", () => {
+    const start = brief.indexOf("{", brief.indexOf("SHAPE"));
+    const example = JSON.parse(brief.slice(start));
+    const { extraction, rejected } = parseExtractionPayload(example, "own");
+    expect(rejected).toEqual([]);
+    expect(extraction.blocks).toHaveLength(1);
+    expect(extraction.tunings).toHaveLength(1);
+    expect(extraction.principles).toHaveLength(1);
   });
 });

@@ -126,7 +126,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 91 tests covering:
+`npm test` runs 98 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -137,7 +137,8 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 - Session reset: the replay ordering that makes an undo deterministic, and the
   pre-log state snapshot round-trip.
 - Knowledge pipeline: proposal → `workout_blocks` row mapping, the calibration
-  key allow-list with its bounds, and the extraction fan-out.
+  key allow-list with its bounds, the extraction fan-out, the ready-made-JSON
+  validator, and a round-trip proving the brief we hand out is what we accept.
 - Season periodisation: every week allocated exactly once at any cycle length,
   taper protected, deload rhythm, the multi-race bridge, weakness routing — plus
   a render test of the year view.
@@ -172,12 +173,21 @@ into build, race execution into the race-specific block. Details:
 
 ---
 
-## Feeding it your own research (PDFs)
+## Feeding it your own research
 
 Studies, review papers and training literature go in as **reviewed, structured changes** — never as
-context at generation time. Upload a PDF at `/admin/knowledge` (or bulk-load with
-`scripts/ingest_pdf.sh`); Claude reads it and proposes three kinds of change, each with a verbatim
-quote and page number:
+context at generation time. Three ways in at `/admin/knowledge`, one review queue:
+
+- **PDF** — the model reads the file and cites the page behind every proposal
+  (bulk-load a folder with `scripts/ingest_pdf.sh`).
+- **AI summary / notes** — paste text that was already analysed elsewhere; the same extractor
+  structures it, and treats second-hand claims with lower confidence.
+- **Ready-made proposals** — paste JSON in the app's own contract and **no model runs at all**. Hit
+  *Copy the brief for your AI* to get the exact contract (enums, tuning ranges, copyright rule,
+  worked example) to hand to whichever AI you already use.
+
+Whatever the source, it proposes three kinds of change, each with a verbatim quote and — where the
+source has pages — a page number:
 
 | Proposal | Lands in | Effect on the plan |
 |---|---|---|

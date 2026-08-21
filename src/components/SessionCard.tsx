@@ -71,17 +71,21 @@ export function SessionCard({
     action,
     icon,
     label,
+    hint,
     primary,
   }: {
     action: LogAction;
     icon: React.ReactNode;
     label: string;
+    /** What the tap actually reports — the labels alone read as a wish. */
+    hint?: string;
     primary?: boolean;
   }) => (
     <button
       className={primary ? "btn-primary" : "btn-ghost"}
       onClick={() => press(action)}
       disabled={busyAction != null}
+      title={hint}
     >
       {busyAction === action ? <SpinnerIcon size={16} /> : icon}
       {label}
@@ -138,11 +142,39 @@ export function SessionCard({
       )}
 
       {onLog && !isRest && (status === "planned" || status === "moved") && (
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <LogButton action="planned" primary icon={<CheckIcon size={16} />} label="As planned" />
-          <LogButton action="harder" icon={<FlameIcon size={16} />} label="Harder" />
-          <LogButton action="easier" icon={<FeatherIcon size={16} />} label="Easier" />
-          <LogButton action="skip" icon={<SkipIcon size={16} />} label="Skip" />
+        <div className="mt-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <LogButton
+              action="planned"
+              primary
+              icon={<CheckIcon size={16} />}
+              label="As planned"
+              hint="It matched the target — the plan holds its course."
+            />
+            <LogButton
+              action="harder"
+              icon={<FlameIcon size={16} />}
+              label="Felt harder"
+              hint="Harder than the target said. The engine backs the load off."
+            />
+            <LogButton
+              action="easier"
+              icon={<FeatherIcon size={16} />}
+              label="Felt easier"
+              hint="Easier than the target said. Twice in a row and the engine steps you up."
+            />
+            <LogButton
+              action="skip"
+              icon={<SkipIcon size={16} />}
+              label="Skip"
+              hint="Not done. The plan bends — no make-up pile-up."
+            />
+          </div>
+          {/* The labels alone read as a wish; they are a report. */}
+          <p className="mt-2 text-[11px] text-muted">
+            How it went, not what you want next — the engine reads these as your effort against the
+            target.
+          </p>
         </div>
       )}
 

@@ -241,7 +241,7 @@ export default function DemoPage() {
       <h1 className="text-2xl font-bold">Generate a real plan, then watch it adapt</h1>
       <p className="text-muted">
         This is the actual periodization engine. Set your profile, generate, then log sessions as{" "}
-        <b>Harder</b> or <b>Easier</b> — the station tiers, paces and finish-time estimate
+        <b>Felt harder</b> or <b>Felt easier</b> — the station tiers, paces and finish-time estimate
         recalibrate and future weeks re-render live.
       </p>
 
@@ -412,8 +412,8 @@ export default function DemoPage() {
               </div>
               {feed.length === 0 ? (
                 <div className="text-xs text-muted">
-                  All quiet so far — log a session as “Harder” or “Easier” and watch the engine respond. Every change is
-                  explained.
+                  All quiet so far — log a session as “Felt harder” or “Felt easier” (how it went, not
+                  what you want next) and watch the engine respond. Every change is explained.
                 </div>
               ) : (
                 <ul className="space-y-2 text-xs">

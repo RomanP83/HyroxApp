@@ -105,7 +105,7 @@ npm run dev        # then open http://localhost:3000/demo
 ```
 
 The **`/demo`** route runs the real engine entirely in the browser: pick a profile,
-generate a plan, then log sessions as *Harder* / *Easier* and watch station tiers,
+generate a plan, then log sessions as *Felt harder* / *Felt easier* and watch station tiers,
 pace zones and the finish-time estimate recalibrate live — each change explained.
 Tapped the wrong button? **Undo** on the card rolls that day back, including every
 plan change it caused.

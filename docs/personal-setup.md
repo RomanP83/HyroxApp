@@ -28,7 +28,7 @@ and Anthropic keys can all stay unset; the app degrades gracefully without them.
    applies the migrations; you then still need the three files in
    `supabase/seed/` for the workout library.
 
-4. **Lock the door behind you.** Sign in to the app once (step 3 below), then in
+4. **Lock the door behind you.** Sign in to the app once (step 4 below), then in
    Supabase go to **Authentication → Providers → Email** and turn off
    *Allow new users to sign up*. Now the URL is public but only your account
    exists. (Row-level security already scopes every row to its owner, so even a
@@ -73,7 +73,22 @@ conveniences, and both do nothing anyway until Telegram or Resend is configured.
 
 ---
 
-## 3. First run (~3 min)
+## 3. Point Supabase at your domain — don't skip this (~1 min)
+
+A fresh Supabase project has **Site URL** set to `http://localhost:3000`. Until
+you change it, every sign-in link you receive points at localhost and dies there.
+
+In Supabase → **Authentication → URL Configuration**:
+
+- **Site URL** → `https://<your-app>.vercel.app` (no trailing slash)
+- **Redirect URLs** → *Add URL* → `https://<your-app>.vercel.app/**`
+
+Save. If you already requested a link before doing this, request a fresh one —
+the old email has the wrong address baked in.
+
+---
+
+## 4. First run (~3 min)
 
 1. Open your URL → **Build my plan**.
 2. Sign in with your email — Supabase mails you a magic link. *(The built-in

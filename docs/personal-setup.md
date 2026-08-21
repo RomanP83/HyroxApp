@@ -17,23 +17,16 @@ and Anthropic keys can all stay unset; the app degrades gracefully without them.
    - `anon` `public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` *(server-only, never
      paste it anywhere the browser can read)*
-3. Push the schema. From a clone of this repo:
+3. Set up the database — **no CLI needed**. Copy the whole of
+   [`supabase/setup.sql`](../supabase/setup.sql) and paste it into
+   **SQL Editor → New query** in the Supabase dashboard, then **Run**. That one
+   file creates every table, enables row-level security, installs the
+   plan-persistence function, and seeds the workout library plus benchmark
+   definitions. It is safe to run more than once.
 
-   ```bash
-   npx supabase login
-   npx supabase link --project-ref <your-project-ref>   # ref is in the project URL
-   npx supabase db push                                  # migrations 0001–0009
-   ```
-
-   Then load the workout library and benchmark definitions (SQL Editor in the
-   Supabase dashboard, or `psql`):
-
-   ```bash
-   # in the dashboard: paste each file's contents into the SQL editor, run once
-   supabase/seed/0001_benchmark_definitions.sql
-   supabase/seed/0002_workout_blocks.sql
-   supabase/seed/0003_workout_blocks_home.sql
-   ```
+   Prefer the CLI? `npx supabase link --project-ref <ref> && npx supabase db push`
+   applies the migrations; you then still need the three files in
+   `supabase/seed/` for the workout library.
 
 4. **Lock the door behind you.** Sign in to the app once (step 3 below), then in
    Supabase go to **Authentication → Providers → Email** and turn off

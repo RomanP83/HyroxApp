@@ -43,6 +43,17 @@ export default function Onboarding() {
   >([]);
 
   useEffect(() => {
+    // Surface a failed magic-link exchange instead of silently showing the
+    // sign-in form again.
+    const authError = new URLSearchParams(window.location.search).get("auth_error");
+    if (authError) {
+      setError(
+        authError === "missing_code"
+          ? "That sign-in link looks incomplete. Request a fresh one below."
+          : `Sign-in link failed: ${authError}. Links expire — request a new one below.`,
+      );
+    }
+
     supabase.auth.getUser().then(({ data }) => {
       setSignedIn(!!data.user);
       setReady(true);
@@ -82,9 +93,10 @@ export default function Onboarding() {
 
   async function sendMagicLink() {
     setError(null);
+    // Land on the server route that trades the code for a session cookie.
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/onboarding` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) setError(error.message);
     else setSent(true);

@@ -62,7 +62,12 @@ export default async function PlanPage({
   }
 
   // C4: a per-plan purchase OR an active subscription unlocks the plan.
-  const paid = Boolean(plan.stripe_payment_id) || profile.subscription_status === "active";
+  // PERSONAL_MODE unlocks everything for a self-hosted, single-athlete
+  // install — no Stripe account needed to use your own plan.
+  const paid =
+    process.env.PERSONAL_MODE === "1" ||
+    Boolean(plan.stripe_payment_id) ||
+    profile.subscription_status === "active";
 
   // C2: Strava connect entry point (hidden once connected / when unconfigured).
   const stravaConnectUrl =

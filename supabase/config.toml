@@ -1,0 +1,18 @@
+# Minimal Supabase local config. `supabase db reset` applies migrations/ then seeds.
+project_id = "hyrox-periodization-hub"
+
+[db]
+port = 54322
+major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed/0001_benchmark_definitions.sql", "./seed/0002_workout_blocks.sql", "./seed/0003_workout_blocks_home.sql"]
+
+[auth]
+enabled = true
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]

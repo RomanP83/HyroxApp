@@ -27,6 +27,24 @@ import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 import { SparkIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
 
+/** Everything a logged day touches — snapshotted so a single day can be undone. */
+interface DemoWorld {
+  state: AthleteState;
+  loadHistory: LoadEntry[];
+  lastDelta: Record<string, number>;
+  statuses: Record<string, "done" | "skipped">;
+  feed: string[];
+}
+
+interface DemoLogInput {
+  key: string;
+  weekNumber: number;
+  session: GeneratedSession;
+  action: LogAction;
+}
+
+type DemoLogEntry = DemoLogInput & { before: DemoWorld };
+
 export default function DemoPage() {
   const [division, setDivision] = useState<Division>("open");
   const [level, setLevel] = useState<ExperienceLevel>("intermediate");
@@ -44,6 +62,10 @@ export default function DemoPage() {
 
   const loadHistory = useRef<LoadEntry[]>([]);
   const lastDelta = useRef<Record<string, number>>({});
+  // Every logged day plus the world as it was right before it — that snapshot
+  // is what "Undo" restores, exactly like session_logs.state_before does
+  // server-side (see lib/resetSession.ts).
+  const history = useRef<DemoLogEntry[]>([]);
 
   const allWeeks = useMemo(() => (plan ? plan.phases.flatMap((p) => p.weeks) : []), [plan]);
   const phaseOf = (weekNumber: number) =>
@@ -68,40 +90,62 @@ export default function DemoPage() {
     setWeekIdx(0);
     setFeed([]);
     setStatuses({});
+    history.current = [];
   }
 
-  function onLog(weekNumber: number, session: GeneratedSession, action: LogAction) {
-    if (!profile || !state) return;
-    const { sort_order: sortOrder, session_type: sessionType, intensity_rpe_target: rpeTarget } = session;
-    const key = `${weekNumber}:${sortOrder}`;
+  /** Apply one quick-log tap to a world snapshot — pure, so undo can replay it. */
+  function applyEntry(
+    p: AthleteProfile,
+    world: DemoWorld,
+    entry: DemoLogInput,
+  ): { world: DemoWorld; feedback: SessionFeedback | null } {
+    const { weekNumber, session, action, key } = entry;
+    const { session_type: sessionType, intensity_rpe_target: rpeTarget } = session;
+
     if (action === "skip") {
-      setStatuses((m) => ({ ...m, [key]: "skipped" }));
-      setFeed((f) => ["A missed session is not a broken plan — the lowest-priority slot just drops, no make-up pile-up.", ...f]);
-      return;
+      return {
+        world: {
+          ...world,
+          statuses: { ...world.statuses, [key]: "skipped" },
+          feed: [
+            "A missed session is not a broken plan — the lowest-priority slot just drops, no make-up pile-up.",
+            ...world.feed,
+          ],
+        },
+        feedback: null,
+      };
     }
+
     const rpeActual = action === "planned" ? rpeTarget : action === "harder" ? rpeTarget + 2 : rpeTarget - 2;
     const clampedRpe = Math.max(1, Math.min(10, rpeActual));
     const duration = session.planned_duration_min;
-    loadHistory.current = [{ at: new Date(), srpe: clampedRpe * duration }, ...loadHistory.current];
+    const nextLoad: LoadEntry[] = [{ at: new Date(), srpe: clampedRpe * duration }, ...world.loadHistory];
 
     const station = sessionType === "station_work" ? stationForWeek(weekNumber) : undefined;
     const res = microCalibrate({
-      state,
-      profile,
+      state: world.state,
+      profile: p,
       sessionType: sessionType as SessionType,
       station,
       rpeTarget,
       rpeActual: clampedRpe,
-      previousSameTypeDelta: lastDelta.current[sessionType],
+      previousSameTypeDelta: world.lastDelta[sessionType],
       durationActualMin: duration,
-      loadHistory: loadHistory.current,
+      loadHistory: nextLoad,
     });
-    lastDelta.current[sessionType] = clampedRpe - rpeTarget;
 
-    // Trainingsfeedback (deterministic — same engine module the API uses).
-    haptic("milestone");
-    setFeedback(
-      computeSessionFeedback({
+    return {
+      world: {
+        state: res.state,
+        loadHistory: nextLoad,
+        lastDelta: { ...world.lastDelta, [sessionType]: clampedRpe - rpeTarget },
+        statuses: { ...world.statuses, [key]: "done" },
+        feed: res.adjustments.length
+          ? [...res.adjustments.map((a) => a.reason), ...world.feed]
+          : ["Logged. No change needed — you're right in the target zone.", ...world.feed],
+      },
+      // Trainingsfeedback (deterministic — same engine module the API uses).
+      feedback: computeSessionFeedback({
         sessionType: sessionType as SessionType,
         sessionTitle: session.title,
         rpeTarget,
@@ -109,17 +153,75 @@ export default function DemoPage() {
         plannedDurationMin: session.planned_duration_min,
         actualDurationMin: duration,
       }),
-    );
+    };
+  }
 
-    setState(res.state);
-    setStatuses((m) => ({ ...m, [key]: "done" }));
+  /** Push a world snapshot into React state + regenerate the upcoming weeks. */
+  function commit(p: AthleteProfile, world: DemoWorld) {
+    setState(world.state);
+    setStatuses(world.statuses);
+    setFeed(world.feed);
+    loadHistory.current = world.loadHistory;
+    lastDelta.current = world.lastDelta;
     // Regenerate so *upcoming* weeks reflect the new tiers/paces — the core promise.
-    setPlan(generatePlan({ profile, state: res.state, library: DEMO_LIBRARY, weeksToRace: weeks }));
-    if (res.adjustments.length) {
-      setFeed((f) => [...res.adjustments.map((a) => a.reason), ...f]);
-    } else {
-      setFeed((f) => ["Logged. No change needed — you're right in the target zone.", ...f]);
+    setPlan(generatePlan({ profile: p, state: world.state, library: DEMO_LIBRARY, weeksToRace: weeks }));
+  }
+
+  function currentWorld(current: AthleteState): DemoWorld {
+    return {
+      state: current,
+      loadHistory: loadHistory.current,
+      lastDelta: lastDelta.current,
+      statuses,
+      feed,
+    };
+  }
+
+  function onLog(weekNumber: number, session: GeneratedSession, action: LogAction) {
+    if (!profile || !state) return;
+    const entry: DemoLogInput = {
+      key: `${weekNumber}:${session.sort_order}`,
+      weekNumber,
+      session,
+      action,
+    };
+    const before = currentWorld(state);
+    const { world, feedback: fb } = applyEntry(profile, before, entry);
+    history.current = [...history.current, { ...entry, before }];
+    if (fb) {
+      haptic("milestone");
+      setFeedback(fb);
     }
+    commit(profile, world);
+  }
+
+  /**
+   * Undo a single day (mis-tap on Harder/Easier/Skip): rewind to the snapshot
+   * taken before it, then replay every day logged after it. Same contract as
+   * the app's DELETE /api/sessions/[id]/log.
+   */
+  function onReset(weekNumber: number, session: GeneratedSession) {
+    if (!profile) return;
+    const key = `${weekNumber}:${session.sort_order}`;
+    const idx = history.current.findIndex((e) => e.key === key);
+    if (idx < 0) return;
+
+    const replay = history.current.slice(idx + 1);
+    let world: DemoWorld = history.current[idx].before;
+    const replayed: DemoLogEntry[] = [];
+    for (const e of replay) {
+      const next = applyEntry(profile, world, e);
+      replayed.push({ ...e, before: world });
+      world = next.world;
+    }
+    history.current = [...history.current.slice(0, idx), ...replayed];
+
+    haptic("tap");
+    setFeedback(null);
+    commit(profile, {
+      ...world,
+      feed: [`Reset — "${session.title}" is back on the plan, and every change it caused is undone.`, ...world.feed],
+    });
   }
 
   const week = allWeeks[weekIdx];
@@ -242,6 +344,7 @@ export default function DemoPage() {
                 session={s}
                 status={statuses[`${week.week_number}:${s.sort_order}`] ?? "planned"}
                 onLog={(action) => onLog(week.week_number, s, action)}
+                onReset={() => onReset(week.week_number, s)}
               />
             ))}
           </div>

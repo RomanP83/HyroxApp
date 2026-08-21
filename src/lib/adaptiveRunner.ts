@@ -27,9 +27,19 @@ export interface MicroOutcome {
   predicted_race_time_sec: number | null;
 }
 
+export interface MicroOptions {
+  /**
+   * Treat the calibration as if it ran at this moment. Used by the reset
+   * replay (src/lib/resetSession.ts): the "previous session of this type"
+   * must be the one that preceded THIS log, not one logged after it.
+   */
+  asOf?: string;
+}
+
 export async function applyMicroForSession(
   admin: SupabaseClient,
   sessionId: string,
+  opts: MicroOptions = {},
 ): Promise<MicroOutcome | null> {
   // 1) Session + its week + plan.
   const { data: sessionRaw } = await admin
@@ -93,7 +103,12 @@ export async function applyMicroForSession(
   }));
 
   const priorSameType = logs
-    .filter((l) => l.session_id !== sessionId && l.sessions.session_type === session.session_type)
+    .filter(
+      (l) =>
+        l.session_id !== sessionId &&
+        l.sessions.session_type === session.session_type &&
+        (!opts.asOf || l.completed_at < opts.asOf),
+    )
     .sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))[0];
   const previousSameTypeDelta = priorSameType
     ? (priorSameType.rpe_actual ?? 0) - priorSameType.sessions.intensity_rpe_target
@@ -147,6 +162,13 @@ export async function applyMicroForSession(
   });
 
   // 8) Persist new state + audit rows.
+  // Snapshot the pre-calibration state on the log itself so a single day can
+  // be taken back later (mis-tap on Harder/Easier) — see lib/resetSession.ts.
+  await admin
+    .from("session_logs")
+    .update({ state_before: state })
+    .eq("session_id", sessionId);
+
   await admin
     .from("athlete_state")
     .update({
@@ -167,6 +189,7 @@ export async function applyMicroForSession(
     await admin.from("plan_adjustments").insert(
       result.adjustments.map((a) => ({
         plan_id: planId,
+        session_id: sessionId,
         layer: a.layer,
         trigger: a.trigger,
         action_taken: a.action_taken,

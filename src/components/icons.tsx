@@ -130,6 +130,13 @@ export const MoveIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const UndoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9h11a5 5 0 0 1 0 10h-6" />
+    <path d="M8 5L4 9l4 4" />
+  </Svg>
+);
+
 export const SpinnerIcon = ({ size = 18, className }: IconProps) => (
   <svg
     viewBox="0 0 24 24"

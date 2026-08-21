@@ -11,6 +11,7 @@ import {
   SkipIcon,
   LockIcon,
   SpinnerIcon,
+  UndoIcon,
 } from "./icons";
 import { haptic } from "@/lib/haptics";
 
@@ -26,9 +27,25 @@ interface Props {
   locked?: boolean;
   /** Which action is in flight — shows a spinner on that button (speed #6). */
   busyAction?: LogAction | null;
+  /**
+   * Undo this day (mis-tap on As planned / Harder / Easier / Skip). When set,
+   * a logged or skipped card offers "Undo" — the log, and the calibration it
+   * caused, are rolled back and the quick-log row comes back.
+   */
+  onReset?: () => void;
+  /** Reset request in flight — swaps the undo icon for a spinner. */
+  resetting?: boolean;
 }
 
-export function SessionCard({ session, onLog, status = "planned", locked, busyAction }: Props) {
+export function SessionCard({
+  session,
+  onLog,
+  status = "planned",
+  locked,
+  busyAction,
+  onReset,
+  resetting,
+}: Props) {
   const [open, setOpen] = useState(false);
   const isRest = session.session_type === "rest";
 
@@ -36,6 +53,13 @@ export function SessionCard({ session, onLog, status = "planned", locked, busyAc
     haptic(action === "planned" ? "confirm" : "tap");
     onLog?.(action);
   }
+
+  function pressReset() {
+    haptic("tap");
+    onReset?.();
+  }
+
+  const logged = status === "done" || status === "skipped";
 
   const LogButton = ({
     action,
@@ -106,6 +130,24 @@ export function SessionCard({ session, onLog, status = "planned", locked, busyAc
           <LogButton action="harder" icon={<FlameIcon size={16} />} label="Harder" />
           <LogButton action="easier" icon={<FeatherIcon size={16} />} label="Easier" />
           <LogButton action="skip" icon={<SkipIcon size={16} />} label="Skip" />
+        </div>
+      )}
+
+      {/* Wrong tap? Take the day back — log and calibration are rolled back. */}
+      {onReset && !isRest && logged && (
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
+          <span className="text-xs text-muted">
+            {status === "skipped" ? "Skipped by mistake?" : "Logged by mistake?"}
+          </span>
+          <button
+            className="btn-ghost"
+            onClick={pressReset}
+            disabled={resetting}
+            title="Reset this day — undo the log and the plan changes it caused"
+          >
+            {resetting ? <SpinnerIcon size={16} /> : <UndoIcon size={16} />}
+            Undo
+          </button>
         </div>
       )}
     </div>

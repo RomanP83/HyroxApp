@@ -32,6 +32,14 @@ test("demo: generate → log → feedback card → adaptation feed", async ({ pa
   // The estimated finish and station tiers are on screen.
   await expect(page.locator("text=Estimated finish")).toBeVisible();
   await expect(page.getByText("Station tiers", { exact: true })).toBeVisible();
+
+  // Mis-tap insurance: undo one of the two logged days. The card hands the
+  // quick-log row back and the adaptation feed says what was rolled back.
+  const undo = page.getByRole("button", { name: "Undo" });
+  await expect(undo).toHaveCount(2);
+  await undo.first().click();
+  await expect(undo).toHaveCount(1);
+  await expect(page.locator("text=is back on the plan").first()).toBeVisible();
 });
 
 test("onboarding renders the signup gate", async ({ page }) => {

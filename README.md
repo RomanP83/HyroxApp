@@ -18,7 +18,7 @@ market, without a wearable requirement.
 | **PP2** No individualisation | Onboarding (race date, division, level, 5K, days, equipment) → the plan is provably different on day 1. **Explicit weights/distances/reps per division** on every block. |
 | **PP3** Rigid plans collapse in real life | **Adaptive engine** — a missed session is not a broken plan, and every logged session recalibrates the plan. |
 | **PP4** Taper/peak uncertainty | Dedicated taper phase that is *never* negotiable. |
-| **PP5** Adherence > perfect plan | **1-tap logging** + a Telegram 4-button quick-log. |
+| **PP5** Adherence > perfect plan | **1-tap logging** + a Telegram 4-button quick-log — and a **1-tap undo** when the wrong button gets hit. |
 | **PP6** Fragmented sources | One system: plan + tracking + adaptation + benchmarks. |
 | **PP7** Price sensitivity | One-time price per race cycle. |
 
@@ -33,7 +33,7 @@ Next.js (App Router, Vercel)
   ├─ Week view + 1-tap logging          src/app/plan/page.tsx + components/PlanClient.tsx
   ├─ Live in-browser engine demo        src/app/demo/page.tsx   ← no backend needed
   └─ API routes                         src/app/api/**
-        /plans/generate  · /sessions/[id]/log · /sessions/[id]/move
+        /plans/generate  · /sessions/[id]/log (POST log · DELETE undo) · /sessions/[id]/move
         /stripe/checkout · /stripe/webhook    · /telegram/webhook · /cron/macro
 
 Supabase (Postgres + Auth + RLS)        supabase/migrations + supabase/seed
@@ -101,6 +101,8 @@ npm run dev        # then open http://localhost:3000/demo
 The **`/demo`** route runs the real engine entirely in the browser: pick a profile,
 generate a plan, then log sessions as *Harder* / *Easier* and watch station tiers,
 pace zones and the finish-time estimate recalibrate live — each change explained.
+Tapped the wrong button? **Undo** on the card rolls that day back, including every
+plan change it caused.
 
 ### Full stack (Supabase)
 
@@ -118,7 +120,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 27 tests covering:
+`npm test` runs 55 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -126,6 +128,8 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 - Adaptive engine: ACWR math, the step rules, station-specificity, the ±3% pace cap,
   tier clamping, and **10 synthetic athlete trajectories** (consistent / chaotic /
   overloaded / pause) asserting no oscillation and sane end states.
+- Session reset: the replay ordering that makes an undo deterministic, and the
+  pre-log state snapshot round-trip.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
@@ -139,7 +143,8 @@ This implements the **Must-Have (MVP)** feature set from
 plan generation (Base→Build→Peak→Taper), compromised-running sessions, explicit
 per-division loads, “why this week”, the two-layer adaptive engine, 1-tap logging,
 goal-time prognosis, benchmark protocol, deload weeks, Telegram quick-log, Stripe
-one-time purchase + free preview, and manual session moves.
+one-time purchase + free preview, manual session moves, and a per-day undo of a
+mis-tapped log.
 
 Should-/Nice-to-Have items (Strava sync, subscription tier, full scaling library,
 nutrition content, coach dashboard, native app) are intentionally out of scope for the

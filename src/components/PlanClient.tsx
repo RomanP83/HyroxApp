@@ -74,7 +74,8 @@ export function PlanClient(props: Props) {
   const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
   // Perceived speed (#6): flip the card state the instant the tap lands;
   // the server round-trip only confirms (or reverts on error).
-  const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped">>({});
+  const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped" | "planned">>({});
+  const [resetting, setResetting] = useState<string | null>(null);
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   const currentPhase = phaseOf(props.currentWeek.week_number);
@@ -163,6 +164,33 @@ export function PlanClient(props: Props) {
       setToast("Hmm, that didn't save. Give it another tap.");
     } finally {
       setBusy(null);
+    }
+  }
+
+  // Mis-tap insurance (PP3): give a single day back. The server drops the log,
+  // restores the pre-log fitness state and replays every later log, so the
+  // plan lands exactly where it would be had the day never been logged.
+  async function reset(sessionId: string) {
+    setResetting(sessionId);
+    const previous = optimistic[sessionId];
+    setOptimistic((m) => ({ ...m, [sessionId]: "planned" }));
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/log`, { method: "DELETE" });
+      if (!res.ok) throw new Error("reset failed");
+      const data = await res.json();
+      haptic("confirm");
+      setToast(data?.reset?.reason ?? "Day reset — log it again whenever you're ready.");
+      router.refresh();
+    } catch {
+      setOptimistic((m) => {
+        if (previous) return { ...m, [sessionId]: previous };
+        const { [sessionId]: _, ...rest } = m;
+        return rest;
+      });
+      setToast("Couldn't reset that day. Give it another tap.");
+    } finally {
+      setResetting(null);
     }
   }
 
@@ -275,6 +303,8 @@ export function PlanClient(props: Props) {
               locked={props.locked}
               busyAction={busy?.sessionId === cs.id ? busy.action : null}
               onLog={props.locked ? undefined : (a) => log(cs.id, a, cs.session.intensity_rpe_target)}
+              onReset={props.locked ? undefined : () => reset(cs.id)}
+              resetting={resetting === cs.id}
             />
           ))}
         </div>

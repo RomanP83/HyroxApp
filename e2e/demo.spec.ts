@@ -60,3 +60,23 @@ test("the season view is behind the profile gate", async ({ page }) => {
   // to onboarding rather than rendering an empty calendar.
   await expect(page).toHaveURL(/onboarding/);
 });
+
+test("demo: double days put a second, lighter session on a hard morning", async ({ page }) => {
+  await page.goto("/demo");
+  await page.getByLabel("Double days").selectOption("2");
+  await page.click("text=Generate my plan");
+
+  // Week 1 is a benchmark week and stays single-session by design, so step on.
+  await expect(page.getByText("PM", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Next week").click();
+
+  // The AM/PM marker only appears on days that carry two sessions.
+  await expect(page.getByText("PM", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("AM", { exact: true }).first()).toBeVisible();
+
+  // Without doubles the marker is gone again — one session a day.
+  await page.getByLabel("Double days").selectOption("0");
+  await page.click("text=Regenerate plan");
+  await page.getByLabel("Next week").click();
+  await expect(page.getByText("PM", { exact: true })).toHaveCount(0);
+});

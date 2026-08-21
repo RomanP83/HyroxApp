@@ -49,6 +49,7 @@ export default function DemoPage() {
   const [division, setDivision] = useState<Division>("open");
   const [level, setLevel] = useState<ExperienceLevel>("intermediate");
   const [days, setDays] = useState(4);
+  const [doubles, setDoubles] = useState(0);
   const [weeks, setWeeks] = useState(12);
   const [fiveK, setFiveK] = useState(1350);
 
@@ -79,6 +80,7 @@ export default function DemoPage() {
       five_k_seconds: fiveK,
       station_estimates: {},
       training_days_per_week: days,
+      doubles_per_week: doubles,
       equipment_access: "full_gym",
     };
     const s = initialAthleteState(p);
@@ -273,6 +275,21 @@ export default function DemoPage() {
           </select>
         </div>
         <div>
+          <label className="label">Double days</label>
+          <select
+            className="input"
+            aria-label="Double days"
+            value={doubles}
+            onChange={(e) => setDoubles(Number(e.target.value))}
+          >
+            {[0, 1, 2, 3].map((d) => (
+              <option key={d} value={d}>
+                {d === 0 ? "none" : `${d} / week`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="label">Weeks to race</label>
           <select className="input" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>
             {[8, 9, 10, 11, 12, 14, 16].map((w) => (
@@ -322,11 +339,17 @@ export default function DemoPage() {
                   {week.is_benchmark_week && <span className="pill text-accent2">benchmark</span>}
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn-ghost" disabled={weekIdx === 0} onClick={() => setWeekIdx((i) => i - 1)}>
+                  <button
+                    className="btn-ghost"
+                    aria-label="Previous week"
+                    disabled={weekIdx === 0}
+                    onClick={() => setWeekIdx((i) => i - 1)}
+                  >
                     ←
                   </button>
                   <button
                     className="btn-ghost"
+                    aria-label="Next week"
                     disabled={weekIdx === allWeeks.length - 1}
                     onClick={() => setWeekIdx((i) => i + 1)}
                   >
@@ -342,6 +365,9 @@ export default function DemoPage() {
               <SessionCard
                 key={s.sort_order}
                 session={s}
+                showSlot={
+                  week.sessions.filter((o) => o.day_hint === s.day_hint).length > 1
+                }
                 status={statuses[`${week.week_number}:${s.sort_order}`] ?? "planned"}
                 onLog={(action) => onLog(week.week_number, s, action)}
                 onReset={() => onReset(week.week_number, s)}

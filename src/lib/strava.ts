@@ -144,5 +144,6 @@ export async function processActivity(
     distanceM: act.distance,
     source: "Strava",
     name: act.name,
+    startedAt: act.start_date,
   });
 }

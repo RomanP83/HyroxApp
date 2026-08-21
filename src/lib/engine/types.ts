@@ -56,6 +56,8 @@ export interface PaceZones {
 
 export type StationTiers = Record<string, number>; // station -> tier 1..3
 
+export type DaySlot = "am" | "pm";
+
 export interface AthleteProfile {
   id: string;
   division: Division;
@@ -63,6 +65,8 @@ export interface AthleteProfile {
   five_k_seconds: number | null;
   station_estimates: Record<string, number>;
   training_days_per_week: number; // 3..6
+  /** How many days per week may carry a second (PM) session. 0..3. */
+  doubles_per_week?: number;
   equipment_access: EquipmentAccess;
 }
 
@@ -114,6 +118,8 @@ export interface RenderedBlock {
 
 export interface GeneratedSession {
   day_hint: number; // 1..7
+  /** Which half of the day; "pm" is the second session of a double day. */
+  day_slot: DaySlot;
   session_type: SessionType;
   title: string;
   planned_duration_min: number;

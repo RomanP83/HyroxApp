@@ -35,6 +35,11 @@ interface Props {
   onReset?: () => void;
   /** Reset request in flight — swaps the undo icon for a spinner. */
   resetting?: boolean;
+  /**
+   * Show the AM/PM marker. Only meaningful on a double day, so the caller —
+   * which sees the whole week — decides.
+   */
+  showSlot?: boolean;
 }
 
 export function SessionCard({
@@ -45,6 +50,7 @@ export function SessionCard({
   busyAction,
   onReset,
   resetting,
+  showSlot,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isRest = session.session_type === "rest";
@@ -90,7 +96,14 @@ export function SessionCard({
       >
         <div>
           <div className="flex items-center gap-2">
-            <span className="pill">{DAY_LABELS[session.day_hint] ?? `D${session.day_hint}`}</span>
+            <span className="pill">
+              {DAY_LABELS[session.day_hint] ?? `D${session.day_hint}`}
+              {showSlot && (
+                <span className="ml-1 font-bold text-accent2">
+                  {(session.day_slot ?? "am").toUpperCase()}
+                </span>
+              )}
+            </span>
             <span className="font-semibold">{session.title}</span>
             {status === "done" && <CheckIcon size={16} className="text-ok" />}
             {status === "skipped" && <span className="text-xs text-muted">skipped</span>}

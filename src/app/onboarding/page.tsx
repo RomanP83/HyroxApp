@@ -33,6 +33,7 @@ export default function Onboarding() {
   const [division, setDivision] = useState<Division>("open");
   const [level, setLevel] = useState<Level>("intermediate");
   const [days, setDays] = useState(4);
+  const [doubles, setDoubles] = useState(0);
   const [equipment, setEquipment] = useState<Equipment>("full_gym");
   const [fiveKMin, setFiveKMin] = useState(22);
   const [fiveKSec, setFiveKSec] = useState(30);
@@ -71,6 +72,7 @@ export default function Onboarding() {
       five_k_seconds: fiveKMin * 60 + fiveKSec,
       station_estimates: {},
       training_days_per_week: days,
+      doubles_per_week: doubles,
       equipment_access: equipment,
     };
     return {
@@ -78,7 +80,7 @@ export default function Onboarding() {
       split: splitPhases(weeks),
       predicted: initialAthleteState(profile).predicted_race_time_sec,
     };
-  }, [raceDate, division, level, days, equipment, fiveKMin, fiveKSec]);
+  }, [raceDate, division, level, days, doubles, equipment, fiveKMin, fiveKSec]);
 
   async function sendMagicLink() {
     setError(null);
@@ -103,6 +105,7 @@ export default function Onboarding() {
           experience_level: level,
           five_k_seconds: fiveKMin * 60 + fiveKSec,
           training_days_per_week: days,
+          doubles_per_week: doubles,
           equipment_access: equipment,
           race_date: raceDate,
           race_id: raceId,
@@ -226,6 +229,17 @@ export default function Onboarding() {
             ]}
             value={String(days)}
             onChange={(v) => setDays(Number(v))}
+          />
+          <ChipGroup
+            label="Double days (a second, lighter session)"
+            options={[
+              ["0", "None"],
+              ["1", "1 / week"],
+              ["2", "2 / week"],
+              ["3", "3 / week"],
+            ]}
+            value={String(doubles)}
+            onChange={(v) => setDoubles(Number(v))}
           />
           <ChipGroup
             label="Where do you train?"

@@ -25,6 +25,16 @@ export interface RunSample {
   /** e.g. "Strava" / "Garmin" — shows up in the log note. */
   source: string;
   name?: string;
+  /** ISO timestamp the run started, when the provider tells us. */
+  startedAt?: string;
+}
+
+/** Which half of the day a run belongs to. Before noon is the morning. */
+export function slotForRun(startedAt?: string): "am" | "pm" | null {
+  if (!startedAt) return null;
+  const at = new Date(startedAt);
+  if (Number.isNaN(at.getTime())) return null;
+  return at.getUTCHours() < 12 ? "am" : "pm";
 }
 
 /**
@@ -57,14 +67,20 @@ export async function autoLogRun(
   const todayHint = ((new Date().getUTCDay() + 6) % 7) + 1;
   const { data: candidates } = await admin
     .from("sessions")
-    .select("id, day_hint, session_type, intensity_rpe_target")
+    .select("id, day_hint, day_slot, session_type, intensity_rpe_target")
     .eq("week_id", week.id)
     .in("session_type", RUN_SESSION_TYPES)
     .in("status", ["planned", "moved"]);
   if (!candidates?.length) return null;
 
+  // On a double day both halves can hold a run. Prefer the one whose slot
+  // matches when the run actually started, then any session of today, then the
+  // earliest planned run of the week.
+  const today = candidates.filter((s) => s.day_hint === todayHint);
+  const runSlot = slotForRun(run.startedAt);
   const session =
-    candidates.find((s) => s.day_hint === todayHint) ??
+    (runSlot ? today.find((s) => (s.day_slot ?? "am") === runSlot) : undefined) ??
+    today.sort((a, b) => ((a.day_slot ?? "am") === "am" ? -1 : 1))[0] ??
     [...candidates].sort((a, b) => a.day_hint - b.day_hint)[0];
 
   const { error } = await admin.from("session_logs").upsert(

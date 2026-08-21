@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 
     const { data: sessions } = await admin
       .from("sessions")
-      .select("id, title, planned_duration_min, session_type")
+      .select("id, title, planned_duration_min, session_type, day_slot")
       .eq("week_id", week.id)
       .eq("day_hint", dayHint)
       .in("status", ["planned", "moved"]);
@@ -75,11 +75,15 @@ export async function POST(req: Request) {
     const due = sessions.filter((s) => !loggedIds.has(s.id) && s.session_type !== "rest");
     if (!due.length) continue;
 
+    // A double day sends two messages — say which half each one is about.
+    const label = (s: { day_slot?: string | null }) =>
+      due.length > 1 ? `${(s.day_slot ?? "am").toUpperCase()} session` : "session";
+
     if (profile.telegram_chat_id && telegramOn) {
       for (const s of due) {
         await tgSendMessage(
           profile.telegram_chat_id,
-          `🏋️ Today's session: <b>${s.title}</b> (${s.planned_duration_min} min).\nDid you get it done? One tap logs it — and tunes your plan.`,
+          `🏋️ Today's ${label(s)}: <b>${s.title}</b> (${s.planned_duration_min} min).\nDid you get it done? One tap logs it — and tunes your plan.`,
           quickLogKeyboard(s.id),
         );
         sentTelegram++;
@@ -91,7 +95,7 @@ export async function POST(req: Request) {
       if (email) {
         const ok = await sendEmail(
           email,
-          `Today's session: ${due[0].title}`,
+          `Today's ${label(due[0])}: ${due[0].title}`,
           checkinEmailHtml(due[0].title, due[0].planned_duration_min),
         );
         if (ok) sentEmail++;

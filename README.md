@@ -50,7 +50,7 @@ Supabase (Postgres + Auth + RLS)        supabase/migrations + supabase/seed
 The Engine (deterministic TypeScript)   src/lib/engine/**
   ├─ season.ts    annual periodisation: macrocycles per race, mesocycles inside
   ├─ macro.ts     phase split (lookup + interpolation for crooked timelines)
-  ├─ micro.ts     slot distribution per phase & training days
+  ├─ micro.ts     slot distribution per phase & training days, AM/PM doubles
   ├─ fill.ts      block selection + load rendering from LIVE athlete_state
   ├─ generate.ts  orchestrator (deload/benchmark placement, weekly goals)
   ├─ prognosis.ts goal-time estimate
@@ -126,7 +126,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 98 tests covering:
+`npm test` runs 113 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -142,9 +142,35 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 - Season periodisation: every week allocated exactly once at any cycle length,
   taper protected, deload rhythm, the multi-race bridge, weakness routing — plus
   a render test of the year view.
+- Double days: at most two sessions per day and never two in the same half,
+  never two hard sessions on one day, the PM session lighter and shorter than
+  the morning it follows, and suppressed in taper/deload/benchmark weeks.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
+
+---
+
+## Double days (AM / PM)
+
+A training day can carry a second session. Pick 0–3 double days in onboarding
+(`athlete_profiles.doubles_per_week`) and the generator adds a **PM session that
+complements the morning instead of competing with it**:
+
+| Morning | Afternoon | Why |
+|---|---|---|
+| compromised run · intervals · simulation | mobility | recovery after the key session |
+| strength · station work | easy run | aerobic flush, a different system |
+
+The rules the engine holds to, all covered by tests: never two sessions in the same half of a day,
+never two hard sessions on one day, the PM session is always shorter and easier than the morning it
+follows, doubles go on the key mornings first and never on the week's easy day, at least one training
+day stays single — and **taper, deload and benchmark weeks stay single-session**, because a second
+session there works against what the week is for.
+
+`sessions.day_slot` makes the day half explicit, a unique index on `(week, day, slot)` keeps it
+honest, and the evening check-in and the Strava/Garmin auto-log both match on the slot — a morning
+run no longer lands on the evening's session.
 
 ---
 
@@ -208,8 +234,8 @@ This implements the **Must-Have (MVP)** feature set from
 plan generation (Base→Build→Peak→Taper), compromised-running sessions, explicit
 per-division loads, “why this week”, the two-layer adaptive engine, 1-tap logging,
 goal-time prognosis, benchmark protocol, deload weeks, Telegram quick-log, Stripe
-one-time purchase + free preview, manual session moves, and a per-day undo of a
-mis-tapped log.
+one-time purchase + free preview, manual session moves, a per-day undo of a
+mis-tapped log, and optional AM/PM double days.
 
 Should-/Nice-to-Have items (Strava sync, subscription tier, full scaling library,
 nutrition content, coach dashboard, native app) are intentionally out of scope for the

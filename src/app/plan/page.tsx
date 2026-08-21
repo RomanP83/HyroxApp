@@ -103,7 +103,7 @@ export default async function PlanPage({
   const { data: sessionRows } = await supabase
     .from("sessions")
     .select(
-      "id, day_hint, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))",
+      "id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))",
     )
     .eq("week_id", current.id)
     .order("sort_order", { ascending: true });
@@ -131,6 +131,7 @@ export default async function PlanPage({
           }));
     const session: GeneratedSession = {
       day_hint: s.day_hint,
+      day_slot: (s.day_slot ?? "am") as GeneratedSession["day_slot"],
       session_type: s.session_type,
       title: s.title,
       planned_duration_min: s.planned_duration_min,

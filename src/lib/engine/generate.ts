@@ -50,10 +50,12 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         weekInPhase,
         isDeload,
         isBenchmark,
+        doublesPerWeek: profile.doubles_per_week ?? 0,
       });
 
       const sessions = slots.map((slot) => ({
         day_hint: slot.day_hint,
+        day_slot: slot.day_slot,
         session_type: slot.session_type,
         title: SESSION_TITLES[slot.session_type] ?? slot.session_type,
         planned_duration_min: slot.planned_duration_min,

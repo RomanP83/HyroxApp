@@ -79,6 +79,12 @@ export function PlanClient(props: Props) {
   const [resetting, setResetting] = useState<string | null>(null);
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
+  // Days that carry an AM *and* a PM session — only there does the marker help.
+  const doubleDays = new Set(
+    props.sessions
+      .map((cs) => cs.session.day_hint)
+      .filter((day, i, all) => all.indexOf(day) !== i),
+  );
   const currentPhase = phaseOf(props.currentWeek.week_number);
 
   // B6: returning from Stripe — verify the checkout session server-side
@@ -310,6 +316,7 @@ export function PlanClient(props: Props) {
               onLog={props.locked ? undefined : (a) => log(cs.id, a, cs.session.intensity_rpe_target)}
               onReset={props.locked ? undefined : () => reset(cs.id)}
               resetting={resetting === cs.id}
+              showSlot={doubleDays.has(cs.session.day_hint)}
             />
           ))}
         </div>

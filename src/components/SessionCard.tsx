@@ -68,6 +68,19 @@ interface Props {
   showSlot?: boolean;
 }
 
+/** The variant the engine chose for this week's core session, if any. */
+function variantOf(session: GeneratedSession) {
+  const block = session.blocks.find((b) => b.load_adjustments.variant_name);
+  if (!block) return null;
+  const a = block.load_adjustments;
+  return {
+    name: a.variant_name!,
+    why: a.variant_why,
+    fallback: a.variant_fallback,
+    targeted: a.variant_targeted,
+  };
+}
+
 /** The pace targets the plan wrote into this session's main block, if any. */
 function pacesOf(session: GeneratedSession): {
   pace?: number;
@@ -186,8 +199,16 @@ export function SessionCard({
             const spec = runSpec(session.session_type);
             if (!spec) return null;
             const { pace, opening, openingDistance } = pacesOf(session);
+            const variant = variantOf(session);
             return (
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                {/* Which shape of the core session this week gets. */}
+                {variant && (
+                  <span className="pill border-accent/60 text-ink">
+                    {variant.name}
+                    {variant.targeted && <span className="ml-1 text-accent">· your weak spot</span>}
+                  </span>
+                )}
                 <span className="pill text-accent2">{spec.hr_zone}</span>
                 {pace != null && <span className="pill">{fmtPace(pace)}</span>}
                 {/* Coming out of a station you run slower on purpose — that
@@ -226,11 +247,21 @@ export function SessionCard({
               ))}
               {(() => {
                 const spec = runSpec(session.session_type);
-                return spec ? (
-                  <p className="px-1 text-xs text-muted">
-                    <b>{spec.focus}</b> {spec.pace_note}
-                  </p>
-                ) : null;
+                const variant = variantOf(session);
+                if (!spec) return null;
+                return (
+                  <div className="space-y-1 px-1 text-xs text-muted">
+                    {variant?.why && (
+                      <p>
+                        <b className="text-ink">{variant.name}:</b> {variant.why}
+                      </p>
+                    )}
+                    <p>
+                      <b>{spec.focus}</b> {spec.pace_note}
+                    </p>
+                    {variant?.fallback && <p className="italic">{variant.fallback}</p>}
+                  </div>
+                );
               })()}
             </>
           )}

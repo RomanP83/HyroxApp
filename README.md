@@ -130,7 +130,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 183 tests covering:
+`npm test` runs 197 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -160,6 +160,9 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
   without distorting the session mix, the run-frequency rule (lowest-priority
   run goes first, one non-run slot always survives), and the history check
   against the last four logged weeks.
+- Run variants: a library block behind every one, phase and equipment gating,
+  deterministic rotation, and the weakness bias that alternates instead of
+  repeating one session.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
@@ -187,6 +190,28 @@ Running is 50-60% of a Hyrox, so the plan treats it as an architecture rather th
   are aerobic). The window is phase-aware: a base block is meant to sit at 80-95% aerobic, a peak
   block at 60-80%. When your training days cannot carry the target, the week says so instead of
   quietly missing it.
+
+### One session, several shapes
+
+Each core session has variants, and the engine picks one per week — so a twelve-week plan does not
+prescribe the same interval session twelve times:
+
+| Core session | Variants |
+|---|---|
+| Long run | Flat Steady · Rolling Hills (pace dropped on the climbs to hold Z2) · Progression (Z2 → sub-threshold) |
+| Recovery run | Shakeout + 80 m strides · Soft-surface · Cross-training combo (half on the erg) |
+| Intervals | VO₂max 1k repeats · Threshold cruise 2k · Pyramid 400→1600→400 · 30/30 short reps |
+| Compromised | Sled brick · Lactate flush (erg → run) · Heavy Legs Triple (lunges → 1200 m) · Micro-simulation |
+
+Selection is deterministic in (session, phase, week), so the same athlete in the same week always
+gets the same session — and explainable: the card names the variant and why it is this one. Variants
+are gated by phase (30/30 short reps belong near the race, not in a base block) and by kit (no erg,
+no erg session; the hills and trail variants carry a fallback instead).
+
+**Adaptive:** every second week goes after your weakest station — read from the live station tiers or
+from a weakness you named — and is marked *your weak spot* on the card. The weeks in between
+deliberately exclude that variant, otherwise a "weakness focus" quietly becomes the same session
+every week.
 
 ### Setting the volume yourself
 

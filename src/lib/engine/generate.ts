@@ -79,7 +79,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         planned_duration_min: slot.planned_duration_min,
         intensity_rpe_target: slot.intensity_rpe_target,
         sort_order: slot.sort_order,
-        blocks: fillSession(slot, profile, state, library, w),
+        blocks: fillSession(slot, profile, state, library, w, pp.phase_type),
       }));
 
       weeks.push({

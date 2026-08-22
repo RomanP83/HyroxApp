@@ -72,6 +72,8 @@ export interface AthleteProfile {
   weekly_km_peak?: number | null;
   /** How many sessions a week should be runs. Unset = the phase decides. */
   runs_per_week?: number | null;
+  /** Stated weaknesses ("Sled Push", "Laktattoleranz") — steer session choice. */
+  weaknesses?: string[] | null;
   equipment_access: EquipmentAccess;
 }
 
@@ -117,6 +119,12 @@ export interface RenderedBlock {
     pace_sec_km?: number;
     /** Multiplier on the block's template loads (strength calibration, A6). */
     strength_modifier?: number;
+    /** Which shape of the core session this is, and why (runVariants.ts). */
+    variant_name?: string;
+    variant_why?: string;
+    variant_fallback?: string;
+    /** True when the variant was chosen to attack a weakness, not by rotation. */
+    variant_targeted?: boolean;
     /** Compromised running: pace for the first metres out of a station. */
     opening_pace_sec_km?: number;
     opening_distance_m?: number;

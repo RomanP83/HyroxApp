@@ -4,6 +4,7 @@ export * from "./constants";
 export * from "./macro";
 export * from "./season";
 export * from "./running";
+export * from "./runVariants";
 export * from "./micro";
 export * from "./fill";
 export * from "./weeklyGoal";

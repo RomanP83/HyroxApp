@@ -9,13 +9,15 @@ import type {
   AthleteProfile,
   AthleteState,
   EquipmentVariant,
+  PhaseType,
   RenderedBlock,
   SessionType,
   Station,
   WorkoutBlock,
 } from "./types";
 import { STATIONS } from "./types";
-import { COMPROMISED_OPENING, compromisedOpeningPace, runSpec } from "./running";
+import { COMPROMISED_OPENING, compromisedOpeningPace, isRunSession, runSpec } from "./running";
+import { pickRunVariant, type VariantPick } from "./runVariants";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -112,6 +114,8 @@ export function fillSession(
   state: AthleteState,
   library: WorkoutBlock[],
   weekNumber: number,
+  /** Which phase the week belongs to — decides which variants are eligible. */
+  phase?: PhaseType,
 ): RenderedBlock[] {
   const variant = variantFor(profile);
   const blocks: RenderedBlock[] = [];
@@ -135,8 +139,27 @@ export function fillSession(
   const wu = pickBlock({ library, sessionType: slot.session_type, blockType: "warmup", variant });
   if (wu) blocks.push(render(wu, profile, order++, { division: profile.division }));
 
-  // Main block.
-  const main = pickBlock({
+  // Main block. For a run session the variant layer decides the shape of the
+  // week (rotation, with every second week aimed at a weakness); the library
+  // block it names is used when it is there, otherwise the generic pick stands.
+  let picked: VariantPick | null = null;
+  let main: WorkoutBlock | undefined;
+  if (phase && isRunSession(slot.session_type)) {
+    picked = pickRunVariant({
+      sessionType: slot.session_type,
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+    });
+    // The demo library carries the slug as its id; the database has both.
+    main = picked
+      ? library.find((b) => (b.slug ?? b.id) === picked!.variant.slug)
+      : undefined;
+    if (!main) picked = null;
+  }
+  main ??= pickBlock({
     library,
     sessionType: slot.session_type,
     blockType: "main",
@@ -168,6 +191,10 @@ export function fillSession(
         pace_sec_km: pace,
         strength_modifier: strengthMod,
         ...compromised,
+        variant_name: picked?.variant.name,
+        variant_why: picked?.variant.why,
+        variant_fallback: picked?.variant.fallback,
+        variant_targeted: picked?.targeted,
         note: station ? `${station} focus @ tier ${targetTier}` : undefined,
       }),
     );

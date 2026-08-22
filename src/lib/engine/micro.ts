@@ -10,6 +10,7 @@ import {
   PHASE_SLOT_PRIORITY,
   PHASE_RPE_TARGET,
   COMPROMISED_PER_WEEK,
+  MAX_HARD_SESSIONS_PER_WEEK,
 } from "./constants";
 
 export interface SessionSlot {
@@ -115,6 +116,40 @@ interface DistributeInput {
   doublesPerWeek?: number;
   /** How many of the week's sessions should be runs. Unset = the phase decides. */
   runsPerWeek?: number;
+  /** This is the one week of the cycle that carries a full race simulation. */
+  includeFullSim?: boolean;
+}
+
+/**
+ * Two hard days a week, no more. A benchmark week, a simulation week or an
+ * ambitious run frequency can all push a third onto the calendar; the lowest-
+ * priority hard session of the phase gives way to the next session the phase
+ * would have used anyway.
+ */
+export function capHardSessions(types: SessionType[], phase: PhaseType): SessionType[] {
+  const priority = PHASE_SLOT_PRIORITY[phase];
+  const out = [...types];
+  const hardCount = () => out.filter((t) => HARD_TYPES.includes(t)).length;
+
+  while (hardCount() > MAX_HARD_SESSIONS_PER_WEEK) {
+    // Lowest priority first; a type the phase does not list at all goes before
+    // the ones it does (that is what a benchmark or a simulation is).
+    const rank = (t: SessionType) => {
+      const i = priority.indexOf(t);
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    const victim = out
+      .filter((t) => HARD_TYPES.includes(t) && rank(t) !== Number.MAX_SAFE_INTEGER)
+      .sort((a, b) => rank(b) - rank(a))[0];
+    if (!victim) break;
+    const replacement = priority.find((t) => !HARD_TYPES.includes(t) && !out.includes(t));
+    if (!replacement) {
+      out.splice(out.lastIndexOf(victim), 1);
+      continue;
+    }
+    out[out.lastIndexOf(victim)] = replacement;
+  }
+  return out;
 }
 
 /**
@@ -210,6 +245,11 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
     types = ["benchmark", ...types.slice(0, Math.max(2, trainingDays - 1))];
   }
 
+  // The cycle's single full race simulation, on the one week that carries it.
+  if (input.includeFullSim && !types.includes("full_sim")) {
+    types = ["full_sim", ...types.slice(0, Math.max(2, trainingDays - 1))];
+  }
+
   // Deload: shed the lowest-priority slot (keep at least 3 touches).
   if (isDeload && types.length > 3) {
     types = types.slice(0, types.length - 1);
@@ -217,6 +257,9 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
 
   // The athlete's own running frequency, when they set one.
   types = applyRunFrequency(types, phase, input.runsPerWeek);
+
+  // Two hard days a week is the ceiling, whatever the week is called.
+  types = capHardSessions(types, phase);
 
   const days = spreadDays(types.length);
 

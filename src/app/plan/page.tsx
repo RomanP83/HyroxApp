@@ -2,7 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib/engine";
-import { assessVolumeTarget, defaultPaceZones, weeklyRunSummary } from "@/lib/engine";
+import {
+  assessVolumeTarget,
+  defaultPaceZones,
+  frequencyAdvice,
+  weeklyRunSummary,
+  type ExperienceLevel,
+} from "@/lib/engine";
 import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import { signDeepLink } from "@/lib/telegram";
@@ -26,7 +32,7 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status, training_days_per_week, weekly_km_peak, runs_per_week",
+      "id, division, experience_level, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week",
     )
     .eq("user_id", user.id)
     .single();
@@ -280,6 +286,13 @@ export default async function PlanPage({
         runs_per_week: profile.runs_per_week ?? null,
         max_runs: Math.max(2, (profile.training_days_per_week ?? 4) - 1),
         assessment,
+        frequency: profile.experience_level
+          ? frequencyAdvice(
+              profile.experience_level as ExperienceLevel,
+              profile.training_days_per_week ?? 4,
+              profile.doubles_per_week ?? 0,
+            )
+          : null,
       }}
     />
   );

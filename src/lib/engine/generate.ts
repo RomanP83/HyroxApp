@@ -31,6 +31,14 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
   const phasePlans = buildPhasePlan(weeksToRace);
   const lastBuild = [...phasePlans].reverse().find((p) => p.phase_type === "build");
   const taper = phasePlans.find((p) => p.phase_type === "taper");
+  const peak = phasePlans.find((p) => p.phase_type === "peak");
+
+  // ONE full race simulation per cycle, not one per peak week: a complete
+  // run-through costs 2-3 days of recovery. It goes three weeks out — late
+  // enough to rehearse pacing, early enough to absorb.
+  const fullSimWeek = peak
+    ? Math.min(peak.end_week, Math.max(peak.start_week, weeksToRace - 2))
+    : null;
 
   // Benchmark weeks (§5 Schritt 1): week 1, end of build, start of taper.
   const benchmarkWeeks = new Set<number>([1]);
@@ -54,6 +62,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         isBenchmark,
         doublesPerWeek: profile.doubles_per_week ?? 0,
         runsPerWeek: profile.runs_per_week ?? undefined,
+        includeFullSim: w === fullSimWeek,
       });
 
       // When the athlete gave the cycle a peak volume, the week's runs are

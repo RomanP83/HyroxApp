@@ -14,7 +14,7 @@ export const ENGINE_VERSION = "v1.2";
 // Taper is never negotiable (PP4).
 export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]> = {
   16: [6, 6, 3, 1],
-  12: [4, 5, 2, 1],
+  12: [4, 4, 3, 1],
   10: [3, 4, 2, 1],
   8: [2, 3, 2, 1],
 };
@@ -34,9 +34,21 @@ export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
   // no doubles will see the week's polarised share flagged — that trade-off is
   // reported, not hidden.
   build: ["compromised_run", "run_intervals", "long_run", "strength", "station_work", "run_easy"],
-  peak: ["full_sim", "compromised_run", "run_intervals", "long_run", "station_work", "run_easy"],
-  taper: ["run_intervals", "compromised_run", "run_easy", "station_work", "long_run", "mobility"],
+  // No full_sim here on purpose: a complete race simulation costs 2-3 days of
+  // recovery, so the plan places exactly ONE per cycle (generate.ts) instead of
+  // one every peak week. The peak weeks run station-interval work instead.
+  peak: ["compromised_run", "run_intervals", "long_run", "station_work", "strength", "run_easy"],
+  // Race week keeps a light strength primer: speed off the floor, nothing
+  // emptied. Dropping strength entirely is how athletes arrive flat.
+  taper: ["run_intervals", "compromised_run", "run_easy", "strength", "station_work", "long_run"],
 };
+
+/**
+ * Hard days a week may hold — threshold/interval work, compromised running,
+ * a simulation or a benchmark. Two is the ceiling: everything above it eats
+ * the aerobic base that carries 50-60% of the race.
+ */
+export const MAX_HARD_SESSIONS_PER_WEEK = 2;
 
 // Compromised-running frequency ramps base -> peak (§5 Schritt 2).
 // Base is 0 on purpose: the base block builds running economy without the

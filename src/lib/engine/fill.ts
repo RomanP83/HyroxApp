@@ -19,6 +19,7 @@ import { STATIONS } from "./types";
 import { COMPROMISED_OPENING, compromisedOpeningPace, isRunSession, runSpec } from "./running";
 import { pickRunVariant, type VariantPick } from "./runVariants";
 import { pickStationVariant } from "./stationVariants";
+import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -145,7 +146,12 @@ export function fillSession(
   // block it names is used when it is there, otherwise the generic pick stands.
   let picked: VariantPick | null = null;
   let main: WorkoutBlock | undefined;
-  if (phase && (isRunSession(slot.session_type) || slot.session_type === "station_work")) {
+  if (
+    phase &&
+    (isRunSession(slot.session_type) ||
+      slot.session_type === "station_work" ||
+      slot.session_type === "strength")
+  ) {
     const query = {
       sessionType: slot.session_type,
       phase,
@@ -156,7 +162,9 @@ export function fillSession(
     };
     picked = isRunSession(slot.session_type)
       ? pickRunVariant(query)
-      : pickStationVariant(query);
+      : slot.session_type === "strength"
+        ? pickStrengthVariant(query)
+        : pickStationVariant(query);
     // The demo library carries the slug as its id; the database has both.
     main = picked
       ? library.find((b) => (b.slug ?? b.id) === picked!.variant.slug)
@@ -202,6 +210,24 @@ export function fillSession(
         note: station ? `${station} focus @ tier ${targetTier}` : undefined,
       }),
     );
+  }
+
+  // A strength day carries a finisher — this is where plyometrics and grip
+  // work live, because both only do their job in a rested state. Nothing
+  // attached finishers before, which is why the library's grip block was never
+  // once prescribed.
+  if (phase && slot.session_type === "strength") {
+    const finisher = pickStrengthFinisher(weekNumber, phase);
+    const block = library.find((b) => (b.slug ?? b.id) === finisher.slug);
+    if (block) {
+      blocks.push(
+        render(block, profile, order++, {
+          division: profile.division,
+          variant_name: finisher.name,
+          variant_why: finisher.why,
+        }),
+      );
+    }
   }
 
   // A short mobility cap on hard, non-run days for recovery hygiene.

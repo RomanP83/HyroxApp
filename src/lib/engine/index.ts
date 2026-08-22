@@ -6,6 +6,7 @@ export * from "./season";
 export * from "./running";
 export * from "./runVariants";
 export * from "./stationVariants";
+export * from "./strengthVariants";
 export * from "./micro";
 export * from "./fill";
 export * from "./weeklyGoal";

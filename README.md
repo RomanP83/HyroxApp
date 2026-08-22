@@ -130,7 +130,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 211 tests covering:
+`npm test` runs 232 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -166,9 +166,32 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 - Station variants: three shapes per training block and two for the race week,
   overload work confined to the base, priming confined to the taper, and the
   division loads that come out of a "125% of race weight" prescription.
+- Structure: the 4/4/3/1 split, at most two hard days in any week at any
+  frequency, exactly one full simulation per cycle, strength in every phase,
+  plyometrics and grip actually reaching a session, and one full rest day.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
+
+---
+
+## The rules the structure holds itself to
+
+The whole plan is checked against a handful of coaching rules, and the tests fail if it drifts:
+
+| Rule | How it is held |
+|---|---|
+| **Two hard days a week, no more** | `capHardSessions()` runs last on every week — a benchmark, a simulation or an ambitious run frequency gives the slot back to the phase's next session |
+| **One full race simulation per cycle** | placed three weeks out, not once per peak week: a complete run-through costs 2-3 days of recovery |
+| **12 weeks = 4 base / 4 build / 3 peak / 1 taper** | `PHASE_SPLIT_TABLE` |
+| **Strength in every phase** | heavy compounds at 3 reps in base and build, maintenance in peak, a power primer in race week |
+| **Plyometrics and grip, in a rested state** | finishers on the strength day, alternating week by week — they are the two must-dos that only work fresh |
+| **At least one full rest day** | no week ever fills seven days, at any frequency |
+| **Frequency fits the level** | 3-4 / 4-5 / 5-6 sessions by experience, with AM/PM splits treated as the top level's tool. The app advises; it never blocks |
+
+Deliberate exception: the one simulation week sits below its polarised window, and the taper's window
+is wider because a taper cuts volume while keeping the sharp sessions — the hard share rises by
+design there.
 
 ---
 

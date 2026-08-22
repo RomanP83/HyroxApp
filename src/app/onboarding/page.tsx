@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
+import { frequencyAdvice, initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
 import { fmtClock, PHASE_COLORS, titleCase } from "@/lib/format";
 import { CheckIcon, SpinnerIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
@@ -244,6 +244,16 @@ export default function Onboarding() {
             value={String(doubles)}
             onChange={(v) => setDoubles(Number(v))}
           />
+          {(() => {
+            // Level and frequency belong together — the app advises, it never
+            // blocks: the athlete knows their own history.
+            const advice = frequencyAdvice(level, days, doubles);
+            return (
+              <p className={`text-xs ${advice.verdict === "ok" ? "text-muted" : "text-warn"}`}>
+                {advice.note}
+              </p>
+            );
+          })()}
           <div>
             <label className="label">Peak running volume (km/week, optional)</label>
             <input

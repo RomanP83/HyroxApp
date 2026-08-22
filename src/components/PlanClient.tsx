@@ -8,7 +8,7 @@ import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthS
 import { FeedbackCard } from "./FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
-import type { PhaseType, VolumeAssessment, WeeklyRunSummary } from "@/lib/engine";
+import type { FrequencyAdvice, PhaseType, VolumeAssessment, WeeklyRunSummary } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
@@ -68,6 +68,8 @@ interface Props {
     runs_per_week: number | null;
     max_runs: number;
     assessment: VolumeAssessment | null;
+    /** How the chosen load reads against the athlete's experience level. */
+    frequency: FrequencyAdvice | null;
   };
   /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
   telegramLink: string | null;
@@ -549,6 +551,15 @@ export function PlanClient(props: Props) {
                 />
               </label>
             </div>
+            {props.volume.frequency && (
+              <p
+                className={`text-xs ${
+                  props.volume.frequency.verdict === "ok" ? "text-muted" : "text-warn"
+                }`}
+              >
+                {props.volume.frequency.note}
+              </p>
+            )}
             {/* The corrective: what the last four logged weeks actually support. */}
             {props.volume.assessment && (
               <p

@@ -14,7 +14,7 @@
 // the polarised target — instead of a meaningless 50/50 by session count.
 // ============================================================================
 
-import type { PaceZones, PhaseType, SessionType } from "./types";
+import type { ExperienceLevel, PaceZones, PhaseType, SessionType } from "./types";
 
 export type RunSessionType =
   | "long_run"
@@ -138,8 +138,15 @@ export const RUNNING_TARGETS = {
 export const POLARISATION_BY_PHASE: Record<PhaseType, [number, number]> = {
   base: [0.8, 0.95],
   build: [0.75, 0.85],
-  peak: [0.6, 0.8],
-  taper: [0.7, 0.9],
+  // The peak block used to run a full simulation every week, which is why this
+  // window sat at 60-80%. With one simulation per cycle it can hold the
+  // prescription's own 70-80% again.
+  peak: [0.7, 0.85],
+  // A taper cuts volume by 40-50% and KEEPS the sharp sessions, so the hard
+  // share necessarily rises — that is the point of it, not a defect. Race week
+  // is controlled by volume (VOLUME_CURVE_BY_PHASE.taper) and by the two-hard-
+  // days ceiling, not by the distribution.
+  taper: [0.6, 0.9],
 };
 
 /** Weekly kilometres per phase — a taper is supposed to be short. */
@@ -149,6 +156,76 @@ export const VOLUME_BY_PHASE: Record<PhaseType, [number, number]> = {
   peak: [30, 50],
   taper: [15, 30],
 };
+
+// ── Training frequency by experience ────────────────────────────────────────
+
+/**
+ * Sessions a week that each level is built for. A beginner training six days
+ * with doubles is not training harder, they are accumulating fatigue they have
+ * no base for — but this advises, it never blocks: the athlete decides.
+ */
+export const FREQUENCY_BY_LEVEL: Record<ExperienceLevel, { min: number; max: number; focus: string }> = {
+  beginner: {
+    min: 3,
+    max: 4,
+    focus: "aerobic base, the station standards, and basic strength",
+  },
+  intermediate: {
+    min: 4,
+    max: 5,
+    focus: "threshold work, compromised running and heavy lifts",
+  },
+  advanced: {
+    min: 5,
+    max: 6,
+    focus: "lactate tolerance, pacing consistency and fast transitions — this is where AM/PM splits earn their place",
+  },
+};
+
+export interface FrequencyAdvice {
+  verdict: "ok" | "high" | "low";
+  note: string;
+}
+
+/**
+ * What to say about the athlete's chosen load, given their level. Training DAYS
+ * are measured against the level's range; a double day is judged separately,
+ * because an AM/PM split is a tool of the top level — at that level it sits
+ * inside the 5-6 sessions rather than on top of them.
+ */
+export function frequencyAdvice(
+  level: ExperienceLevel,
+  trainingDays: number,
+  doublesPerWeek = 0,
+): FrequencyAdvice {
+  const { min, max, focus } = FREQUENCY_BY_LEVEL[level];
+  const label = doublesPerWeek
+    ? `${trainingDays} days plus ${doublesPerWeek} double${doublesPerWeek > 1 ? "s" : ""}`
+    : `${trainingDays} days`;
+
+  if (doublesPerWeek > 0 && level !== "advanced") {
+    return {
+      verdict: "high",
+      note: `${label}: AM/PM splits belong to the top level, where they sit inside a ${min}-${max} day week rather than on top of it. Add the volume to your existing days first. Focus at this level: ${focus}.`,
+    };
+  }
+  if (trainingDays > max) {
+    return {
+      verdict: "high",
+      note: `${label} is above the ${min}-${max} a ${level} athlete is usually built for. It will work if you are already used to it — otherwise the base gives way before the fitness arrives. Focus at this level: ${focus}.`,
+    };
+  }
+  if (trainingDays < min) {
+    return {
+      verdict: "low",
+      note: `${label} is below the ${min}-${max} this level asks for; the plan will fit, but there is not much room for the aerobic volume that carries a Hyrox. Focus at this level: ${focus}.`,
+    };
+  }
+  return {
+    verdict: "ok",
+    note: `${label} sits in the ${min}-${max} range for a ${level} athlete. Focus at this level: ${focus}.`,
+  };
+}
 
 // ── Volume: one number for the cycle, a curve for the weeks ────────────────
 
@@ -345,7 +422,9 @@ export function weeklyRunSummary(
   const totalKm = Math.round(total * 10) / 10;
   const hardKm = Math.round(hard * 10) / 10;
   const easyKm = Math.round((total - hard) * 10) / 10;
-  const easyShare = total > 0 ? (total - hard) / total : 0;
+  // Rounded before it is judged: a week displayed as "75% aerobic" must not be
+  // flagged for missing a 75% floor by a rounding artefact.
+  const easyShare = total > 0 ? Math.round(((total - hard) / total) * 100) / 100 : 0;
 
   const [kmMin, kmMax] = phase
     ? VOLUME_BY_PHASE[phase]
@@ -364,7 +443,7 @@ export function weeklyRunSummary(
     total_km: totalKm,
     easy_km: easyKm,
     hard_km: hardKm,
-    easy_share: Math.round(easyShare * 100) / 100,
+    easy_share: easyShare,
     volume,
     polarisation,
     note: summaryNote(runs, totalKm, easyShare, volume, polarisation, [kmMin, easyMin, easyMax]),

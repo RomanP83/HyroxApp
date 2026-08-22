@@ -130,7 +130,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 163 tests covering:
+`npm test` runs 183 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -156,6 +156,10 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
   prescribed ranges, no compromised running before the build block, every phase
   hits its polarised window at 5 training days, and the compromised opening
   buffer reaches the card.
+- Running volume: the phase curve and its ramp, scaling a week onto a km target
+  without distorting the session mix, the run-frequency rule (lowest-priority
+  run goes first, one non-run slot always survives), and the history check
+  against the last four logged weeks.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
@@ -183,6 +187,22 @@ Running is 50-60% of a Hyrox, so the plan treats it as an architecture rather th
   are aerobic). The window is phase-aware: a base block is meant to sit at 80-95% aerobic, a peak
   block at 60-80%. When your training days cannot carry the target, the week says so instead of
   quietly missing it.
+
+### Setting the volume yourself
+
+Two numbers on the plan page: **peak km/week** and **runs/week**. You set the *peak* — the hardest
+week of the cycle — and the phase curve derives every other week from it (base 85%, build 100%, peak
+90%, taper 50%, deload ×0.7, plus a three-week ramp into the plan). A cycle *average* would hide the
+single week that decides whether the build holds, which is why the peak is the input.
+
+The run sessions are then stretched or shrunk onto that target, keeping their proportions — the long
+run stays the long one, and no target turns a recovery run into an epic (every session has bounds).
+Saving rebuilds the remaining weeks through the same rebase the injury-recovery flow uses.
+
+**The corrective:** the app compares your target against the kilometres you have actually logged in
+the last four weeks (measured distance from Strava/Garmin where available, otherwise minutes at the
+session's pace zone). Ask for 70 km off the back of 20 km weeks and it says so, with the number the
+ramp would support — it does not refuse the target, it makes it a decision.
 
 ---
 

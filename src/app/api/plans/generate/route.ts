@@ -11,6 +11,8 @@ const Body = z.object({
   station_estimates: z.record(z.number()).optional(),
   training_days_per_week: z.number().int().min(3).max(6),
   doubles_per_week: z.number().int().min(0).max(3).optional(),
+  weekly_km_peak: z.number().min(15).max(150).nullable().optional(),
+  runs_per_week: z.number().int().min(2).max(6).nullable().optional(),
   equipment_access: z.enum(["full_gym", "home_minimal", "hybrid"]),
   telegram_chat_id: z.string().optional(),
   race_date: z.string(), // ISO date
@@ -48,6 +50,8 @@ export async function POST(req: Request) {
         station_estimates: body.station_estimates ?? {},
         training_days_per_week: body.training_days_per_week,
         doubles_per_week: body.doubles_per_week ?? 0,
+        weekly_km_peak: body.weekly_km_peak ?? null,
+        runs_per_week: body.runs_per_week ?? null,
         equipment_access: body.equipment_access,
         telegram_chat_id: body.telegram_chat_id ?? null,
       },

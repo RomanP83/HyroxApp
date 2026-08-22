@@ -68,6 +68,10 @@ export interface AthleteProfile {
   training_days_per_week: number; // 3..6
   /** How many days per week may carry a second (PM) session. 0..3. */
   doubles_per_week?: number;
+  /** Highest weekly running volume of the cycle; the phase curve does the rest. */
+  weekly_km_peak?: number | null;
+  /** How many sessions a week should be runs. Unset = the phase decides. */
+  runs_per_week?: number | null;
   equipment_access: EquipmentAccess;
 }
 

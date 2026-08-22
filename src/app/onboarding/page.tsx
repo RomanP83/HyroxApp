@@ -34,6 +34,7 @@ export default function Onboarding() {
   const [level, setLevel] = useState<Level>("intermediate");
   const [days, setDays] = useState(4);
   const [doubles, setDoubles] = useState(0);
+  const [kmPeak, setKmPeak] = useState("");
   const [equipment, setEquipment] = useState<Equipment>("full_gym");
   const [fiveKMin, setFiveKMin] = useState(22);
   const [fiveKSec, setFiveKSec] = useState(30);
@@ -73,6 +74,7 @@ export default function Onboarding() {
       station_estimates: {},
       training_days_per_week: days,
       doubles_per_week: doubles,
+      weekly_km_peak: kmPeak ? Number(kmPeak) : null,
       equipment_access: equipment,
     };
     return {
@@ -80,7 +82,7 @@ export default function Onboarding() {
       split: splitPhases(weeks),
       predicted: initialAthleteState(profile).predicted_race_time_sec,
     };
-  }, [raceDate, division, level, days, doubles, equipment, fiveKMin, fiveKSec]);
+  }, [raceDate, division, level, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
 
   async function sendMagicLink() {
     setError(null);
@@ -106,6 +108,7 @@ export default function Onboarding() {
           five_k_seconds: fiveKMin * 60 + fiveKSec,
           training_days_per_week: days,
           doubles_per_week: doubles,
+          weekly_km_peak: kmPeak ? Number(kmPeak) : null,
           equipment_access: equipment,
           race_date: raceDate,
           race_id: raceId,
@@ -241,6 +244,22 @@ export default function Onboarding() {
             value={String(doubles)}
             onChange={(v) => setDoubles(Number(v))}
           />
+          <div>
+            <label className="label">Peak running volume (km/week, optional)</label>
+            <input
+              className="input"
+              type="number"
+              min="15"
+              max="150"
+              value={kmPeak}
+              placeholder="leave empty and the engine decides"
+              onChange={(e) => setKmPeak(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-muted">
+              The hardest week of the cycle. Every other week is derived from it — you can change it
+              any time on your plan.
+            </p>
+          </div>
           <ChipGroup
             label="Where do you train?"
             options={[

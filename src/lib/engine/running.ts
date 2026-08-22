@@ -41,6 +41,9 @@ export interface RunSpec {
   hard_fraction: number;
   focus: string;
   pace_note: string;
+  /** Bounds a scaled session must stay inside, whatever the volume target. */
+  min_minutes: number;
+  max_minutes: number;
 }
 
 export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
@@ -53,6 +56,8 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
     hard_fraction: 0,
     focus: "Mitochondrial density, fat metabolism, tendon economy.",
     pace_note: "Conversational — 60-90 s/km slower than your 5k pace. If you cannot talk, slow down.",
+    min_minutes: 45,
+    max_minutes: 150,
   },
   run_easy: {
     hr_zone: "Zone 1-2 · below 70% HRmax",
@@ -63,6 +68,8 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
     hard_fraction: 0,
     focus: "Circulation and active lactate clearance — this one is recovery, not training.",
     pace_note: "Very easy. Slower than it feels right; the point is blood flow, not fitness.",
+    min_minutes: 20,
+    max_minutes: 60,
   },
   run_intervals: {
     hr_zone: "Zone 4-5 · 88-95% HRmax",
@@ -73,6 +80,8 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
     hard_fraction: 0.45,
     focus: "Lactate tolerance, VO₂max, speed reserve.",
     pace_note: "Reps at 3k-5k race effort. Full recovery between — quality over quantity.",
+    min_minutes: 30,
+    max_minutes: 75,
   },
   compromised_run: {
     hr_zone: "Zone 3-4 · 80-90% HRmax",
@@ -83,6 +92,8 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
     hard_fraction: 0.6,
     focus: "Running specifically under pre-fatigue — the heavy-legs feeling of the real race.",
     pace_note: "Target race pace out of the station. Never sprint out of a station into Zone 5.",
+    min_minutes: 30,
+    max_minutes: 90,
   },
   full_sim: {
     hr_zone: "Zone 3-4 · 80-90% HRmax",
@@ -93,6 +104,8 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
     hard_fraction: 0.7,
     focus: "The whole thing, rehearsed: pacing, transitions, nutrition.",
     pace_note: "Hold your goal split. The simulation is where pacing mistakes are cheap.",
+    min_minutes: 45,
+    max_minutes: 120,
   },
 };
 
@@ -136,6 +149,136 @@ export const VOLUME_BY_PHASE: Record<PhaseType, [number, number]> = {
   peak: [30, 50],
   taper: [15, 30],
 };
+
+// ── Volume: one number for the cycle, a curve for the weeks ────────────────
+
+/**
+ * Share of the cycle's PEAK weekly volume each phase carries. Volume peaks in
+ * the build block and then yields to intensity — the peak phase sharpens, it
+ * does not pile on kilometres, and the taper halves everything.
+ *
+ * The athlete sets the peak, not an average: an average hides the single
+ * hardest week, which is the one that decides whether the cycle is survivable.
+ */
+export const VOLUME_CURVE_BY_PHASE: Record<PhaseType, number> = {
+  base: 0.85,
+  build: 1,
+  peak: 0.9,
+  taper: 0.5,
+};
+
+/** Weeks spent ramping into the plan's volume before the curve applies fully. */
+export const VOLUME_RAMP_WEEKS = 3;
+export const VOLUME_RAMP_START = 0.75;
+/** A deload week runs at the same reduction the session durations use. */
+export const VOLUME_DELOAD_FACTOR = 0.7;
+
+/** The kilometres one specific week is aiming at. */
+export function weeklyVolumeTarget(opts: {
+  peakKm: number;
+  phase: PhaseType;
+  isDeload: boolean;
+  /** 1-based plan week; the first weeks ramp in rather than starting at full. */
+  weekNumber?: number;
+}): number {
+  const phaseShare = VOLUME_CURVE_BY_PHASE[opts.phase];
+  const week = opts.weekNumber ?? VOLUME_RAMP_WEEKS + 1;
+  const ramp =
+    week <= VOLUME_RAMP_WEEKS
+      ? VOLUME_RAMP_START +
+        ((1 - VOLUME_RAMP_START) * (week - 1)) / Math.max(1, VOLUME_RAMP_WEEKS - 1)
+      : 1;
+  const deload = opts.isDeload ? VOLUME_DELOAD_FACTOR : 1;
+  return Math.round(opts.peakKm * phaseShare * ramp * deload * 10) / 10;
+}
+
+/**
+ * Stretch or shrink the week's run sessions so their planned distance adds up
+ * to the target, keeping the proportions of the prescription: the long run
+ * stays the long one. Non-run sessions are untouched, and every session stays
+ * inside its own bounds — a 60 km target does not turn a recovery run into 90
+ * minutes.
+ */
+export function scaleRunDurations<T extends { session_type: SessionType; planned_duration_min: number }>(
+  slots: T[],
+  zones: PaceZones,
+  targetKm: number,
+): T[] {
+  const baseline = slots.reduce(
+    (km, s) => km + plannedDistanceKm(s.session_type, s.planned_duration_min, zones),
+    0,
+  );
+  if (baseline <= 0 || targetKm <= 0) return slots;
+
+  // A single week may move the volume by half, not by a factor of five.
+  const factor = Math.max(0.5, Math.min(1.8, targetKm / baseline));
+  return slots.map((slot) => {
+    const spec = runSpec(slot.session_type);
+    if (!spec) return slot;
+    const scaled = Math.round((slot.planned_duration_min * factor) / 5) * 5;
+    return {
+      ...slot,
+      planned_duration_min: Math.max(spec.min_minutes, Math.min(spec.max_minutes, scaled)),
+    };
+  });
+}
+
+// ── Is that target reachable from where the athlete actually is? ───────────
+
+export interface VolumeAssessment {
+  /** The highest peak the recent weeks support, or null without history. */
+  safe_peak_km: number | null;
+  recent_weekly_km: number | null;
+  verdict: "ok" | "steep" | "unknown";
+  note: string;
+}
+
+/** Weekly load may grow ~10%; over a build that compounds, but not forever. */
+export const VOLUME_WEEKLY_GROWTH = 1.1;
+export const VOLUME_MAX_CYCLE_GROWTH = 1.6;
+
+/**
+ * Compare the target against what the athlete has actually been running. The
+ * plan does not refuse a number — it says what the last four weeks support, so
+ * an ambitious peak is a decision rather than an accident.
+ */
+export function assessVolumeTarget(opts: {
+  targetKm: number;
+  /** Kilometres actually run per week, most recent first. */
+  recentWeeklyKm: number[];
+  /** Weeks between now and the peak week of the cycle. */
+  weeksToPeak: number;
+}): VolumeAssessment {
+  const weeks = opts.recentWeeklyKm.filter((km) => km > 0).slice(0, 4);
+  if (weeks.length < 2) {
+    return {
+      safe_peak_km: null,
+      recent_weekly_km: weeks.length ? Math.round(weeks[0] * 10) / 10 : null,
+      verdict: "unknown",
+      note: "Not enough logged running yet to judge the target — log a few weeks and this becomes a real check.",
+    };
+  }
+
+  const recent = weeks.reduce((sum, km) => sum + km, 0) / weeks.length;
+  const compounded = recent * Math.pow(VOLUME_WEEKLY_GROWTH, Math.max(0, opts.weeksToPeak));
+  const safePeak = Math.round(Math.min(compounded, recent * VOLUME_MAX_CYCLE_GROWTH) * 10) / 10;
+  const recentKm = Math.round(recent * 10) / 10;
+
+  if (opts.targetKm <= safePeak) {
+    return {
+      safe_peak_km: safePeak,
+      recent_weekly_km: recentKm,
+      verdict: "ok",
+      note: `You have been running ${recentKm} km a week; ${opts.targetKm} km at the peak is a sane build from there.`,
+    };
+  }
+  return {
+    safe_peak_km: safePeak,
+    recent_weekly_km: recentKm,
+    verdict: "steep",
+    note: `You have been running ${recentKm} km a week. ${opts.targetKm} km at the peak is a steeper ramp than the last four weeks support — about ${safePeak} km would be the safe end of it.`,
+  };
+}
 
 /**
  * Compromised running out of a station: the first 400 m carry a buffer on top

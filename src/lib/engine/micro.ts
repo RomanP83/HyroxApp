@@ -5,7 +5,7 @@
 // ============================================================================
 
 import type { DaySlot, PhaseType, SessionType } from "./types";
-import { runSpec } from "./running";
+import { isRunSession, runSpec } from "./running";
 import {
   PHASE_SLOT_PRIORITY,
   PHASE_RPE_TARGET,
@@ -113,6 +113,54 @@ interface DistributeInput {
   isBenchmark: boolean;
   /** Days per week that may carry a second, lighter PM session (0..3). */
   doublesPerWeek?: number;
+  /** How many of the week's sessions should be runs. Unset = the phase decides. */
+  runsPerWeek?: number;
+}
+
+/**
+ * Bend the week's session mix towards a requested number of runs. Exactly one
+ * non-run slot is protected — a Hyrox plan without any strength or station work
+ * is not a Hyrox plan — but beyond that the athlete's frequency wins, including
+ * "4 of my 5 sessions are runs". In a trimmed deload week the request is capped
+ * by the sessions that are actually left.
+ */
+export function applyRunFrequency(
+  types: SessionType[],
+  phase: PhaseType,
+  runsPerWeek?: number,
+): SessionType[] {
+  if (!runsPerWeek || !types.length) return types;
+  const wanted = Math.max(1, Math.min(runsPerWeek, types.length - 1));
+  const priority = PHASE_SLOT_PRIORITY[phase];
+  const out = [...types];
+
+  const runCount = () => out.filter((t) => isRunSession(t)).length;
+
+  // Too few runs: promote the next run type the phase would have used.
+  while (runCount() < wanted) {
+    const nextRun = priority.find((t) => isRunSession(t) && !out.includes(t));
+    if (!nextRun) break;
+    // Replace from the back — the lowest-priority non-run slot goes first.
+    const victim = [...out].reverse().find((t) => !isRunSession(t));
+    if (!victim) break;
+    out[out.lastIndexOf(victim)] = nextRun;
+  }
+
+  // Too many runs: give the slot back to the phase's next non-run session.
+  // The victim is the phase's LOWEST-priority run — which is the recovery run
+  // before the long run, because the long run is what carries the aerobic
+  // share of the week.
+  while (runCount() > wanted) {
+    const victim = [...out]
+      .filter((t) => isRunSession(t))
+      .sort((a, b) => priority.indexOf(b) - priority.indexOf(a))[0];
+    if (!victim) break;
+    const replacement =
+      priority.find((t) => !isRunSession(t) && !out.includes(t)) ?? "mobility";
+    out[out.lastIndexOf(victim)] = replacement;
+  }
+
+  return out;
 }
 
 /**
@@ -166,6 +214,9 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
   if (isDeload && types.length > 3) {
     types = types.slice(0, types.length - 1);
   }
+
+  // The athlete's own running frequency, when they set one.
+  types = applyRunFrequency(types, phase, input.runsPerWeek);
 
   const days = spreadDays(types.length);
 

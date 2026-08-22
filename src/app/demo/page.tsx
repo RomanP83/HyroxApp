@@ -51,6 +51,7 @@ export default function DemoPage() {
   const [level, setLevel] = useState<ExperienceLevel>("intermediate");
   const [days, setDays] = useState(4);
   const [doubles, setDoubles] = useState(0);
+  const [kmPeak, setKmPeak] = useState(0); // 0 = let the engine decide
   const [weeks, setWeeks] = useState(12);
   const [fiveK, setFiveK] = useState(1350);
 
@@ -82,6 +83,7 @@ export default function DemoPage() {
       station_estimates: {},
       training_days_per_week: days,
       doubles_per_week: doubles,
+      weekly_km_peak: kmPeak || null,
       equipment_access: "full_gym",
     };
     const s = initialAthleteState(p);
@@ -286,6 +288,20 @@ export default function DemoPage() {
             {[0, 1, 2, 3].map((d) => (
               <option key={d} value={d}>
                 {d === 0 ? "none" : `${d} / week`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">Peak km / week</label>
+          <select
+            className="input"
+            value={kmPeak}
+            onChange={(e) => setKmPeak(Number(e.target.value))}
+          >
+            {[0, 30, 40, 50, 60, 70].map((km) => (
+              <option key={km} value={km}>
+                {km === 0 ? "auto" : `${km} km`}
               </option>
             ))}
           </select>

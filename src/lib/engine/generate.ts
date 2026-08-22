@@ -8,6 +8,7 @@
 import type { GenerateInput, GeneratedPlan, GeneratedPhase, GeneratedWeek } from "./types";
 import { ENGINE_VERSION, DELOAD_VOLUME_MULTIPLIER } from "./constants";
 import { buildPhasePlan } from "./macro";
+import { scaleRunDurations, weeklyVolumeTarget } from "./running";
 import { distributeSlots } from "./micro";
 import { fillSession } from "./fill";
 import { weeklyGoal } from "./weeklyGoal";
@@ -45,14 +46,30 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
       const isDeload =
         !isBenchmark && (pp.phase_type === "base" || pp.phase_type === "build") && w % 4 === 0;
 
-      const slots = distributeSlots({
+      let slots = distributeSlots({
         phase: pp.phase_type,
         trainingDays: profile.training_days_per_week,
         weekInPhase,
         isDeload,
         isBenchmark,
         doublesPerWeek: profile.doubles_per_week ?? 0,
+        runsPerWeek: profile.runs_per_week ?? undefined,
       });
+
+      // When the athlete gave the cycle a peak volume, the week's runs are
+      // stretched or shrunk onto its share of it (running.ts holds the curve).
+      if (profile.weekly_km_peak) {
+        slots = scaleRunDurations(
+          slots,
+          state.pace_zones,
+          weeklyVolumeTarget({
+            peakKm: profile.weekly_km_peak,
+            phase: pp.phase_type,
+            isDeload,
+            weekNumber: w,
+          }),
+        );
+      }
 
       const sessions = slots.map((slot) => ({
         day_hint: slot.day_hint,

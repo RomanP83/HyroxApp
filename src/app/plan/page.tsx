@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib/engine";
-import { defaultPaceZones, weeklyRunSummary } from "@/lib/engine";
+import { assessVolumeTarget, defaultPaceZones, weeklyRunSummary } from "@/lib/engine";
+import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import { signDeepLink } from "@/lib/telegram";
 import { stravaConfigured } from "@/lib/strava";
@@ -24,7 +25,9 @@ export default async function PlanPage({
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id, division, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status")
+    .select(
+      "id, division, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status, training_days_per_week, weekly_km_peak, runs_per_week",
+    )
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
@@ -234,6 +237,25 @@ export default async function PlanPage({
         )
       : null;
 
+  // The volume corrective: the target the athlete set, measured against the
+  // kilometres they have actually been running.
+  const peakKm = profile.weekly_km_peak == null ? null : Number(profile.weekly_km_peak);
+  const buildPhase = (phases ?? []).find(
+    (p: { phase_type: string }) => p.phase_type === "build",
+  ) as { end_week: number } | undefined;
+  const weeksToPeak = Math.max(
+    0,
+    (buildPhase?.end_week ?? plan.total_weeks) - current.week_number,
+  );
+  const assessment =
+    peakKm && zones && Object.keys(zones).length
+      ? assessVolumeTarget({
+          targetKm: peakKm,
+          recentWeeklyKm: await recentWeeklyRunKm(supabase, zones),
+          weeksToPeak,
+        })
+      : null;
+
   return (
     <PlanClient
       planId={plan.id}
@@ -253,6 +275,12 @@ export default async function PlanPage({
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
       locked={locked}
       runSummary={runSummary}
+      volume={{
+        weekly_km_peak: peakKm,
+        runs_per_week: profile.runs_per_week ?? null,
+        max_runs: Math.max(2, (profile.training_days_per_week ?? 4) - 1),
+        assessment,
+      }}
     />
   );
 }

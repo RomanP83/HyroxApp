@@ -8,7 +8,7 @@ import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthS
 import { FeedbackCard } from "./FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
-import type { PhaseType, WeeklyRunSummary } from "@/lib/engine";
+import type { PhaseType, VolumeAssessment, WeeklyRunSummary } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
@@ -20,6 +20,7 @@ import {
   RunIcon,
   SendIcon,
   SparkIcon,
+  SpinnerIcon,
   TargetIcon,
 } from "./icons";
 
@@ -61,6 +62,13 @@ interface Props {
   locked: boolean;
   /** What this week's running adds up to — volume and 80/20 distribution. */
   runSummary: WeeklyRunSummary | null;
+  /** The athlete's own volume target, and what their recent weeks support. */
+  volume: {
+    weekly_km_peak: number | null;
+    runs_per_week: number | null;
+    max_runs: number;
+    assessment: VolumeAssessment | null;
+  };
   /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
   telegramLink: string | null;
   /** Strava OAuth entry point; null when connected/unconfigured (C2). */
@@ -82,6 +90,9 @@ export function PlanClient(props: Props) {
   // the server round-trip only confirms (or reverts on error).
   const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped" | "planned">>({});
   const [resetting, setResetting] = useState<string | null>(null);
+  const [savingVolume, setSavingVolume] = useState(false);
+  const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
+  const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   // Days that carry an AM *and* a PM session — only there does the marker help.
@@ -219,6 +230,31 @@ export function PlanClient(props: Props) {
       setToast("Couldn't reset that day. Give it another tap.");
     } finally {
       setResetting(null);
+    }
+  }
+
+  // Volume is a change to every remaining week, so saving it rebuilds the plan
+  // from today (the same rebase the injury-recovery flow uses).
+  async function saveVolume(kmPeak: number | null, runsPerWeek: number | null) {
+    setSavingVolume(true);
+    try {
+      const res = await fetch("/api/plans/volume", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ weekly_km_peak: kmPeak, runs_per_week: runsPerWeek }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "could not save");
+      setToast(
+        kmPeak
+          ? `Volume set — the remaining weeks were rebuilt around ${kmPeak} km at the peak.`
+          : "Volume handed back to the engine — the remaining weeks were rebuilt.",
+      );
+      router.refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "could not save the volume");
+    } finally {
+      setSavingVolume(false);
     }
   }
 
@@ -475,6 +511,72 @@ export function PlanClient(props: Props) {
               </button>
             </div>
           )}
+
+          <div className="card space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <RunIcon size={16} className="text-accent2" /> Running volume
+            </div>
+            <p className="text-xs text-muted">
+              Set the <b>peak week</b> of the cycle — every other week is derived from it. An
+              average would hide the hardest week, which is the one that decides whether the build
+              holds.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs">
+                <span className="label">Peak km / week</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="15"
+                  max="150"
+                  step="1"
+                  value={kmPeak}
+                  placeholder="auto"
+                  onChange={(e) => setKmPeak(e.target.value)}
+                />
+              </label>
+              <label className="text-xs">
+                <span className="label">Runs / week</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="2"
+                  max={props.volume.max_runs}
+                  step="1"
+                  value={runsPerWeek}
+                  placeholder="auto"
+                  onChange={(e) => setRunsPerWeek(e.target.value)}
+                />
+              </label>
+            </div>
+            {/* The corrective: what the last four logged weeks actually support. */}
+            {props.volume.assessment && (
+              <p
+                className={`text-xs ${
+                  props.volume.assessment.verdict === "steep" ? "text-warn" : "text-muted"
+                }`}
+              >
+                {props.volume.assessment.note}
+              </p>
+            )}
+            <button
+              className="btn-primary w-full"
+              disabled={savingVolume}
+              onClick={() =>
+                void saveVolume(
+                  kmPeak.trim() === "" ? null : Number(kmPeak),
+                  runsPerWeek.trim() === "" ? null : Number(runsPerWeek),
+                )
+              }
+            >
+              {savingVolume ? <SpinnerIcon size={16} /> : <RunIcon size={16} />}
+              Rebuild the remaining weeks
+            </button>
+            <p className="text-[11px] text-muted">
+              Up to {props.volume.max_runs} runs with {props.volume.max_runs + 1} training days —
+              one session a week stays strength or station work.
+            </p>
+          </div>
 
           <div className="card">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold">

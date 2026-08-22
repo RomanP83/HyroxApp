@@ -13,8 +13,9 @@ import { fillSession } from "./fill";
 import { weeklyGoal } from "./weeklyGoal";
 
 const SESSION_TITLES: Record<string, string> = {
-  run_easy: "Easy Run (Zone 2)",
-  run_intervals: "Running Intervals",
+  long_run: "Long Run (Zone 2)",
+  run_easy: "Recovery Run (Zone 1-2)",
+  run_intervals: "Threshold / VO₂max Intervals",
   compromised_run: "Compromised Running",
   strength: "Strength",
   station_work: "Station Work",

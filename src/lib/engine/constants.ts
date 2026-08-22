@@ -22,16 +22,21 @@ export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]>
 // ── Session-slot priority per phase (highest priority first) ─────────────────
 // training_days_per_week decides how many slots survive; lowest-priority drops
 // first, and a 5th day adds run_easy.
+// Running is 50-60% of a Hyrox, so the run sessions lead each phase's order.
+// Base is deliberately free of compromised running: pure running economy first,
+// no sled/lunge load on the tendons yet (see COMPROMISED_PER_WEEK).
 export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
-  base: ["run_easy", "strength", "station_work", "compromised_run", "run_intervals", "mobility"],
-  build: ["compromised_run", "strength", "station_work", "run_intervals", "run_easy", "mobility"],
-  peak: ["full_sim", "compromised_run", "station_work", "run_intervals", "strength", "run_easy"],
-  taper: ["run_intervals", "compromised_run", "station_work", "run_easy", "mobility", "strength"],
+  base: ["long_run", "strength", "run_intervals", "run_easy", "station_work", "mobility"],
+  build: ["compromised_run", "run_intervals", "long_run", "strength", "run_easy", "station_work"],
+  peak: ["full_sim", "compromised_run", "run_intervals", "long_run", "run_easy", "station_work"],
+  taper: ["run_intervals", "compromised_run", "run_easy", "station_work", "long_run", "mobility"],
 };
 
 // Compromised-running frequency ramps base -> peak (§5 Schritt 2).
+// Base is 0 on purpose: the base block builds running economy without the
+// orthopaedic load of sleds and lunges; compromised work starts in the build.
 export const COMPROMISED_PER_WEEK: Record<PhaseType, number> = {
-  base: 0.5, // every 2 weeks
+  base: 0,
   build: 1,
   peak: 2,
   taper: 1,

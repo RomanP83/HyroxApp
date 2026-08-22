@@ -53,12 +53,28 @@ export function BlockView({ block }: { block: RenderedBlock }) {
         {block.load_adjustments.pace_sec_km != null && (
           <span className="pill text-accent2">{fmtPace(block.load_adjustments.pace_sec_km)}</span>
         )}
+        {block.load_adjustments.opening_pace_sec_km != null && (
+          <span className="pill">
+            out of the station: {fmtPace(block.load_adjustments.opening_pace_sec_km)}
+          </span>
+        )}
         {block.load_adjustments.strength_modifier != null && (
           <span className="pill text-accent2">
             load ×{block.load_adjustments.strength_modifier.toFixed(2)}
           </span>
         )}
       </div>
+      {block.load_adjustments.opening_pace_sec_km != null && (
+        // Never sprint out of a station into Zone 5 — the opening metres are
+        // for rhythm and breathing.
+        <p className="mb-2 text-xs text-muted">
+          First {block.load_adjustments.opening_distance_m} m at{" "}
+          {fmtPace(block.load_adjustments.opening_pace_sec_km)}, then settle onto{" "}
+          {fmtPace(block.load_adjustments.pace_sec_km)}. The first{" "}
+          {block.load_adjustments.stabilise_distance_m} m are for finding your breathing — never
+          sprint out of a station.
+        </p>
+      )}
       <ul className="space-y-1 text-sm">
         {items.map((it, i) => {
           const load = loadFor(it, division);

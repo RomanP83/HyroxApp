@@ -15,6 +15,7 @@ import type {
   WorkoutBlock,
 } from "./types";
 import { STATIONS } from "./types";
+import { COMPROMISED_OPENING, compromisedOpeningPace, runSpec } from "./running";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -29,20 +30,10 @@ export function stationForWeek(weekNumber: number): Station {
   return STATIONS[(weekNumber - 1) % STATIONS.length];
 }
 
-/** Which pace zone a session type runs at. */
+/** Which pace zone a session type runs at — one table, in running.ts. */
 function paceForSession(state: AthleteState, type: SessionType): number | undefined {
-  const z = state.pace_zones;
-  switch (type) {
-    case "run_easy":
-      return z.easy_sec_km;
-    case "run_intervals":
-      return z.interval_sec_km;
-    case "compromised_run":
-    case "full_sim":
-      return z.race_sec_km;
-    default:
-      return undefined;
-  }
+  const spec = runSpec(type);
+  return spec ? state.pace_zones[spec.pace_zone] : undefined;
 }
 
 interface PickOpts {
@@ -60,6 +51,20 @@ function pickBlock(opts: PickOpts): WorkoutBlock | undefined {
   let candidates = library.filter(
     (b) => b.block_type === blockType && b.session_types.includes(sessionType),
   );
+  // Long runs and recovery runs share the library's run blocks; the "long" tag
+  // is what separates a 80-minute Zone-2 block from a 6 km shake-out. Typing
+  // them apart would mean a new enum value in the seed, which a single-
+  // transaction setup.sql cannot do (see migration 0016).
+  if (sessionType === "long_run") {
+    const runBlocks = library.filter(
+      (b) => b.block_type === blockType && b.session_types.includes("run_easy"),
+    );
+    const long = runBlocks.filter((b) => b.tags.includes("long"));
+    candidates = long.length ? long : runBlocks;
+  } else if (sessionType === "run_easy") {
+    const short = candidates.filter((b) => !b.tags.includes("long"));
+    if (short.length) candidates = short;
+  }
   // Variant: exact match, else allow gym as universal fallback.
   const variantMatch = candidates.filter((b) => b.equipment_variant === variant);
   if (variantMatch.length) candidates = variantMatch;
@@ -146,12 +151,23 @@ export function fillSession(
       slot.session_type === "strength" && state.strength_modifier !== 1
         ? state.strength_modifier
         : undefined;
+    // Coming out of a station the first 400 m carry a buffer on the flat split,
+    // and the first 200 m are for breathing — not for making up time.
+    const compromised =
+      pace != null && (slot.session_type === "compromised_run" || slot.session_type === "full_sim")
+        ? {
+            opening_pace_sec_km: compromisedOpeningPace(pace),
+            opening_distance_m: COMPROMISED_OPENING.buffer_distance_m,
+            stabilise_distance_m: COMPROMISED_OPENING.stabilise_distance_m,
+          }
+        : undefined;
     blocks.push(
       render(main, profile, order++, {
         division: profile.division,
         station_tier: targetTier,
         pace_sec_km: pace,
         strength_modifier: strengthMod,
+        ...compromised,
         note: station ? `${station} focus @ tier ${targetTier}` : undefined,
       }),
     );

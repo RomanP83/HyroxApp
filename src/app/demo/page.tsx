@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   computeSessionFeedback,
   generatePlan,
+  weeklyRunSummary,
   initialAthleteState,
   microCalibrate,
   STATIONS,
@@ -359,6 +360,27 @@ export default function DemoPage() {
               </div>
               {/* Why this week — PP1 */}
               <p className="mt-3 text-sm text-muted">{week.weekly_goal}</p>
+              {(() => {
+                // Running is 50-60% of the race — show what the week adds up to.
+                const summary = weeklyRunSummary(week.sessions, state.pace_zones, phase?.phase_type);
+                if (!summary.runs) return null;
+                const easyPct = Math.round(summary.easy_share * 100);
+                return (
+                  <div className="mt-3 border-t border-line pt-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                      <span className="font-semibold">Running this week</span>
+                      <span className="text-muted">
+                        {summary.total_km} km · {summary.runs} runs · {easyPct}% aerobic
+                      </span>
+                    </div>
+                    <div className="mt-2 flex h-2 overflow-hidden rounded-full">
+                      <div className="bg-ok" style={{ width: `${easyPct}%` }} />
+                      <div className="bg-accent" style={{ width: `${100 - easyPct}%` }} />
+                    </div>
+                    <p className="mt-2 text-xs text-muted">{summary.note}</p>
+                  </div>
+                );
+              })()}
             </div>
 
             {week.sessions.map((s) => (

@@ -51,6 +51,7 @@ Supabase (Postgres + Auth + RLS)        supabase/migrations + supabase/seed
   └─ plan_adjustments (audit log of every adaptive action)
 
 The Engine (deterministic TypeScript)   src/lib/engine/**
+  ├─ running.ts   the run architecture: 4 core sessions, zones, polarised 80/20
   ├─ season.ts    annual periodisation: macrocycles per race, mesocycles inside
   ├─ macro.ts     phase split (lookup + interpolation for crooked timelines)
   ├─ micro.ts     slot distribution per phase & training days, AM/PM doubles
@@ -129,7 +130,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 142 tests covering:
+`npm test` runs 163 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -151,9 +152,37 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 - Strength import: a real Excel sheet (rep ranges, supersets, a bodyweight row,
   a numbering column) parsed exactly, plus the double-progression rules and a
   render test of the fillable session card.
+- Running architecture: the four core sessions' distances land inside their
+  prescribed ranges, no compromised running before the build block, every phase
+  hits its polarised window at 5 training days, and the compromised opening
+  buffer reaches the card.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
+
+---
+
+## How the running is built
+
+Running is 50-60% of a Hyrox, so the plan treats it as an architecture rather than "some runs".
+`src/lib/engine/running.ts` holds the four core sessions — one table, no scattered numbers:
+
+| Session | Duration | Zone | Pace | Focus |
+|---|---|---|---|---|
+| **Long Run** | 80 → 60 min (shortens toward the race) | Z2 · 65-75% HRmax | 5k pace + 60-90 s | mitochondria, fat metabolism, tendons |
+| **Recovery Run** | 30-40 min | Z1-2 · <70% HRmax | very easy | circulation, lactate clearance |
+| **Threshold / VO₂max** | 40-55 min | Z4-5 · 88-95% HRmax | 3k-5k effort | lactate tolerance, VO₂max |
+| **Compromised Running** | 45-60 min | Z3-4 · 80-90% HRmax | race pace out of the station | running on heavy legs |
+
+- **Base has no compromised running at all** — running economy first, no sled and lunge load on the
+  tendons yet. It starts in the build block (1×/week) and doubles in the peak.
+- **Coming out of a station** the first 400 m carry +20 s/km on your flat split, and the first 200 m
+  are for breathing, not for making up time. Both are on the session card before you tap it open.
+- **Every week reports its own architecture**: total kilometres and the aerobic/hard split, measured
+  by *distance in zone* (an interval session is not 100% hard — the warm-up and the jog between reps
+  are aerobic). The window is phase-aware: a base block is meant to sit at 80-95% aerobic, a peak
+  block at 60-80%. When your training days cannot carry the target, the week says so instead of
+  quietly missing it.
 
 ---
 

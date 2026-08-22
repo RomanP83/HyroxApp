@@ -8,7 +8,7 @@ import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthS
 import { FeedbackCard } from "./FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
-import type { PhaseType } from "@/lib/engine";
+import type { PhaseType, WeeklyRunSummary } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
@@ -59,6 +59,8 @@ interface Props {
   state: any;
   adjustments: string[];
   locked: boolean;
+  /** What this week's running adds up to — volume and 80/20 distribution. */
+  runSummary: WeeklyRunSummary | null;
   /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
   telegramLink: string | null;
   /** Strava OAuth entry point; null when connected/unconfigured (C2). */
@@ -327,6 +329,40 @@ export function PlanClient(props: Props) {
               {props.currentWeek.is_benchmark_week && <span className="pill text-accent2">benchmark</span>}
             </div>
             <p className="mt-3 text-sm text-muted">{props.currentWeek.weekly_goal}</p>
+
+            {props.runSummary && props.runSummary.runs > 0 && (
+              <div className="mt-3 border-t border-line pt-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                  <span className="font-semibold">Running this week</span>
+                  <span className="text-muted">
+                    {props.runSummary.total_km} km · {props.runSummary.runs} runs
+                  </span>
+                </div>
+                {/* Aerobic vs. hard kilometres — the 80/20 rule, measured. */}
+                <div className="mt-2 flex h-2 overflow-hidden rounded-full">
+                  <div
+                    className="bg-ok"
+                    style={{ width: `${Math.round(props.runSummary.easy_share * 100)}%` }}
+                    title={`${props.runSummary.easy_km} km aerobic`}
+                  />
+                  <div
+                    className="bg-accent"
+                    style={{ width: `${100 - Math.round(props.runSummary.easy_share * 100)}%` }}
+                    title={`${props.runSummary.hard_km} km hard`}
+                  />
+                </div>
+                <p
+                  className={`mt-2 text-xs ${
+                    props.runSummary.volume === "on_target" &&
+                    props.runSummary.polarisation === "on_target"
+                      ? "text-muted"
+                      : "text-warn"
+                  }`}
+                >
+                  {props.runSummary.note}
+                </p>
+              </div>
+            )}
           </div>
 
           {props.sessions.map((cs) => (

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { Division, GeneratedSession, RenderedBlock } from "@/lib/engine";
+import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib/engine";
+import { defaultPaceZones, weeklyRunSummary } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import { signDeepLink } from "@/lib/telegram";
 import { stravaConfigured } from "@/lib/strava";
@@ -213,6 +214,26 @@ export default async function PlanPage({
     return { id: s.id, session, status: s.status };
   });
 
+  // The running architecture of this week: volume and the aerobic/hard split,
+  // computed from the live pace zones rather than stored — it follows the
+  // athlete's calibration automatically.
+  const zones = (state?.pace_zones as ReturnType<typeof defaultPaceZones> | undefined) ?? null;
+  const currentPhase = (phases ?? []).find(
+    (p: { start_week: number; end_week: number }) =>
+      current.week_number >= p.start_week && current.week_number <= p.end_week,
+  );
+  const runSummary =
+    zones && Object.keys(zones).length
+      ? weeklyRunSummary(
+          (sessionRows ?? []).map((s: { session_type: GeneratedSession["session_type"]; planned_duration_min: number }) => ({
+            session_type: s.session_type,
+            planned_duration_min: s.planned_duration_min,
+          })),
+          zones,
+          currentPhase?.phase_type as PhaseType | undefined,
+        )
+      : null;
+
   return (
     <PlanClient
       planId={plan.id}
@@ -231,6 +252,7 @@ export default async function PlanPage({
       state={state}
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
       locked={locked}
+      runSummary={runSummary}
     />
   );
 }

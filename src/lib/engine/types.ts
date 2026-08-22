@@ -10,6 +10,7 @@ export type EquipmentAccess = "full_gym" | "home_minimal" | "hybrid";
 export type PhaseType = "base" | "build" | "peak" | "taper";
 
 export type SessionType =
+  | "long_run"
   | "run_easy"
   | "run_intervals"
   | "compromised_run"
@@ -112,6 +113,10 @@ export interface RenderedBlock {
     pace_sec_km?: number;
     /** Multiplier on the block's template loads (strength calibration, A6). */
     strength_modifier?: number;
+    /** Compromised running: pace for the first metres out of a station. */
+    opening_pace_sec_km?: number;
+    opening_distance_m?: number;
+    stabilise_distance_m?: number;
     note?: string;
   };
 }

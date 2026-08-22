@@ -5,6 +5,7 @@
 // ============================================================================
 
 import type { DaySlot, PhaseType, SessionType } from "./types";
+import { runSpec } from "./running";
 import {
   PHASE_SLOT_PRIORITY,
   PHASE_RPE_TARGET,
@@ -53,7 +54,10 @@ function pmTypeFor(amType: SessionType): SessionType {
 const PM_DURATION_FACTOR = 0.7;
 const PM_RPE_OFFSET = -1;
 
+// Fallback minutes. Run sessions take theirs from RUN_SPECS per phase — the
+// long run is 80 minutes in the base block and 60 by the peak.
 const BASE_DURATION: Record<SessionType, number> = {
+  long_run: 75,
   run_easy: 45,
   run_intervals: 55,
   compromised_run: 60,
@@ -66,6 +70,7 @@ const BASE_DURATION: Record<SessionType, number> = {
 };
 
 const RPE_OFFSET: Record<SessionType, number> = {
+  long_run: -1, // Zone 2, but long: a touch above a pure recovery run
   run_easy: -2,
   run_intervals: 1,
   compromised_run: 1,
@@ -144,7 +149,8 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
   // when it is an "off" week, fall back to the next non-selected priority slot.
   const perWeek = COMPROMISED_PER_WEEK[phase];
   if (perWeek < 1) {
-    const wantThisWeek = weekInPhase % 2 === 0; // every 2nd week
+    // 0 = never in this phase (base); a fraction = every other week.
+    const wantThisWeek = perWeek > 0 && weekInPhase % 2 === 0;
     if (!wantThisWeek) {
       const fallback = priority.find((t) => !types.includes(t)) ?? "run_easy";
       types = types.map((t) => (t === "compromised_run" ? fallback : t));
@@ -168,7 +174,7 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
     day_hint: days[i] ?? i + 1,
     day_slot: "am" as DaySlot,
     intensity_rpe_target: rpeFor(session_type, phase, isDeload, "am"),
-    planned_duration_min: durationFor(session_type, isDeload, "am"),
+    planned_duration_min: durationFor(session_type, isDeload, "am", phase),
     sort_order: i,
   }));
 
@@ -195,7 +201,7 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
         day_hint: host.day_hint,
         day_slot: "pm",
         intensity_rpe_target: rpeFor(type, phase, isDeload, "pm"),
-        planned_duration_min: durationFor(type, isDeload, "pm"),
+        planned_duration_min: durationFor(type, isDeload, "pm", phase),
         sort_order: 0, // assigned below, once the week is in order
       });
     }
@@ -235,7 +241,14 @@ function rpeFor(
   return clampRpe(rpe);
 }
 
-function durationFor(type: SessionType, isDeload: boolean, slot: DaySlot): number {
-  const base = isDeload ? BASE_DURATION[type] * 0.7 : BASE_DURATION[type];
+function durationFor(
+  type: SessionType,
+  isDeload: boolean,
+  slot: DaySlot,
+  phase: PhaseType,
+): number {
+  const spec = runSpec(type);
+  const planned = spec?.duration_by_phase[phase] || BASE_DURATION[type];
+  const base = isDeload ? planned * 0.7 : planned;
   return Math.round(slot === "pm" ? base * PM_DURATION_FACTOR : base);
 }

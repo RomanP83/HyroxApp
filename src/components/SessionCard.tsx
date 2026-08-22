@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { GeneratedSession } from "@/lib/engine";
+import { runSpec } from "@/lib/engine";
+import { fmtPace } from "@/lib/format";
 import { BlockView } from "./BlockView";
 import { titleCase } from "@/lib/format";
 import {
@@ -64,6 +66,20 @@ interface Props {
    * which sees the whole week — decides.
    */
   showSlot?: boolean;
+}
+
+/** The pace targets the plan wrote into this session's main block, if any. */
+function pacesOf(session: GeneratedSession): {
+  pace?: number;
+  opening?: number;
+  openingDistance?: number;
+} {
+  const block = session.blocks.find((b) => b.load_adjustments.pace_sec_km != null);
+  return {
+    pace: block?.load_adjustments.pace_sec_km,
+    opening: block?.load_adjustments.opening_pace_sec_km,
+    openingDistance: block?.load_adjustments.opening_distance_m,
+  };
 }
 
 export function SessionCard({
@@ -164,6 +180,27 @@ export function SessionCard({
             {titleCase(session.session_type)} · {session.planned_duration_min} min · RPE target{" "}
             {session.intensity_rpe_target}/10
           </div>
+          {(() => {
+            // Running is 50-60% of the race: a run session says which zone it
+            // is for and at what pace, not just how long it is.
+            const spec = runSpec(session.session_type);
+            if (!spec) return null;
+            const { pace, opening, openingDistance } = pacesOf(session);
+            return (
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                <span className="pill text-accent2">{spec.hr_zone}</span>
+                {pace != null && <span className="pill">{fmtPace(pace)}</span>}
+                {/* Coming out of a station you run slower on purpose — that
+                    belongs on the front of the card, not one tap deeper. */}
+                {opening != null && (
+                  <span className="pill">
+                    first {openingDistance} m: {fmtPace(opening)}
+                  </span>
+                )}
+                <span className="text-muted">{spec.distance_hint}</span>
+              </div>
+            );
+          })()}
         </div>
         <span
           className={`text-muted transition-transform duration-200 ${open ? "rotate-90" : ""}`}
@@ -183,7 +220,19 @@ export function SessionCard({
               </span>
             </div>
           ) : (
-            session.blocks.map((b) => <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />)
+            <>
+              {session.blocks.map((b) => (
+                <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />
+              ))}
+              {(() => {
+                const spec = runSpec(session.session_type);
+                return spec ? (
+                  <p className="px-1 text-xs text-muted">
+                    <b>{spec.focus}</b> {spec.pace_note}
+                  </p>
+                ) : null;
+              })()}
+            </>
           )}
         </div>
       )}

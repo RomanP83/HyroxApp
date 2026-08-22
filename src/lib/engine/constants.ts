@@ -27,8 +27,14 @@ export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]>
 // no sled/lunge load on the tendons yet (see COMPROMISED_PER_WEEK).
 export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
   base: ["long_run", "strength", "run_intervals", "run_easy", "station_work", "mobility"],
-  build: ["compromised_run", "run_intervals", "long_run", "strength", "run_easy", "station_work"],
-  peak: ["full_sim", "compromised_run", "run_intervals", "long_run", "run_easy", "station_work"],
+  // Station work sits ahead of the recovery run in build and peak: a Hyrox
+  // build block without a dedicated station session is not a Hyrox plan, and
+  // the recovery run is the slot a double day gives back (pmTypeFor() puts an
+  // easy run after a station or strength morning). An athlete at five days and
+  // no doubles will see the week's polarised share flagged — that trade-off is
+  // reported, not hidden.
+  build: ["compromised_run", "run_intervals", "long_run", "strength", "station_work", "run_easy"],
+  peak: ["full_sim", "compromised_run", "run_intervals", "long_run", "station_work", "run_easy"],
   taper: ["run_intervals", "compromised_run", "run_easy", "station_work", "long_run", "mobility"],
 };
 

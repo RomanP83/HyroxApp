@@ -17,13 +17,13 @@
 // this table is the coaching layer that decides which one a week gets.
 // ============================================================================
 
-import type { EquipmentAccess, PhaseType, Station, StationTiers } from "./types";
+import type { EquipmentAccess, PhaseType, SessionType, Station, StationTiers } from "./types";
 import type { RunSessionType } from "./running";
 
-export interface RunVariant {
+export interface SessionVariant {
   /** Library block slug this variant renders from. */
   slug: string;
-  session_type: RunSessionType;
+  session_type: SessionType;
   name: string;
   /** Phases the variant belongs in. */
   phases: PhaseType[];
@@ -38,6 +38,9 @@ export interface RunVariant {
   /** When the terrain or kit is not available, do this instead. */
   fallback?: string;
 }
+
+/** A variant of one of the four core run sessions. */
+export type RunVariant = SessionVariant & { session_type: RunSessionType };
 
 export const RUN_VARIANTS: RunVariant[] = [
   // ── 1. Zone 2 long run ────────────────────────────────────────────────
@@ -179,22 +182,16 @@ export function weakestStation(tiers: StationTiers | undefined): Station | null 
   return candidates.sort()[0] ?? null;
 }
 
-export interface VariantPick {
-  variant: RunVariant;
+export interface VariantPick<V extends SessionVariant = SessionVariant> {
+  variant: V;
   /** True when the pick was steered by a weakness rather than the rotation. */
   targeted: boolean;
   /** How many variants were available to rotate through. */
   pool: number;
 }
 
-/**
- * Which shape this week's run session takes. Deterministic in (session type,
- * phase, week) — with every second week steered towards the athlete's weakest
- * station or a stated weakness, so a known gap gets attacked without the plan
- * turning into the same session over and over.
- */
-export function pickRunVariant(opts: {
-  sessionType: RunSessionType;
+export interface VariantQuery {
+  sessionType: SessionType;
   phase: PhaseType;
   /** Plan-global week number, 1-based — drives the rotation. */
   weekNumber: number;
@@ -202,8 +199,22 @@ export function pickRunVariant(opts: {
   stationTiers?: StationTiers;
   /** Free-text weaknesses from the profile. */
   weaknesses?: string[];
-}): VariantPick | null {
-  const eligible = RUN_VARIANTS.filter(
+}
+
+/**
+ * Which shape this week's session takes. Deterministic in (session type, phase,
+ * week) — with every second week steered towards the athlete's weakest station
+ * or a stated weakness, so a known gap gets attacked without the plan turning
+ * into the same session over and over.
+ *
+ * Shared by the run and the station catalogues: the coaching rule is the same,
+ * only the sessions differ.
+ */
+export function pickVariant<V extends SessionVariant>(
+  catalogue: V[],
+  opts: VariantQuery,
+): VariantPick<V> | null {
+  const eligible = catalogue.filter(
     (v) =>
       v.session_type === opts.sessionType &&
       v.phases.includes(opts.phase) &&
@@ -235,4 +246,9 @@ export function pickRunVariant(opts: {
     targeted: false,
     pool: eligible.length,
   };
+}
+
+/** The run catalogue, through the shared picker. */
+export function pickRunVariant(opts: VariantQuery): VariantPick<RunVariant> | null {
+  return pickVariant(RUN_VARIANTS, opts);
 }

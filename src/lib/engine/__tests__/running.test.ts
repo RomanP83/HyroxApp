@@ -28,8 +28,15 @@ const profile = (days: number): AthleteProfile => ({
   equipment_access: "full_gym",
 });
 
-const week = (phase: PhaseType, days: number) =>
-  distributeSlots({ phase, trainingDays: days, weekInPhase: 1, isDeload: false, isBenchmark: false });
+const week = (phase: PhaseType, days: number, doublesPerWeek = 0) =>
+  distributeSlots({
+    phase,
+    trainingDays: days,
+    weekInPhase: 1,
+    isDeload: false,
+    isBenchmark: false,
+    doublesPerWeek,
+  });
 
 describe("the four core run sessions", () => {
   it("prescribes a zone, a pace zone and a focus for each of them", () => {
@@ -99,9 +106,12 @@ describe("phase control", () => {
     expect(week("peak", 5).map((s) => s.session_type)).toContain("compromised_run");
   });
 
-  it("hits the polarised window of every phase at 5 training days", () => {
+  it("hits the polarised window of every phase at 5 training days plus a double", () => {
+    // Station work takes a slot in build and peak — a Hyrox plan needs it — so
+    // the easy kilometres come from the double day's PM run. Without one the
+    // week is flagged rather than quietly missing the window (see below).
     for (const phase of ["base", "build", "peak", "taper"] as const) {
-      const summary = weeklyRunSummary(week(phase, 5), ZONES, phase);
+      const summary = weeklyRunSummary(week(phase, 5, 2), ZONES, phase);
       const [min, max] = POLARISATION_BY_PHASE[phase];
       expect(summary.easy_share, `${phase}: ${summary.note}`).toBeGreaterThanOrEqual(min);
       expect(summary.easy_share, `${phase}: ${summary.note}`).toBeLessThanOrEqual(max);
@@ -111,7 +121,7 @@ describe("phase control", () => {
 
   it("plans 3-4 runs a week and 30-50 km in base, build and peak", () => {
     for (const phase of ["base", "build", "peak"] as const) {
-      const summary = weeklyRunSummary(week(phase, 5), ZONES, phase);
+      const summary = weeklyRunSummary(week(phase, 5, 2), ZONES, phase);
       expect(summary.runs, phase).toBeGreaterThanOrEqual(3);
       expect(summary.total_km, phase).toBeGreaterThanOrEqual(30);
       expect(summary.total_km, phase).toBeLessThanOrEqual(50);
@@ -122,6 +132,13 @@ describe("phase control", () => {
     const thin = weeklyRunSummary(week("build", 4), ZONES, "build");
     expect(thin.volume === "below" || thin.polarisation === "too_hard").toBe(true);
     expect(thin.note).toMatch(/km|hard share/);
+  });
+
+  it("names the lever when a build week runs short of aerobic kilometres", () => {
+    // Five days, no double: station work has the slot the easy run would take.
+    const summary = weeklyRunSummary(week("build", 5), ZONES, "build");
+    expect(summary.polarisation).toBe("too_hard");
+    expect(summary.note).toContain("double day");
   });
 });
 

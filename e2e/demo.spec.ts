@@ -61,7 +61,7 @@ test("the season view is behind the profile gate", async ({ page }) => {
   await expect(page).toHaveURL(/onboarding/);
 });
 
-test("demo: double days put a second, lighter session on a hard morning", async ({ page }) => {
+test("demo: double days mark the AM and PM halves of a day", async ({ page }) => {
   await page.goto("/demo");
   await page.getByLabel("Double days").selectOption("2");
   await page.click("text=Generate my plan");

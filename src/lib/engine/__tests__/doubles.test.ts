@@ -100,11 +100,29 @@ describe("double days — the invariants", () => {
     }
   });
 
-  it("puts the doubles on the hard mornings first", () => {
+  it("doubles on a strength or station morning first — that is the one that pairs with an easy run", () => {
     const slots = week({ doublesPerWeek: 1 });
     const pm = slots.find((s) => s.day_slot === "pm")!;
     const host = slots.find((s) => s.day_hint === pm.day_hint && s.day_slot === "am")!;
-    expect(HARD).toContain(host.session_type);
+    expect(["strength", "station_work"]).toContain(host.session_type);
+    // …and the PM session is exactly that easy run: it is the aerobic volume a
+    // Hyrox week is short of once station work takes a slot.
+    expect(pm.session_type).toBe("run_easy");
+  });
+
+  it("falls back to a key-session morning when there is no strength or station day", () => {
+    const runsOnly = distributeSlots({
+      phase: "build",
+      trainingDays: 5,
+      weekInPhase: 1,
+      isDeload: false,
+      isBenchmark: false,
+      doublesPerWeek: 1,
+      runsPerWeek: 4,
+    });
+    const pm = runsOnly.find((s) => s.day_slot === "pm")!;
+    const host = runsOnly.find((s) => s.day_hint === pm.day_hint && s.day_slot === "am")!;
+    expect([...HARD, "strength", "station_work"]).toContain(host.session_type);
   });
 
   it("orders the week chronologically, AM before PM", () => {

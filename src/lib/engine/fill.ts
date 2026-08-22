@@ -18,6 +18,7 @@ import type {
 import { STATIONS } from "./types";
 import { COMPROMISED_OPENING, compromisedOpeningPace, isRunSession, runSpec } from "./running";
 import { pickRunVariant, type VariantPick } from "./runVariants";
+import { pickStationVariant } from "./stationVariants";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -144,15 +145,18 @@ export function fillSession(
   // block it names is used when it is there, otherwise the generic pick stands.
   let picked: VariantPick | null = null;
   let main: WorkoutBlock | undefined;
-  if (phase && isRunSession(slot.session_type)) {
-    picked = pickRunVariant({
+  if (phase && (isRunSession(slot.session_type) || slot.session_type === "station_work")) {
+    const query = {
       sessionType: slot.session_type,
       phase,
       weekNumber,
       equipment: profile.equipment_access,
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
-    });
+    };
+    picked = isRunSession(slot.session_type)
+      ? pickRunVariant(query)
+      : pickStationVariant(query);
     // The demo library carries the slug as its id; the database has both.
     main = picked
       ? library.find((b) => (b.slug ?? b.id) === picked!.variant.slug)

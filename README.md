@@ -130,7 +130,7 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 
 ## Testing
 
-`npm test` runs 197 tests covering:
+`npm test` runs 211 tests covering:
 - Phase split: exact tabulated splits, taper always preserved, crooked timelines
   (9/11/14 weeks), contiguous week ranges.
 - Generation: 5 reference profiles (8/10/12/16 weeks × levels), determinism,
@@ -163,9 +163,35 @@ optional — see `.env.example`. The app degrades gracefully when they’re unse
 - Run variants: a library block behind every one, phase and equipment gating,
   deterministic rotation, and the weakness bias that alternates instead of
   repeating one session.
+- Station variants: three shapes per training block and two for the race week,
+  overload work confined to the base, priming confined to the taper, and the
+  division loads that come out of a "125% of race weight" prescription.
 
 `npm run build` type-checks and compiles all routes. A browser smoke test confirms the
 demo generates sessions and adapts on logging.
+
+---
+
+## Station sessions, phase by phase
+
+The station work of a base block and the station work of a race week are not the same session with a
+different weight on the sled. Eleven shapes, picked by the same rule as the run variants:
+
+| Phase | Focus | Sessions |
+|---|---|---|
+| **Base** | overload, maximal strength, capacity | Overload Sled & Grip Builder (125% race weight) · Aerobic Ergometer Capacity (40 min Ski↔Row, Z2/low Z3) · Wall Ball & Lunge Volume |
+| **Build** | strength endurance, cadence, lactate | Ergometer Threshold Intervals (5×1000 m at race pace −3-5 s) · Station Density EMOM (30 min) · Heavy Leg Push-Pull Circuit |
+| **Specificity** | race pace, transitions, rhythm | The Engine & Core Gauntlet (all stations, no running) · Station Interval Simulation 3×3 · Wall Ball & Lunge Race Finish |
+| **Taper** | reactivity, freshness, precision | Neural Activation & Pacing Calibration · Ergometer & Movement Primer |
+
+Loads are written against the competition weights the library already uses, so "125% of race weight"
+renders as 155 kg for Open and 220 kg for Pro. Every second week aims at your weakest station, just
+like the runs.
+
+**One trade-off worth knowing:** at five training days, a build week now spends a slot on station
+work that used to go to the recovery run — a Hyrox build block without station work is not a Hyrox
+plan. That costs aerobic kilometres, so the week's running readout flags it and names the lever: a
+double day (its PM session is an easy run) puts the polarised share back in the window.
 
 ---
 

@@ -62,11 +62,21 @@ describe("scaleRunDurations", () => {
   });
 
   it("lands the week on its target", () => {
-    for (const target of [30, 45, 60]) {
+    for (const target of [25, 35, 45]) {
       const scaled = scaleRunDurations(slots, ZONES, target);
       const km = weeklyRunSummary(scaled, ZONES).total_km;
       expect(Math.abs(km - target), `target ${target} → ${km}`).toBeLessThan(target * 0.15);
     }
+  });
+
+  it("gets as close as the session mix allows, rather than inventing volume", () => {
+    // Three runs cannot carry 60 km without absurd sessions; the caps hold and
+    // the week ends up under the target instead of over it.
+    const scaled = scaleRunDurations(slots, ZONES, 60);
+    const km = weeklyRunSummary(scaled, ZONES).total_km;
+    const before = weeklyRunSummary(slots, ZONES).total_km;
+    expect(km).toBeGreaterThan(before);
+    expect(km).toBeLessThan(60);
   });
 
   it("keeps the long run the long one and leaves other sessions alone", () => {

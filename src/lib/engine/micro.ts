@@ -230,8 +230,11 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
   }));
 
   // ── Second sessions ───────────────────────────────────────────────────────
-  // They attach to the hardest mornings first, so the easy days stay easy and
-  // stay whole. Never two hard sessions on one day: the PM pool is light only.
+  // They attach to a strength or station morning first: those pair with an easy
+  // PM run (pmTypeFor), which is exactly the aerobic volume a Hyrox week is
+  // short of. A hard-run morning is the second choice — it pairs with mobility,
+  // which is right for the day but adds no kilometres. Never two hard sessions
+  // on one day: the PM pool is light by construction.
   const doubles = doublesForWeek({
     phase,
     trainingDays,
@@ -265,14 +268,15 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
 }
 
 /**
- * Which mornings are worth doubling on. Key sessions first — a second session
- * there costs nothing on the easy days. Then strength and station days, which
- * take an aerobic flush well. An easy day is the last place to add anything:
- * it is already the recovery in the week.
+ * Which mornings are worth doubling on. Strength and station days come first:
+ * pmTypeFor() pairs them with an easy run, which is exactly the aerobic volume
+ * a Hyrox week runs short of. A key-session morning is next — it pairs with
+ * mobility, right for the day but worth no kilometres. An easy day is the last
+ * place to add anything: it is already the recovery in the week.
  */
 function hostRank(type: SessionType): number {
-  if (HARD_TYPES.includes(type)) return 0;
-  if (type === "strength" || type === "station_work") return 1;
+  if (type === "strength" || type === "station_work") return 0;
+  if (HARD_TYPES.includes(type)) return 1;
   return 2;
 }
 

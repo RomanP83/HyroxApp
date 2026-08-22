@@ -386,13 +386,13 @@ function summaryNote(
     return `${head}. Fewer runs than the ${RUNNING_TARGETS.runs_per_week_min}-4 a Hyrox build wants — add a training day before adding intensity.`;
   }
   if (volume === "below") {
-    return `${head}. Under the ${kmMin} km this block wants — the easy volume is what carries the other 50% of your race.`;
+    return `${head}. Under the ${kmMin} km this block wants — the easy volume is what carries the other 50% of your race. A double day (its PM session is an easy run) is the cheapest way to add it.`;
   }
   if (volume === "above") {
     return `${head}. Above ${RUNNING_TARGETS.weekly_km_max} km; make sure the extra kilometres are the easy ones.`;
   }
   if (polarisation === "too_hard") {
-    return `${head}. The hard share is over 25% — polarised means most of it stays conversational.`;
+    return `${head}. The hard share is above this block's window — polarised means most of it stays conversational. A double day (its PM session is an easy run) or a sixth training day is what buys those kilometres back.`;
   }
   if (polarisation === "too_easy") {
     return `${head}. Almost all aerobic; this week has room for one quality session.`;

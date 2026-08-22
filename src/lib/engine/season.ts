@@ -500,14 +500,28 @@ export function planSeason(input: SeasonInput): SeasonPlan {
   }
 
   // ── Notes for the races that ride inside a block (B/C tune-ups) ──────────
+  // These are the same numbers raceCalendar.ts applies to the actual training
+  // days, so the year view and the weekly plan tell the athlete one story.
   for (const r of races) {
     if (r.is_anchor) continue;
     const block = findBlock(macrocycles, r.week_number);
-    notes.push(
-      `"${r.type}" (${r.date}, priority ${r.priority}) sits in week ${r.week_number}${
-        block ? ` inside the ${blockLabel(block.kind)} block` : ""
-      } — treat it as a hard training day: three easy days before, no taper, back to the plan after.`,
-    );
+    const where = `sits in week ${r.week_number}${block ? ` inside the ${blockLabel(block.kind)} block` : ""}`;
+    const shape =
+      r.priority === "B"
+        ? `${T.secondary_race.B.easy_days_before} easy days in front of it and ${T.secondary_race.B.recovery_days_after} after, at ${Math.round(T.secondary_race.B.week_volume_multiplier * 100)}% of the week's volume — a short taper, not a cycle.`
+        : `no taper: it replaces the week's hard session, then one easy day. The block carries on around it.`;
+    notes.push(`"${r.type}" (${r.date}, ${r.priority}) ${where} — ${shape}`);
+  }
+
+  // Several A races is legal — each gets its own macrocycle — but two of them
+  // close together means the second cycle is mostly taper and recovery.
+  for (let i = 1; i < usableAnchors.length; i++) {
+    const gap = usableAnchors[i].week_number - usableAnchors[i - 1].week_number;
+    if (gap <= T.bridge_max_weeks + T.recovery_weeks.A) {
+      notes.push(
+        `"${usableAnchors[i].type}" is only ${gap} weeks after "${usableAnchors[i - 1].type}" — that cycle is recovery and taper with almost no training in it. Consider making one of them the main race and the other a B race.`,
+      );
+    }
   }
 
   return {
@@ -668,4 +682,29 @@ export function nextAnchorRace(season: SeasonPlan, today: string): SeasonRace | 
   return (
     season.races.find((r) => r.is_anchor && utcDate(r.date).getTime() >= todayDate.getTime()) ?? null
   );
+}
+
+/**
+ * The season's main race: the first A race still ahead. This is the race the
+ * detailed 4-20 week plan is built towards, and the one the athlete means when
+ * they say "my race".
+ */
+export function mainRace(season: SeasonPlan, today: string): SeasonRace | null {
+  return nextAnchorRace(season, today);
+}
+
+/**
+ * The races that ride INSIDE the plan built for the main race: everything
+ * between today and the main race that is not the main race itself. These are
+ * what raceCalendar.ts bends the training days around.
+ */
+export function supportingRaces(season: SeasonPlan, today: string): SeasonRace[] {
+  const main = mainRace(season, today);
+  if (!main) return [];
+  const from = utcDate(today).getTime();
+  const to = utcDate(main.date).getTime();
+  return season.races.filter((r) => {
+    const t = utcDate(r.date).getTime();
+    return t >= from && t < to && r.index !== main.index;
+  });
 }

@@ -95,6 +95,7 @@ export default async function SeasonPage() {
       weaknesses={((profile.weaknesses as string[] | null) ?? []) as string[]}
       activePlanRaceDate={plan?.race_date ?? null}
       currentWeek={currentWeek}
+      today={new Date().toISOString().slice(0, 10)}
     />
   );
 }

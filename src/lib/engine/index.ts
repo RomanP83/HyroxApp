@@ -3,6 +3,7 @@ export * from "./types";
 export * from "./constants";
 export * from "./macro";
 export * from "./season";
+export * from "./raceCalendar";
 export * from "./running";
 export * from "./runVariants";
 export * from "./stationVariants";

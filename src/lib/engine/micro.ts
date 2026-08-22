@@ -34,6 +34,7 @@ const HARD_TYPES: SessionType[] = [
   "run_intervals",
   "full_sim",
   "benchmark",
+  "race_day",
 ];
 
 /**
@@ -67,6 +68,7 @@ const BASE_DURATION: Record<SessionType, number> = {
   full_sim: 90,
   mobility: 30,
   benchmark: 45,
+  race_day: 90,
   rest: 0,
 };
 
@@ -80,6 +82,7 @@ const RPE_OFFSET: Record<SessionType, number> = {
   full_sim: 2,
   mobility: -3,
   benchmark: 2,
+  race_day: 3,
   rest: -5,
 };
 

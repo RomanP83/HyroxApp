@@ -242,6 +242,16 @@ export function SessionCard({
             </div>
           ) : (
             <>
+              {session.session_type === "race_day" && (
+                <div className="rounded-lg border border-dashed border-line p-4 text-sm">
+                  <div className="font-semibold">Race day.</div>
+                  <p className="mt-1 text-muted">
+                    No prescription here — the event is the session. Warm up the way you always do,
+                    hold your opening pace out of the first station, and log it afterwards so the
+                    plan can recalibrate on it.
+                  </p>
+                </div>
+              )}
               {session.blocks.map((b) => (
                 <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />
               ))}

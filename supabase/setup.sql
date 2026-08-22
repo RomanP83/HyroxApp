@@ -57,7 +57,7 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create type session_type_t as enum (
     'long_run', 'run_easy', 'run_intervals', 'compromised_run', 'strength',
-    'station_work', 'full_sim', 'mobility', 'benchmark', 'rest'
+    'station_work', 'full_sim', 'mobility', 'benchmark', 'race_day', 'rest'
   );
 exception when duplicate_object then null; end $$;
 
@@ -1641,3 +1641,25 @@ insert into workout_blocks (slug, block_type, station, content, equipment_varian
  '[{"exercise":"4 rounds: 1000 m run + home station circuit (thrusters, lunges, rows, burpees)","distance_m":1000,"sets":4,"rest_sec":0,"load_by_division":{"open":"dumbbells 2x7,5 kg / backpack 15 kg","pro":"2x10 kg / 25 kg"}}]'::jsonb,
  'home', 2, '{full_sim}', '{home,simulation}')
 on conflict (slug) do nothing;
+-- ============================================================================
+-- 0021 — race days in the training plan.
+--
+-- The season layer (0012) already stores the athlete's race calendar and marks
+-- which races anchor a macrocycle. What was missing is the other half: the
+-- weekly plan never knew about any race except the one it was generated for,
+-- so a B or C race in the calendar changed exactly nothing in the training
+-- days around it.
+--
+-- src/lib/engine/raceCalendar.ts now resolves the calendar onto the plan grid
+-- and writes a real session on the race day. That needs a session type of its
+-- own — a race is neither a simulation nor a benchmark.
+--
+-- Note for an EXISTING database: this adds the enum value. A fresh install
+-- gets it from 0001 (the create-type there lists it), which is what keeps
+-- setup.sql runnable as a single transaction — a new enum value may not be
+-- USED in the transaction that adds it. Nothing here uses it: a race day
+-- carries no workout_blocks at all (fill.ts returns no blocks for it), so no
+-- library row has to reference the value this file just created.
+-- ============================================================================
+
+alter type session_type_t add value if not exists 'race_day';

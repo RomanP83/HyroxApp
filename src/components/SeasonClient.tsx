@@ -9,6 +9,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SEASON_BLOCK_COLORS, titleCase } from "@/lib/format";
+import { SeasonCalendar } from "./SeasonCalendar";
 import { CalendarIcon, ChartIcon, SparkIcon, SpinnerIcon, TargetIcon } from "./icons";
 
 export interface SeasonRaceRow {
@@ -58,7 +59,28 @@ interface Props {
   /** Race date of the athlete's active weekly plan, if any. */
   activePlanRaceDate: string | null;
   currentWeek: number | null;
+  /** Today, resolved on the server so the calendar renders identically. */
+  today: string;
 }
+
+/**
+ * What each priority actually does to the training — the same rules the engine
+ * applies (season.ts builds the cycle, raceCalendar.ts bends the days).
+ */
+const PRIORITY_INFO: Record<RaceDraft["priority"], { label: string; effect: string }> = {
+  A: {
+    label: "A — Main race",
+    effect: "Gets its own macrocycle: a full taper before it and 2-3 recovery weeks after.",
+  },
+  B: {
+    label: "B — Secondary race",
+    effect: "Rides inside the block: 3 easy days before, 2 after, the week at 80% volume. No cycle of its own.",
+  },
+  C: {
+    label: "C — Tune-up",
+    effect: "No taper. It replaces the week's hard session, then one easy day.",
+  },
+};
 
 const EMPTY_RACE: RaceDraft = { date: "", type: "Hyrox Open", priority: "A" };
 
@@ -115,8 +137,28 @@ export function SeasonClient(props: Props) {
     }
   }
 
+  /** Turn the calendar into the detailed 4-20 week plan for the next main race. */
+  async function buildPlan() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/plans/from-season", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
+      setToast(
+        `Training plan built: ${data.weeksToRace} weeks to ${data.main_race.type}` +
+          (data.supporting_races ? `, with ${data.supporting_races} race(s) inside it.` : "."),
+      );
+      router.refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Could not build the plan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const season = props.season;
   const macrocycles = groupByMacrocycle(season?.blocks ?? []);
+  const mainRaceHint = hintForMainRaces(races);
 
   return (
     <main className="space-y-6">
@@ -165,9 +207,11 @@ export function SeasonClient(props: Props) {
                   setRaces(patch(races, i, { priority: e.target.value as RaceDraft["priority"] }))
                 }
               >
-                <option value="A">A — peak</option>
-                <option value="B">B — tune-up</option>
-                <option value="C">C — training</option>
+                {(["A", "B", "C"] as const).map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_INFO[p].label}
+                  </option>
+                ))}
               </select>
               <button
                 className="btn-ghost"
@@ -176,6 +220,7 @@ export function SeasonClient(props: Props) {
               >
                 ✕
               </button>
+              <p className="text-xs text-muted sm:col-span-4">{PRIORITY_INFO[race.priority].effect}</p>
             </div>
           ))}
         </div>
@@ -197,15 +242,26 @@ export function SeasonClient(props: Props) {
           </p>
         </div>
 
+        {mainRaceHint && (
+          <p className="rounded border border-line bg-surface2 p-2 text-xs text-muted">{mainRaceHint}</p>
+        )}
+
         <div className="flex flex-wrap items-center gap-3">
           <button className="btn-primary" onClick={() => void generate()} disabled={busy}>
             {busy ? <SpinnerIcon size={16} /> : <SparkIcon size={16} />}
             {season ? "Rebuild the year plan" : "Build my year plan"}
           </button>
-          <span className="text-xs text-muted">
-            Only A races get a taper. B and C races are planned as hard training days.
-          </span>
+          {season && (
+            <button className="btn-ghost" onClick={() => void buildPlan()} disabled={busy}>
+              <TargetIcon size={16} />
+              Build the training plan for the next main race
+            </button>
+          )}
         </div>
+        <p className="text-xs text-muted">
+          One main race is what a year is planned around. Add as many secondary races as you like —
+          they are trained through, not tapered for.
+        </p>
       </div>
 
       {!season ? (
@@ -283,6 +339,34 @@ export function SeasonClient(props: Props) {
                 </span>
               ))}
             </div>
+          </div>
+
+          {/* ── The season as a calendar ─────────────────────────────── */}
+          <div className="card space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div className="text-sm font-semibold">Calendar</div>
+              <div className="text-xs text-muted">
+                Click a day to add a race there · a filled day is a race (letter = priority, dot = main race)
+              </div>
+            </div>
+            <SeasonCalendar
+              startDate={season.start_date}
+              endDate={season.end_date}
+              today={props.today}
+              blocks={season.blocks}
+              races={season.races}
+              onPickDate={(day) =>
+                setRaces((prev) =>
+                  prev.some((r) => r.date === day)
+                    ? prev
+                    : [...prev.filter((r) => r.date), { ...EMPTY_RACE, date: day, priority: "B" }],
+                )
+              }
+            />
+            <p className="text-xs text-muted">
+              A day you add here becomes a secondary race — change it to a main race above if the
+              year should be planned around it, then rebuild.
+            </p>
           </div>
 
           {/* ── Block detail ─────────────────────────────────────────── */}
@@ -372,6 +456,24 @@ export function SeasonClient(props: Props) {
       )}
     </main>
   );
+}
+
+/**
+ * A season needs exactly one race it is built around. None means the planner
+ * has to guess; several means several cycles, which is legal but rarely what
+ * someone means when they enter three races in one spring.
+ */
+function hintForMainRaces(races: RaceDraft[]): string | null {
+  const dated = races.filter((r) => r.date);
+  if (!dated.length) return null;
+  const mains = dated.filter((r) => r.priority === "A");
+  if (!mains.length) {
+    return "No main race yet — the last race in the list will be treated as the A race and get the full taper. Mark the one that actually matters.";
+  }
+  if (mains.length > 1) {
+    return `${mains.length} main races: each gets its own cycle with a taper and recovery weeks around it. If two of them are close together, make the second one a secondary race instead.`;
+  }
+  return null;
 }
 
 function patch(races: RaceDraft[], i: number, values: Partial<RaceDraft>): RaceDraft[] {

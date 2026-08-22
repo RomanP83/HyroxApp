@@ -59,6 +59,22 @@ sessions for the current race cycle (4–20 weeks, `generatePlan`); the season d
 cycle is for and what the surrounding year looks like. `nextAnchorRace(season, today)` names that
 race, `currentSeasonBlock(season, today)` locates the athlete in the year.
 
+Since the race calendar landed, that relationship is wired, not just described:
+
+- `src/lib/seasonCalendar.ts` reads `season_races` and answers two questions — which race the plan is
+  built towards (`pickMainRace`), and which races fall inside it (`racesForPlan`).
+- `planWeeksTo(raceDate, today)` counts weeks on the same Monday grid the plan uses, which is what
+  guarantees the race actually lands in the **last** week of the plan.
+- `src/lib/engine/raceCalendar.ts` resolves those dates onto the plan grid and bends the days: the
+  race day becomes a `race_day` session, the run-in is softened by priority (A: the last two days,
+  B: three days, C: one), the days after become recovery, and the two-hard-days ceiling is re-applied
+  with the race counting as one of the two.
+- `POST /api/plans/from-season` is the button on `/season`; `POST /api/plans/generate` (onboarding)
+  and `rebasePlan()` pass the same calendar, so no path silently loses it.
+
+A race that is not in the window simply does not appear — `placeRaces` drops it rather than
+stretching the plan to reach it.
+
 The two layers deliberately keep their own deload numbers: the season block plans −35% across a
 week, the weekly generator renders its own deload at −40% inside the plan it builds. If you want them
 identical, change `SEASON_TUNING.deload_volume_multiplier` — one line, one place.

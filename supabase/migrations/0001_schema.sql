@@ -41,7 +41,7 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create type session_type_t as enum (
     'long_run', 'run_easy', 'run_intervals', 'compromised_run', 'strength',
-    'station_work', 'full_sim', 'mobility', 'benchmark', 'rest'
+    'station_work', 'full_sim', 'mobility', 'benchmark', 'race_day', 'rest'
   );
 exception when duplicate_object then null; end $$;
 

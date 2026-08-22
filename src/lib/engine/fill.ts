@@ -124,6 +124,9 @@ export function fillSession(
   let order = 0;
 
   if (slot.session_type === "rest") return blocks;
+  // A race day has no prescription to render: the event is the session, and
+  // its warm-up belongs to the athlete's own routine, not to the library.
+  if (slot.session_type === "race_day") return blocks;
   if (slot.session_type === "mobility") {
     const mob = pickBlock({ library, sessionType: "mobility", blockType: "mobility", variant });
     if (mob) blocks.push(render(mob, profile, order++, { division: profile.division }));

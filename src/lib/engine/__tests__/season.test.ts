@@ -144,7 +144,7 @@ describe("planSeason — multi-race logic", () => {
     expect(third.blocks[0].kind).toBe("post_race_recovery");
   });
 
-  it("treats a B race as a hard training day inside the block it falls in", () => {
+  it("rides a B race inside the block it falls in, with a short taper and no cycle", () => {
     const withB = planSeason({
       startDate: "2026-10-01",
       races: [
@@ -161,7 +161,39 @@ describe("planSeason — multi-race logic", () => {
       (b) => bRace.week_number >= b.start_week && bRace.week_number <= b.end_week,
     )!;
     expect(host.race_indexes).toContain(bRace.index);
-    expect(withB.notes.some((n) => n.includes("hard training day"))).toBe(true);
+    // The note has to name what the plan actually does to those days — a short
+    // taper, not a cycle. raceCalendar.ts applies exactly these numbers.
+    const note = withB.notes.find((n) => n.includes("Local Hyrox"))!;
+    expect(note).toContain("easy days in front of it");
+    expect(note).toContain("short taper, not a cycle");
+  });
+
+  it("gives a C race no taper at all — it replaces the week's hard session", () => {
+    const withC = planSeason({
+      startDate: "2026-10-01",
+      races: [
+        { date: "2026-11-21", type: "Club Throwdown", priority: "C" },
+        { date: "2027-03-20", type: "Hyrox Open Men", priority: "A" },
+      ],
+      trainingDaysPerWeek: 4,
+    });
+    const note = withC.notes.find((n) => n.includes("Club Throwdown"))!;
+    expect(note).toContain("no taper");
+    expect(note).toContain("replaces the week's hard session");
+  });
+
+  it("warns when two main races sit too close for a real cycle between them", () => {
+    const crowded = planSeason({
+      startDate: "2026-10-01",
+      races: [
+        { date: "2027-03-20", type: "Hyrox Open Men", priority: "A" },
+        { date: "2027-04-24", type: "Hyrox Doubles", priority: "A" },
+      ],
+      trainingDaysPerWeek: 4,
+    });
+    expect(crowded.notes.some((n) => n.includes("Consider making one of them the main race"))).toBe(
+      true,
+    );
   });
 
   it("promotes the last race when no A race was given", () => {

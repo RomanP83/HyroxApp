@@ -10,6 +10,13 @@ import { ENGINE_VERSION, DELOAD_VOLUME_MULTIPLIER } from "./constants";
 import { buildPhasePlan } from "./macro";
 import { scaleRunDurations, weeklyVolumeTarget } from "./running";
 import { distributeSlots } from "./micro";
+import {
+  applyRacesToWeek,
+  placeRaces,
+  raceNotesForWeek,
+  raceVolumeMultiplier,
+  type RaceDayPlacement,
+} from "./raceCalendar";
 import { fillSession } from "./fill";
 import { weeklyGoal } from "./weeklyGoal";
 
@@ -23,11 +30,20 @@ const SESSION_TITLES: Record<string, string> = {
   full_sim: "Race Simulation",
   mobility: "Mobility & Recovery",
   benchmark: "Benchmark Test",
+  race_day: "Race Day",
   rest: "Rest",
 };
 
 export function generatePlan(input: GenerateInput): GeneratedPlan {
   const { profile, state, library, weeksToRace } = input;
+
+  // The race calendar, resolved onto the plan grid. Without a start date there
+  // is nothing to resolve dates against, so the plan stays calendar-free —
+  // which is exactly how it behaved before the calendar existed.
+  const placements: RaceDayPlacement[] =
+    input.startDate && input.races?.length
+      ? placeRaces({ startDate: input.startDate, weeksToRace, races: input.races })
+      : [];
   const phasePlans = buildPhasePlan(weeksToRace);
   const lastBuild = [...phasePlans].reverse().find((p) => p.phase_type === "build");
   const taper = phasePlans.find((p) => p.phase_type === "taper");
@@ -76,15 +92,23 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
             phase: pp.phase_type,
             isDeload,
             weekNumber: w,
-          }),
+          }) * raceVolumeMultiplier(w, placements),
         );
       }
+
+      // A race in the calendar takes its day, eases the days in front of it and
+      // turns the days behind it into recovery — across the week boundary too.
+      slots = applyRacesToWeek(slots, w, placements);
+      const weekRaces = placements.filter((p) => p.week_number === w);
 
       const sessions = slots.map((slot) => ({
         day_hint: slot.day_hint,
         day_slot: slot.day_slot,
         session_type: slot.session_type,
-        title: SESSION_TITLES[slot.session_type] ?? slot.session_type,
+        title:
+          slot.session_type === "race_day"
+            ? (weekRaces.find((p) => p.day_hint === slot.day_hint)?.race.type ?? "Race Day")
+            : (SESSION_TITLES[slot.session_type] ?? slot.session_type),
         planned_duration_min: slot.planned_duration_min,
         intensity_rpe_target: slot.intensity_rpe_target,
         sort_order: slot.sort_order,
@@ -95,14 +119,24 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         week_number: w,
         is_deload: isDeload,
         is_benchmark_week: isBenchmark,
-        weekly_goal: weeklyGoal({
-          phase: pp.phase_type,
-          weekInPhase,
-          phaseLength: pp.end_week - pp.start_week + 1,
-          isDeload,
-          isBenchmark,
-          weeksToRace: weeksToRace - w + 1,
-        }),
+        races: weekRaces.length
+          ? weekRaces.map((p) => ({
+              date: p.race.date,
+              type: p.race.type,
+              priority: p.race.priority,
+              day_hint: p.day_hint,
+            }))
+          : undefined,
+        weekly_goal:
+          raceNotesForWeek(w, placements)[0] ??
+          weeklyGoal({
+            phase: pp.phase_type,
+            weekInPhase,
+            phaseLength: pp.end_week - pp.start_week + 1,
+            isDeload,
+            isBenchmark,
+            weeksToRace: weeksToRace - w + 1,
+          }),
         target_sessions: sessions.length,
         sessions,
       });

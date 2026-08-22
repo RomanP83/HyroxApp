@@ -56,7 +56,13 @@ const DATA = toSeasonData();
 
 describe("SeasonClient", () => {
   const html = renderToStaticMarkup(
-    <SeasonClient season={DATA} weaknesses={["Sled Push"]} activePlanRaceDate={null} currentWeek={5} />,
+    <SeasonClient
+      season={DATA}
+      weaknesses={["Sled Push"]}
+      activePlanRaceDate={null}
+      currentWeek={5}
+      today="2026-11-04"
+    />,
   );
 
   it("draws one timeline segment per block, sized by its week count", () => {
@@ -98,7 +104,13 @@ describe("SeasonClient", () => {
 
   it("offers the calendar editor even with no season yet", () => {
     const empty = renderToStaticMarkup(
-      <SeasonClient season={null} weaknesses={[]} activePlanRaceDate={null} currentWeek={null} />,
+      <SeasonClient
+        season={null}
+        weaknesses={[]}
+        activePlanRaceDate={null}
+        currentWeek={null}
+        today="2026-11-04"
+      />,
     );
     expect(empty).toContain("Build my year plan");
     expect(empty).toContain("No season yet");

@@ -19,6 +19,7 @@ export type SessionType =
   | "full_sim"
   | "mobility"
   | "benchmark"
+  | "race_day"
   | "rest";
 
 export type Station =
@@ -149,6 +150,8 @@ export interface GeneratedWeek {
   week_number: number; // 1-based, plan-global
   is_deload: boolean;
   is_benchmark_week: boolean;
+  /** Races from the calendar that fall in this week, if any. */
+  races?: { date: string; type: string; priority: "A" | "B" | "C"; day_hint: number }[];
   weekly_goal: string;
   target_sessions: number;
   sessions: GeneratedSession[];
@@ -175,4 +178,16 @@ export interface GenerateInput {
   state: AthleteState;
   library: WorkoutBlock[];
   weeksToRace: number;
+  /**
+   * Any date inside plan week 1 (normally today). Only needed when races are
+   * passed: it anchors the plan grid so a calendar date can be resolved to a
+   * plan day.
+   */
+  startDate?: string;
+  /**
+   * The athlete's race calendar. The main (A) race is the one the plan is
+   * built towards; B and C races ride inside it and bend the days around
+   * them (see raceCalendar.ts).
+   */
+  races?: { date: string; type: string; priority: "A" | "B" | "C" }[];
 }

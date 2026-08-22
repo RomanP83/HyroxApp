@@ -348,11 +348,30 @@ Race cycle 1 — Hyrox Open, 16 Jan          Race cycle 2 — Hyrox Pro, 15 May
 - **Deload every 4th training week** at −35%, never on a block's opening week.
 - **Multi-race logic**: a short gap between two A races becomes one re-build bridge focused on your
   weaknesses instead of a squeezed cycle — and the season tells you why.
-- **B and C races** are planned as hard training days inside the block they fall in, not as peaks.
-
 Your weaknesses are routed to the block where they belong: strength work into base, lactate tolerance
 into build, race execution into the race-specific block. Details:
 [`docs/season-periodisation.md`](docs/season-periodisation.md).
+
+### One main race, any number of side races
+
+A race calendar is only useful if the training days actually change around it. Each race carries a
+priority, and the priority is a promise about what the plan will do:
+
+| | What it is | What the plan does |
+|---|---|---|
+| **A** | Your main race | Gets a macrocycle of its own: a full taper in front of it, 2–3 recovery weeks behind it. The weekly plan is built backwards from the next one. |
+| **B** | A race that matters, but not *the* race | Rides inside the block it falls in: 3 easy days before, 2 after, the week at 80% volume. No cycle, no restructuring. |
+| **C** | A tune-up | No taper at all — it *replaces* the week's hard session, then one easy day. |
+
+Enter them on `/season`, either as rows or by clicking a day in the calendar. The engine then writes
+a real **race day** session into the plan on that date, softens the run-in around it, and turns the
+days after it into recovery — across week boundaries, so a Saturday race eases the Monday that
+follows. A race counts against the two-hard-days ceiling like any other hard session: the session
+that gives way is the one closest to the race.
+
+The year view and the weekly plan share one calendar (`src/lib/seasonCalendar.ts`), so
+**Build the training plan for the next main race** on `/season` produces exactly the cycle the
+timeline above it promises — and a rebase keeps the calendar instead of silently dropping it.
 
 ---
 

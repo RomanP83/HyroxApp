@@ -163,6 +163,33 @@ export const SEASON_TUNING = {
   deload_volume_multiplier: 0.65, // -35%
   /** Planning horizon when the calendar runs out of races. */
   default_horizon_weeks: 52,
+  /**
+   * What a race that does NOT anchor a macrocycle does to the training weeks
+   * around it. An A race gets a real cycle (taper block + recovery block); a
+   * B or C race rides inside the block it falls in, and only bends the days
+   * immediately around it.
+   *
+   *   B — a race that matters, but not THE race: a short taper (the hard
+   *       sessions in the days before come out), then two easy days.
+   *   C — a tune-up: no taper at all. The race IS the week's hard session,
+   *       which is why only the day before is eased off.
+   */
+  secondary_race: {
+    B: {
+      easy_days_before: 3,
+      recovery_days_after: 2,
+      week_volume_multiplier: 0.8,
+      label: "Secondary race",
+    },
+    C: {
+      easy_days_before: 1,
+      recovery_days_after: 1,
+      week_volume_multiplier: 0.95,
+      label: "Tune-up race",
+    },
+  },
+  /** Planned minutes for a race day in the plan (a Hyrox, warm-up included). */
+  race_day_minutes: 90,
   /** Volume relative to the athlete's normal week, per block kind. */
   volume: {
     post_race_recovery: 0.55,

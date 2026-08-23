@@ -1099,9 +1099,16 @@ export function pickCompromisedSession(q: CompromisedQuery): CompromisedPick | n
   return pickFromCatalogue(COMPROMISED_SESSIONS, q);
 }
 
-/** Running metres in one session — erg and carry distances are not mileage. */
-export function runningMetres(session: CompromisedSession): number {
-  const perRound = session.lines.reduce((n, l) => n + (l.is_run ? (l.distance_m ?? 0) : 0), 0);
+/**
+ * Running metres in one session — erg and carry distances are not mileage.
+ * A line that repeats itself (`8 × 400 m`) counts every repetition, which is
+ * how an interval session states its volume.
+ */
+export function runningMetres(session: CatalogueSession): number {
+  const perRound = session.lines.reduce(
+    (n, l) => n + (l.is_run ? (l.distance_m ?? 0) * (l.sets ?? 1) : 0),
+    0,
+  );
   return perRound * session.rounds;
 }
 

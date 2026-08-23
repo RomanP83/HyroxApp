@@ -10,7 +10,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { COMPROMISED_SESSIONS } from "../compromisedSessions";
 import { STATION_SESSIONS } from "../stationSessions";
-import { compromisedSeedSql, stationSeedSql } from "../librarySeed";
+import { INTERVAL_SESSIONS } from "../intervalSessions";
+import { compromisedSeedSql, intervalSeedSql, stationSeedSql } from "../librarySeed";
 import type { CatalogueSession } from "../catalogue";
 
 const root = resolve(__dirname, "../../../..");
@@ -38,6 +39,13 @@ const catalogues: {
     file: "supabase/seed/0005_station_work.sql",
     marker: "station work",
   },
+  {
+    what: "interval running",
+    sessions: INTERVAL_SESSIONS,
+    sql: intervalSeedSql(),
+    file: "supabase/seed/0006_interval_running.sql",
+    marker: "interval running",
+  },
 ];
 
 function mirrorInSetup(setup: string, marker: string, sql: string): string {
@@ -60,15 +68,16 @@ if (write) {
 }
 
 describe.each(catalogues)("$what is stored as well as authored", ({ sessions, sql, file, marker }) => {
-  it("holds three sessions for every level and phase", () => {
-    expect(sessions.length).toBe(60);
+  it("holds a rotation for every level and phase, at least three deep", () => {
+    // Three is the floor because the picker alternates a weakness against the
+    // rest of the pool: with two, one of them is never prescribed.
     const counted = new Map<string, number>();
     for (const s of sessions) {
       const key = `${s.level}/${s.phase}`;
       counted.set(key, (counted.get(key) ?? 0) + 1);
     }
     expect(counted.size).toBe(20);
-    expect([...counted.values()].every((n) => n === 3)).toBe(true);
+    for (const [key, n] of counted) expect(n, key).toBeGreaterThanOrEqual(3);
   });
 
   it("pins a unique id and slug on every session", () => {

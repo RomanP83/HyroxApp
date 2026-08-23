@@ -9,6 +9,7 @@ export * from "./runVariants";
 export * from "./catalogue";
 export * from "./compromisedSessions";
 export * from "./stationSessions";
+export * from "./intervalSessions";
 export * from "./stationVariants";
 export * from "./strengthVariants";
 export * from "./micro";

@@ -22,6 +22,7 @@ import { pickStationVariant } from "./stationVariants";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
 import { pickStationSession, renderStation } from "./stationSessions";
+import { pickIntervalSession, renderInterval } from "./intervalSessions";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -220,6 +221,40 @@ export function fillSession(
           // The tier of the station this session actually hammers, not of the
           // one the weekly rotation happened to name.
           station_tier: focus ? state.station_tiers[focus] ?? targetTier : targetTier,
+          variant_name: chosen.session.name,
+          variant_why: chosen.session.why,
+          variant_targeted: chosen.targeted,
+        },
+      });
+      return blocks;
+    }
+  }
+
+  // Threshold and VO2max intervals are the one running session that carries no
+  // station work at all: a sled before the reps caps the speed and blurs the
+  // target. Levelled the same way as the other catalogues, and for the same
+  // reason — three six-minute efforts and eight kilometre reps off thirty
+  // seconds are not one session at two paces.
+  if (phase && slot.session_type === "run_intervals") {
+    const chosen = pickIntervalSession({
+      level: profile.experience_level,
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+    });
+    if (chosen) {
+      blocks.push({
+        block_id: chosen.session.block_id,
+        slug: chosen.session.slug,
+        block_type: "main",
+        station: "run",
+        content: renderInterval(chosen.session),
+        sort_order: order++,
+        load_adjustments: {
+          division: profile.division,
+          ...(pace != null ? { pace_sec_km: pace } : {}),
           variant_name: chosen.session.name,
           variant_why: chosen.session.why,
           variant_targeted: chosen.targeted,

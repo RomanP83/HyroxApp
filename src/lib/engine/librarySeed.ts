@@ -2,7 +2,8 @@
 // The levelled catalogues as SQL.
 //
 // A plan is stored as references into workout_blocks, so every session in
-// compromisedSessions.ts and stationSessions.ts needs a row there. Authoring
+// compromisedSessions.ts, stationSessions.ts and intervalSessions.ts needs a
+// row there. Authoring
 // them twice — once in TypeScript, once in SQL — is how the two drift apart,
 // so the SQL is generated from the catalogues and a test fails when a file on
 // disk no longer matches.
@@ -13,8 +14,16 @@
 // ============================================================================
 import { COMPROMISED_SESSIONS } from "./compromisedSessions";
 import { STATION_SESSIONS } from "./stationSessions";
+import { INTERVAL_SESSIONS } from "./intervalSessions";
 import { renderCatalogue, type CatalogueSession } from "./catalogue";
 import type { SessionType, WorkoutBlock } from "./types";
+
+/** What a catalogue's rows are called in the library's own tag vocabulary. */
+const TAG: Partial<Record<SessionType, string>> = {
+  compromised_run: "compromised",
+  station_work: "station",
+  run_intervals: "intervals",
+};
 
 /** Difficulty tier follows the level the session was written for. */
 function tierFor(session: CatalogueSession): number {
@@ -40,7 +49,7 @@ function libraryBlocks(catalogue: CatalogueSession[], sessionType: SessionType):
     difficulty_tier: tierFor(session),
     session_types: [sessionType],
     tags: [
-      sessionType === "station_work" ? "station" : "compromised",
+      TAG[sessionType] ?? sessionType,
       session.level,
       session.phase,
       ...(session.station ? [session.station] : []),
@@ -59,6 +68,10 @@ export function compromisedLibraryBlocks(): WorkoutBlock[] {
 
 export function stationLibraryBlocks(): WorkoutBlock[] {
   return libraryBlocks(STATION_SESSIONS, "station_work");
+}
+
+export function intervalLibraryBlocks(): WorkoutBlock[] {
+  return libraryBlocks(INTERVAL_SESSIONS, "run_intervals");
 }
 
 const quote = (s: string) => `'${s.replace(/'/g, "''")}'`;
@@ -119,5 +132,13 @@ export function stationSeedSql(): string {
     "Isolated station work: 60 sessions, five levels x four phases x three.",
     "stationSessions.ts",
     stationLibraryBlocks(),
+  );
+}
+
+export function intervalSeedSql(): string {
+  return seedSql(
+    "Threshold and VO2max intervals: 86 sessions across five levels and four phases.",
+    "intervalSessions.ts",
+    intervalLibraryBlocks(),
   );
 }

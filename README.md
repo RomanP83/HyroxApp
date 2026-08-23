@@ -8,6 +8,10 @@ market, without a wearable requirement.
 > [`docs/implementation-plan.md`](docs/implementation-plan.md) (v1.1). Marketing
 > language is “your plan to race day”; *periodization* is the mechanism, not the pitch.
 
+📖 **Looking for how the app is actually used?**
+[`docs/anleitung.md`](docs/anleitung.md) is the user guide — every page, every button and what it
+does, kept current with each new feature. (In German, like the app's first users.)
+
 ---
 
 ## Why this exists (the pain points it answers)

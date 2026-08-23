@@ -81,6 +81,15 @@ export interface AthleteProfile {
   /** Stated weaknesses ("Sled Push", "Laktattoleranz") — steer session choice. */
   weaknesses?: string[] | null;
   equipment_access: EquipmentAccess;
+  /**
+   * The athlete's own week shape, 1 = Monday … 7 = Sunday. These are hard
+   * pins: the plan honours them even when they collide with the recovery
+   * rules, and reports the collision instead of quietly overruling the
+   * athlete (assessWeekPreferences).
+   */
+  preferred_long_run_day?: number | null;
+  preferred_strength_days?: number[] | null;
+  preferred_rest_days?: number[] | null;
 }
 
 export interface AthleteState {

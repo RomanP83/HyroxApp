@@ -158,7 +158,7 @@ Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 | **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter deine Pace-Zonen und der ACWR. Die eine Zahl, für die das ganze System existiert. |
 | **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
 | **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
-| **Setup & tools** *(zugeklappt)* | Strava/Garmin verbinden, Telegram, Verletzung melden, Laufvolumen ändern. Einmal-Aufgaben, die keinen Dauerplatz brauchen — antippen zum Aufklappen. |
+| **Setup & tools** *(zugeklappt)* | Die Form deiner Woche, Laufvolumen, Strava/Garmin, Telegram, Verletzung melden. Einmal-Aufgaben, die keinen Dauerplatz brauchen — antippen zum Aufklappen. |
 | **Coach-Feedback** | Erscheint nach dem Loggen als Overlay (siehe Abschnitt 6). |
 
 ---
@@ -184,7 +184,35 @@ Das nimmt nicht nur den Eintrag zurück, sondern auch **die Kalibrierung, die er
 App spielt die verbleibenden Logs neu ein und stellt Paces, Tiers und Kraftfaktor auf den Stand ohne
 diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
 
+### Die Form deiner Woche festlegen
+
+Unter *Setup & tools* → **„The shape of your week"** legst du für den **ganzen Plan** fest, welche
+Wochentage fix sind: ein Tag für den **Long Run**, beliebig viele **Kraft-Tage**, und deine
+**Ruhetage**. Sieben Schalter je Zeile, Montag zuerst.
+
+**Harte Pins.** Diese Tage gewinnen — auch gegen die Erholungsregeln. Öffnungszeiten im Gym und ein
+freier Sonntag sind Tatsachen, und ein Plan, der sie stillschweigend überstimmt, wird nicht befolgt.
+Alles Übrige ordnet sich um deine Pins herum an, weiterhin regelkonform, soweit die verbleibenden
+Tage es zulassen.
+
+**Weiche Warnung.** Was ein Pin kostet, steht direkt unter den Schaltern — zum Beispiel *„Strength am
+Donnerstag folgt auf einen harten Mittwoch — Plyometrie will 24–48 h frische Beine."* Nichts wird
+heimlich korrigiert; du siehst den Preis und entscheidest.
+
+Ein paar Regeln, die die App durchsetzt statt sie zu erraten:
+
+- Ein Tag kann nicht gleichzeitig Ruhetag und Kraft-/Long-Run-Tag sein — das wäre ein Tippfehler,
+  keine Präferenz, und wird beim Speichern abgelehnt.
+- Mehr Ruhetage als Wochentage übrig sind, geht nicht (bei 5 Trainingstagen also höchstens 2).
+- Passt die Woche trotzdem nicht, gewinnt das Training: die App nimmt sich den nötigen Tag zurück
+  und sagt welchen.
+
+Speichern baut die **verbleibenden Wochen** neu auf — wie beim Laufvolumen. Vergangene Wochen
+bleiben als Protokoll stehen.
+
 ### Verschieben
+
+Für eine **einzelne** Woche abweichen — ohne den Standard zu ändern — geht weiterhin über Move:
 
 **Move** sitzt im aufgeklappten Zustand der Einheit — eine Zeile „Verschieben" unter jeder
 zugeklappten Karte wäre Mobiliar in einer Liste, die man nach dem heutigen Training überfliegt.
@@ -453,6 +481,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Feste Wochentage für Long Run, Kraft und Ruhetage planweit definierbar; harte Pins mit Hinweis auf ihre Kosten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Fünf Leistungslevel (bis World Class, sub 60) mit Einheiten-Soll; Wochenplaner hält Abstandsregeln ein (keine zwei harten Tage in Folge, Kraft nie nach hartem Tag); 16 Wochen = 5/5/4/2; Erg-Hinweis; Kohlenhydrat-Periodisierung | [3](#3-onboarding--den-plan-erzeugen), [6](#6-wie-sich-der-plan-anpasst) |
 | Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [8](#8-strength--eigenes-kraftprogramm) |
 | Einheitliche Rückkehr zur Wochenansicht: gemeinsame Kopfzeile auf allen eingeloggten Seiten (Logo → `/plan`), Rückweg auch auf der Betreiberseite | [2](#2-seitenübersicht) |

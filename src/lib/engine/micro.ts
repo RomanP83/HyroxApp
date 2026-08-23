@@ -90,25 +90,6 @@ function clampRpe(v: number): number {
   return Math.max(1, Math.min(10, v));
 }
 
-/** Evenly spread N sessions across a 7-day week, hard days not back-to-back. */
-function spreadDays(count: number): number[] {
-  if (count <= 0) return [];
-  if (count >= 7) return [1, 2, 3, 4, 5, 6, 7].slice(0, count);
-  const days: number[] = [];
-  const step = 7 / count;
-  for (let i = 0; i < count; i++) {
-    days.push(Math.min(7, Math.round(i * step) + 1));
-  }
-  // de-duplicate while keeping order
-  const seen = new Set<number>();
-  return days.map((d) => {
-    let day = d;
-    while (seen.has(day) && day < 7) day++;
-    seen.add(day);
-    return day;
-  });
-}
-
 interface DistributeInput {
   phase: PhaseType;
   trainingDays: number; // 3..6
@@ -121,6 +102,8 @@ interface DistributeInput {
   runsPerWeek?: number;
   /** This is the one week of the cycle that carries a full race simulation. */
   includeFullSim?: boolean;
+  /** The athlete's pinned weekdays for long run, strength and rest. */
+  prefs?: WeekPrefs;
 }
 
 /**
@@ -221,44 +204,172 @@ export function doublesForWeek(input: {
   return Math.min(wanted, Math.max(0, input.trainingDays - 1));
 }
 
+export interface WeekPrefs {
+  /** 1 = Monday … 7 = Sunday. */
+  longRunDay?: number | null;
+  strengthDays?: number[] | null;
+  restDays?: number[] | null;
+}
+
+export interface WeekLayout {
+  /** Calendar day for each entry of `types`, same order. */
+  days: number[];
+  /** Where a pin collided with a recovery rule, in the athlete's words. */
+  warnings: string[];
+}
+
+const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function clean(days: number[] | null | undefined): number[] {
+  return [...new Set((days ?? []).filter((d) => Number.isInteger(d) && d >= 1 && d <= 7))].sort(
+    (a, b) => a - b,
+  );
+}
+
+/** Pick `count` days out of `pool`, as evenly spread as the pool allows. */
+function spreadOver(pool: number[], count: number): number[] {
+  if (count <= 0) return [];
+  if (count >= pool.length) return [...pool];
+  const step = pool.length / count;
+  const picked: number[] = [];
+  for (let i = 0; i < count; i++) picked.push(pool[Math.min(pool.length - 1, Math.round(i * step))]);
+  return [...new Set(picked)].length === count
+    ? [...new Set(picked)]
+    : pool.slice(0, count); // degenerate pools: take the front, deterministically
+}
+
 /**
- * Lay the week's sessions onto its calendar days so the recovery physiology
- * actually works out (the two rules are the evidence-based ones):
+ * Which sessions a day may follow. Two evidence-based rules:
  *
- *   1. No two hard endurance days back to back. Between two hard days there
- *      is always a Zone-2 day, a load day, or a gap in the calendar.
- *   2. Strength never lands on the day immediately after a hard day: the
- *      strength session opens with plyometrics, and for 24-48 h after a hard
- *      day the CNS is not fresh enough for explosive work.
+ *   1. No two hard endurance days back to back — between them there is always
+ *      a Zone-2 day, a load day, or a gap in the calendar.
+ *   2. Strength never lands the day after a hard day: it opens with
+ *      plyometrics, and the CNS needs 24-48 h before explosive work.
  *
- * Deterministic greedy: walk the calendar days in order and take the highest-
- * priority remaining session that the previous day allows. If nothing fits,
- * relax rule 2 first, then rule 1 — a legal week always comes out, and a
- * constraint only ever bends when the day count forces it.
+ * `relax` lets the caller bend rule 2 first (1) and rule 1 last (2) when the
+ * day count leaves nothing else — a legal week always comes out.
  */
-export function orderAcrossWeek(types: SessionType[], days: number[]): SessionType[] {
-  const remaining = [...types];
-  const out: SessionType[] = [];
+function allowedAfter(prevHard: boolean, type: SessionType, relax: number): boolean {
+  if (!prevHard) return true;
+  if (HARD_TYPES.includes(type)) return relax >= 2;
+  if (type === "strength") return relax >= 1;
+  return true;
+}
 
-  for (let k = 0; k < days.length; k++) {
-    const adjacent = k > 0 && days[k] - days[k - 1] === 1;
-    const prev = out[out.length - 1];
-    const prevHard = adjacent && prev != null && HARD_TYPES.includes(prev);
+/**
+ * Lay the week's sessions onto calendar days.
+ *
+ * Hard pin, soft warn: a day the athlete pinned is honoured even when it
+ * collides with the rules above — gym hours and a free Sunday are facts, and a
+ * plan that quietly overrules them is a plan nobody follows. The collision
+ * comes back as a warning instead.
+ *
+ * Everything the athlete did NOT pin is placed around the pins, still obeying
+ * both rules wherever the remaining days allow it.
+ */
+export function layoutWeek(types: SessionType[], prefs: WeekPrefs = {}): WeekLayout {
+  const warnings: string[] = [];
+  const rest = clean(prefs.restDays);
+  let available = [1, 2, 3, 4, 5, 6, 7].filter((d) => !rest.includes(d));
 
-    const allowed = (t: SessionType, relax: number) => {
-      if (!prevHard) return true;
-      if (HARD_TYPES.includes(t)) return relax >= 2; // rule 1
-      if (t === "strength") return relax >= 1; // rule 2
-      return true;
-    };
-
-    let pickIdx = -1;
-    for (let relax = 0; relax <= 2 && pickIdx < 0; relax++) {
-      pickIdx = remaining.findIndex((t) => allowed(t, relax));
-    }
-    out.push(remaining.splice(pickIdx, 1)[0]);
+  // The training week wins over the rest days it cannot fit into: an athlete
+  // who asks for five sessions and four rest days gets told, not silently
+  // given a four-session week.
+  if (available.length < types.length) {
+    const givenBack = rest.slice(-(types.length - available.length));
+    available = [...available, ...givenBack].sort((a, b) => a - b);
+    const names = givenBack.map((d) => DAY_NAMES[d]);
+    warnings.push(
+      `${types.length} sessions do not fit around ${rest.length} rest days — ${names.join(
+        " and ",
+      )} ${names.length > 1 ? "carry" : "carries"} training this week.`,
+    );
   }
-  return out;
+
+  // ── Pins ────────────────────────────────────────────────────────────────
+  const pinnedDayOf = new Map<number, number>(); // index in `types` -> day
+  const taken = new Set<number>();
+
+  const pin = (index: number, day: number) => {
+    pinnedDayOf.set(index, day);
+    taken.add(day);
+  };
+
+  const longRunIdx = types.indexOf("long_run");
+  const longRunDay = prefs.longRunDay ?? null;
+  if (longRunIdx >= 0 && longRunDay) {
+    if (available.includes(longRunDay)) pin(longRunIdx, longRunDay);
+    else
+      warnings.push(
+        `The long run is pinned to ${DAY_NAMES[longRunDay]}, which is also a rest day — it moved.`,
+      );
+  }
+
+  const strengthIdxs = types.map((t, i) => (t === "strength" ? i : -1)).filter((i) => i >= 0);
+  const strengthDays = clean(prefs.strengthDays).filter(
+    (d) => available.includes(d) && !taken.has(d),
+  );
+  strengthIdxs.forEach((idx, k) => {
+    if (strengthDays[k] != null) pin(idx, strengthDays[k]);
+  });
+  if (strengthIdxs.length > 0 && clean(prefs.strengthDays).length > 0 && !strengthDays.length) {
+    warnings.push("Your strength days are all rest days or already taken — strength moved.");
+  }
+
+  // ── Days for everything else ────────────────────────────────────────────
+  const free = available.filter((d) => !taken.has(d));
+  const chosen = spreadOver(free, types.length - pinnedDayOf.size);
+  const daySet = [...taken, ...chosen].sort((a, b) => a - b);
+
+  // ── Assign the unpinned sessions around the pinned ones ─────────────────
+  const dayToIndex = new Map<number, number>();
+  for (const [index, day] of pinnedDayOf) dayToIndex.set(day, index);
+
+  const unplaced = types
+    .map((t, i) => ({ t, i }))
+    .filter(({ i }) => !pinnedDayOf.has(i));
+
+  const placed: { day: number; index: number; type: SessionType }[] = [];
+  for (let k = 0; k < daySet.length; k++) {
+    const day = daySet[k];
+    const prev = placed[placed.length - 1];
+    const prevHard = prev != null && day - prev.day === 1 && HARD_TYPES.includes(prev.type);
+
+    const pinnedIdx = dayToIndex.get(day);
+    if (pinnedIdx != null) {
+      placed.push({ day, index: pinnedIdx, type: types[pinnedIdx] });
+      continue;
+    }
+    let pick = -1;
+    for (let relax = 0; relax <= 2 && pick < 0; relax++) {
+      pick = unplaced.findIndex(({ t }) => allowedAfter(prevHard, t, relax));
+    }
+    const chosenEntry = unplaced.splice(Math.max(0, pick), 1)[0];
+    if (chosenEntry) placed.push({ day, index: chosenEntry.i, type: chosenEntry.t });
+  }
+
+  // ── Soft warnings: what the pins cost ───────────────────────────────────
+  for (let k = 1; k < placed.length; k++) {
+    const a = placed[k - 1];
+    const b = placed[k];
+    if (b.day - a.day !== 1) continue;
+    if (HARD_TYPES.includes(a.type) && HARD_TYPES.includes(b.type)) {
+      warnings.push(
+        `${DAY_NAMES[a.day]} and ${DAY_NAMES[b.day]} are two hard days back to back — your pinned days leave no easy day between them.`,
+      );
+    } else if (b.type === "strength" && HARD_TYPES.includes(a.type)) {
+      warnings.push(
+        `Strength on ${DAY_NAMES[b.day]} follows a hard ${DAY_NAMES[a.day]} — plyometrics wants 24-48 h of fresh legs.`,
+      );
+    }
+  }
+
+  const days = new Array<number>(types.length);
+  for (const { day, index } of placed) days[index] = day;
+  // Any session the day set could not hold (degenerate pools) keeps a sane day.
+  for (let i = 0; i < days.length; i++) if (!days[i]) days[i] = daySet[i] ?? i + 1;
+
+  return { days, warnings: [...new Set(warnings)] };
 }
 
 /**
@@ -304,12 +415,12 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
   // Two hard days a week is the ceiling, whatever the week is called.
   types = capHardSessions(types, phase);
 
-  const days = spreadDays(types.length);
-  const ordered = orderAcrossWeek(types, days);
+  // The athlete's own week shape decides WHEN; the phase decided WHAT.
+  const layout = layoutWeek(types, input.prefs);
 
-  const slots: SessionSlot[] = ordered.map((session_type, i) => ({
+  const slots: SessionSlot[] = types.map((session_type, i) => ({
     session_type,
-    day_hint: days[i] ?? i + 1,
+    day_hint: layout.days[i] ?? i + 1,
     day_slot: "am" as DaySlot,
     intensity_rpe_target: rpeFor(session_type, phase, isDeload, "am"),
     planned_duration_min: durationFor(session_type, isDeload, "am", phase),
@@ -393,4 +504,36 @@ function durationFor(
   const planned = spec?.duration_by_phase[phase] || BASE_DURATION[type];
   const base = isDeload ? planned * 0.7 : planned;
   return Math.round(slot === "pm" ? base * PM_DURATION_FACTOR : base);
+}
+
+/**
+ * What a set of pinned weekdays will cost, before the plan is rebuilt.
+ *
+ * The warning belongs where the decision is made: the athlete picks days in
+ * the settings card and finds out there and then that Monday strength plus
+ * Tuesday intervals is the interference effect. Runs one representative week
+ * per phase — the phases differ in what they contain, so a pin can be free in
+ * base and expensive in peak.
+ */
+export function assessWeekPreferences(
+  prefs: WeekPrefs,
+  opts: { trainingDays: number; runsPerWeek?: number | null; doublesPerWeek?: number },
+): string[] {
+  const phases: PhaseType[] = ["base", "build", "peak", "taper"];
+  const seen = new Set<string>();
+  for (const phase of phases) {
+    const slots = distributeSlots({
+      phase,
+      trainingDays: opts.trainingDays,
+      weekInPhase: 2,
+      isDeload: false,
+      isBenchmark: false,
+      doublesPerWeek: opts.doublesPerWeek ?? 0,
+      runsPerWeek: opts.runsPerWeek ?? undefined,
+      prefs,
+    });
+    const types = slots.filter((s) => s.day_slot !== "pm").map((s) => s.session_type);
+    for (const w of layoutWeek(types, prefs).warnings) seen.add(w);
+  }
+  return [...seen];
 }

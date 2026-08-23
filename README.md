@@ -191,6 +191,7 @@ The whole plan is checked against a handful of coaching rules, and the tests fai
 | **Strength in every phase** | heavy compounds at 3 reps in base and build, maintenance in peak, a power primer in race week |
 | **Plyometrics and grip, in a rested state** | finishers on the strength day, alternating week by week — they are the two must-dos that only work fresh |
 | **At least one full rest day** | no week ever fills seven days, at any frequency |
+| **The athlete owns the weekdays** | long run, strength and rest days are pinned plan-wide and honoured even against the rules above — `layoutWeek()` reports what a pin costs instead of overruling it |
 | **Frequency fits the level** | Five levels, mapped to target times: beginner 3-4 sessions (1:40+), intermediate 4-5 (sub 1:30), advanced 5-6 (sub 1:20), elite 6-8 (sub 70, doubles sometimes), world class 7-9 (sub 60, AM/PM the norm). The app advises; it never blocks |
 | **No two hard endurance days back to back** | the week scheduler always puts a Zone-2 day, a load day or a calendar gap between them |
 | **Strength never the day after a hard day** | the strength session opens with plyometrics, and the CNS needs 24-48 h after a hard day before explosive work |

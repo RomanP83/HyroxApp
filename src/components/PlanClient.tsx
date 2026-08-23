@@ -79,6 +79,16 @@ interface Props {
     /** How the chosen load reads against the athlete's experience level. */
     frequency: FrequencyAdvice | null;
   };
+  /** The athlete's own week shape: which weekday carries what. */
+  weekShape: {
+    long_run_day: number | null;
+    strength_days: number[];
+    rest_days: number[];
+    /** Rest days the athlete may still claim, given their training days. */
+    max_rest_days: number;
+    /** What the current pins cost — hard pin, soft warn. */
+    warnings: string[];
+  };
   /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
   telegramLink: string | null;
   /** Strava OAuth entry point; null when connected/unconfigured (C2). */
@@ -90,8 +100,6 @@ interface Props {
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
-
-const DAY_INITIALS = ["", "M", "T", "W", "T", "F", "S", "S"];
 
 export function PlanClient(props: Props) {
   const router = useRouter();
@@ -122,6 +130,10 @@ export function PlanClient(props: Props) {
   const [savingVolume, setSavingVolume] = useState(false);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
+  const [savingShape, setSavingShape] = useState(false);
+  const [longRunDay, setLongRunDay] = useState<number | null>(props.weekShape.long_run_day);
+  const [strengthDays, setStrengthDays] = useState<number[]>(props.weekShape.strength_days);
+  const [restDays, setRestDays] = useState<number[]>(props.weekShape.rest_days);
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   // Days that carry an AM *and* a PM session — only there does the marker help.
@@ -264,6 +276,34 @@ export function PlanClient(props: Props) {
       setToast("Couldn't reset that day. Give it another tap.");
     } finally {
       setResetting(null);
+    }
+  }
+
+  /** Pin the week's fixed days. Like the volume, it rebuilds every week left. */
+  async function saveWeekShape() {
+    setSavingShape(true);
+    try {
+      const res = await fetch("/api/plans/week-shape", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          preferred_long_run_day: longRunDay,
+          preferred_strength_days: strengthDays,
+          preferred_rest_days: restDays,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
+      setToast(
+        data.warnings?.length
+          ? `Week shape saved. ${data.warnings[0]}`
+          : "Week shape saved — the remaining weeks were rebuilt around your fixed days.",
+      );
+      router.refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Could not save your week shape.");
+    } finally {
+      setSavingShape(false);
     }
   }
 
@@ -648,6 +688,77 @@ export function PlanClient(props: Props) {
             </div>
           )}
 
+          {/* ── The shape of your week ─────────────────────────────────────
+              Gym hours and a free Sunday are facts, not training decisions.
+              These days are hard pins: the plan honours them even when they
+              collide with the recovery rules, and says what that costs. */}
+          <div className="card space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold">
+              <CalendarIcon size={16} className="text-amber" /> The shape of your week
+            </div>
+            <p className="text-meta leading-relaxed text-ash">
+              Fix the days that are fixed in real life. Everything else is arranged around them.
+            </p>
+
+            <div className="space-y-2.5">
+              <DayPicker
+                label="Long run"
+                selected={longRunDay == null ? [] : [longRunDay]}
+                onToggle={(d) => setLongRunDay(longRunDay === d ? null : d)}
+                accent="go"
+              />
+              <DayPicker
+                label="Strength"
+                selected={strengthDays}
+                onToggle={(d) =>
+                  setStrengthDays((prev) =>
+                    prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
+                  )
+                }
+                accent="amber"
+              />
+              <DayPicker
+                label={`Rest (max ${props.weekShape.max_rest_days})`}
+                selected={restDays}
+                onToggle={(d) =>
+                  setRestDays((prev) =>
+                    prev.includes(d)
+                      ? prev.filter((x) => x !== d)
+                      : prev.length >= props.weekShape.max_rest_days
+                        ? prev
+                        : [...prev, d].sort(),
+                  )
+                }
+                accent="smoke"
+              />
+            </div>
+
+            {props.weekShape.warnings.length > 0 && (
+              <ul className="space-y-1.5">
+                {props.weekShape.warnings.map((w) => (
+                  <li
+                    key={w}
+                    className="border-l-2 border-amber/50 pl-3 text-meta leading-relaxed text-bone"
+                  >
+                    {w}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button
+              className="btn-primary w-full"
+              disabled={savingShape}
+              onClick={() => void saveWeekShape()}
+            >
+              {savingShape ? <SpinnerIcon size={16} /> : <CalendarIcon size={16} />}
+              Save and rebuild the remaining weeks
+            </button>
+            <p className="text-micro leading-relaxed text-ash">
+              Your days win, even against the recovery rules — anything they cost is written above,
+              not silently fixed. A single week still bends with Move on the session itself.
+            </p>
+          </div>
           <div className="card space-y-3">
             <div className="flex items-center gap-2 text-base font-semibold">
               <RunIcon size={16} className="text-amber" /> Running volume
@@ -751,6 +862,52 @@ export function PlanClient(props: Props) {
         </div>
       )}
     </main>
+  );
+}
+
+const DAY_INITIALS = ["", "M", "T", "W", "T", "F", "S", "S"];
+const DAY_FULL = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** Seven toggles, one per weekday. Monday first, like the plan's own grid. */
+function DayPicker({
+  label,
+  selected,
+  onToggle,
+  accent,
+}: {
+  label: string;
+  selected: number[];
+  onToggle: (day: number) => void;
+  accent: "go" | "amber" | "smoke";
+}) {
+  const on = {
+    go: "border-go/70 bg-go/15 text-chalk",
+    amber: "border-amber/70 bg-amber/15 text-chalk",
+    smoke: "border-edge-strong bg-rack text-bone",
+  }[accent];
+  return (
+    <div>
+      <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
+      <div className="grid grid-cols-7 gap-1">
+        {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+          const active = selected.includes(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={active}
+              aria-label={`${label}: ${DAY_FULL[d]}`}
+              onClick={() => onToggle(d)}
+              className={`flex h-9 items-center justify-center rounded-control border text-meta font-semibold transition-colors duration-150 ease-out ${
+                active ? on : "border-edge bg-well text-ash hover:border-edge-strong hover:text-bone"
+              }`}
+            >
+              {DAY_INITIALS[d]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

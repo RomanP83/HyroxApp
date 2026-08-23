@@ -79,6 +79,11 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         doublesPerWeek: profile.doubles_per_week ?? 0,
         runsPerWeek: profile.runs_per_week ?? undefined,
         includeFullSim: w === fullSimWeek,
+        prefs: {
+          longRunDay: profile.preferred_long_run_day ?? null,
+          strengthDays: profile.preferred_strength_days ?? null,
+          restDays: profile.preferred_rest_days ?? null,
+        },
       });
 
       // When the athlete gave the cycle a peak volume, the week's runs are

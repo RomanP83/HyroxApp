@@ -7,7 +7,7 @@ major_version = 15
 
 [db.seed]
 enabled = true
-sql_paths = ["./seed/0001_benchmark_definitions.sql", "./seed/0002_workout_blocks.sql", "./seed/0003_workout_blocks_home.sql", "./seed/0004_compromised_running.sql"]
+sql_paths = ["./seed/0001_benchmark_definitions.sql", "./seed/0002_workout_blocks.sql", "./seed/0003_workout_blocks_home.sql", "./seed/0004_compromised_running.sql", "./seed/0005_station_work.sql"]
 
 [auth]
 enabled = true

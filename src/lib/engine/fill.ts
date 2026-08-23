@@ -21,6 +21,7 @@ import { pickRunVariant, type VariantPick } from "./runVariants";
 import { pickStationVariant } from "./stationVariants";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
+import { pickStationSession, renderStation } from "./stationSessions";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -182,6 +183,43 @@ export function fillSession(
                 stabilise_distance_m: COMPROMISED_OPENING.stabilise_distance_m,
               }
             : {}),
+          variant_name: chosen.session.name,
+          variant_why: chosen.session.why,
+          variant_targeted: chosen.targeted,
+        },
+      });
+      return blocks;
+    }
+  }
+
+  // Station work is levelled the same way, and for the same reason: a beginner
+  // learning to keep the hips low behind the sled and a sub-60 athlete pushing
+  // 50 m in under 1:15 are not doing one session at two weights. Isolated
+  // station work also buys strength endurance without the orthopaedic bill of
+  // another run, which is why it survives weeks where a hard run would not.
+  if (phase && isStationWork) {
+    const chosen = pickStationSession({
+      level: profile.experience_level,
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+    });
+    if (chosen) {
+      const focus = chosen.session.station ?? station;
+      blocks.push({
+        block_id: chosen.session.block_id,
+        slug: chosen.session.slug,
+        block_type: "main",
+        station: chosen.session.station ?? null,
+        content: renderStation(chosen.session),
+        sort_order: order++,
+        load_adjustments: {
+          division: profile.division,
+          // The tier of the station this session actually hammers, not of the
+          // one the weekly rotation happened to name.
+          station_tier: focus ? state.station_tiers[focus] ?? targetTier : targetTier,
           variant_name: chosen.session.name,
           variant_why: chosen.session.why,
           variant_targeted: chosen.targeted,

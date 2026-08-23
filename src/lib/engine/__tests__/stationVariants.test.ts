@@ -114,12 +114,20 @@ describe("station sessions in a generated plan", () => {
     for (const b of blocks) expect(b.load_adjustments.variant_why?.length).toBeGreaterThan(30);
   });
 
-  it("renders the athlete's division loads on the overload work", () => {
-    const overload = weeks
-      .flatMap((x) => x.w.sessions.flatMap((s) => s.blocks))
-      .find((b) => b.load_adjustments.variant_name === "Overload Sled & Grip Builder");
-    expect(overload).toBeDefined();
-    const first = (overload!.content as { load_by_division?: Record<string, string> }[])[0];
-    expect(first.load_by_division?.open).toContain("155 kg");
+  it("renders explicit division loads wherever a station session names a weight", () => {
+    // Since stationSessions.ts landed, the station work of a generated plan
+    // comes from the levelled catalogue rather than from this variant list —
+    // the loads still have to be explicit per division (PP2), which is what
+    // this ever tested.
+    const loaded = weeks
+      .flatMap((x) => x.w.sessions.filter((s) => s.session_type === "station_work"))
+      .flatMap((s) => s.blocks)
+      .flatMap((b) => b.content as { load_by_division?: Record<string, string> }[])
+      .filter((line) => line.load_by_division);
+    expect(loaded.length).toBeGreaterThan(5);
+    for (const line of loaded) {
+      expect(line.load_by_division?.open).toMatch(/kg/);
+      expect(line.load_by_division?.pro).toMatch(/kg/);
+    }
   });
 });

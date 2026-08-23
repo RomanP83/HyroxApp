@@ -10,7 +10,7 @@
 // This file is the source of truth: distances, paces and loads that get argued
 // with and tuned, like RUN_SPECS. It is not, however, where they are stored —
 // a plan is saved as references into workout_blocks, so every session here is
-// also a seeded library row (compromisedSeed.ts generates it, keyed by the
+// also a seeded library row (librarySeed.ts generates it, keyed by the
 // pinned block_id below). Edit a session here, regenerate the seed, run it.
 // They render into exactly the content shape BlockView already draws, so the
 // session card needs to know nothing about any of this.
@@ -20,58 +20,23 @@
 // station — the same rule the other variant catalogues follow.
 // ============================================================================
 
-import type {
-  EquipmentAccess,
-  ExperienceLevel,
-  PhaseType,
-  Station,
-  StationTiers,
-} from "./types";
+import {
+  pickFromCatalogue,
+  renderCatalogue,
+  type CatalogueQuery,
+  type CataloguePick,
+  type CatalogueSession,
+  type SessionLine,
+} from "./catalogue";
 
-/** One line of a session, in the shape BlockView renders. */
-export interface SessionLine {
-  exercise: string;
-  sets?: number;
-  reps?: number;
-  distance_m?: number;
-  rest_sec?: number;
-  load_by_division?: Record<string, string>;
-  /**
-   * This line is running, not erg metres or a carry. The distinction matters:
-   * a session's ski and row metres are not the athlete's weekly mileage.
-   */
-  is_run?: boolean;
-}
+export type { SessionLine };
 
-export interface CompromisedSession {
-  /**
-   * The workout_blocks row this session is stored as. Pinned rather than
-   * generated, because the engine names it while building a plan and the
-   * database has to find that exact row — an id that differed per install
-   * would make the plan unsavable. Recipe for a new one:
-   * uuidv5(uuidv5(URL_NS, "https://hyroxapp.local/workout_blocks"), slug).
-   */
-  block_id: string;
-  slug: string;
-  /**
-   * How many times through `lines`. Data, not prose: without it nothing can
-   * work out how far a session actually runs, and the round count would drift
-   * away from the text describing it.
-   */
-  rounds: number;
-  /** Rest between rounds, when the prescription names one. */
-  rest_between_rounds_sec?: number;
-  level: ExperienceLevel;
-  phase: PhaseType;
-  name: string;
-  /** One line on the card: what this shape is for. */
-  why: string;
-  /** The station this hammers — drives the weakness bias. */
-  station?: Station;
-  /** Needs a SkiErg / RowErg to run at all. */
-  needs_erg?: boolean;
-  lines: SessionLine[];
-}
+/**
+ * A compromised-running session. The catalogue shape as it stands — what makes
+ * it compromised running is that its lines mix runs with station work, and
+ * that `is_run` marks which of them count as mileage (see runningMetres).
+ */
+export type CompromisedSession = CatalogueSession;
 
 const run = (distance_m: number, exercise: string): SessionLine => ({
   exercise,
@@ -1126,87 +1091,12 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
 // ── Choosing one ────────────────────────────────────────────────────────────
 
-export interface CompromisedQuery {
-  level: ExperienceLevel;
-  phase: PhaseType;
-  weekNumber: number;
-  equipment: EquipmentAccess;
-  stationTiers: StationTiers;
-  weaknesses?: string[];
-}
+export type CompromisedQuery = CatalogueQuery;
+export type CompromisedPick = CataloguePick<CompromisedSession>;
 
-export interface CompromisedPick {
-  session: CompromisedSession;
-  /** Chosen to attack a stated or measured weakness, not by rotation. */
-  targeted: boolean;
-  /** How many sessions this level and phase had to choose from. */
-  pool: number;
-}
-
-function hasErg(equipment: EquipmentAccess): boolean {
-  return equipment !== "home_minimal";
-}
-
-/** The station the athlete is weakest at, or null when nothing stands out. */
-function weakestStation(tiers: StationTiers): Station | null {
-  let worst: Station | null = null;
-  let lowest = Infinity;
-  for (const [station, tier] of Object.entries(tiers)) {
-    if (tier < lowest) {
-      lowest = tier;
-      worst = station as Station;
-    }
-  }
-  return lowest < 3 ? worst : null;
-}
-
-/**
- * One compromised session for this athlete, this phase, this week.
- *
- * Same rotation rule as the other catalogues: every second week goes after the
- * weakest station, and the weeks in between deliberately exclude it — a
- * "weakness focus" that fires every week is just the same session every week.
- *
- * Falls back down the levels when a level and phase has nothing left after the
- * equipment filter: a home-gym athlete without an erg still gets compromised
- * running, just not the version that needs a SkiErg.
- */
+/** One compromised session for this athlete, this phase, this week. */
 export function pickCompromisedSession(q: CompromisedQuery): CompromisedPick | null {
-  const byLevel = COMPROMISED_SESSIONS.filter(
-    (s) => s.level === q.level && s.phase === q.phase,
-  );
-  let eligible = byLevel.filter((s) => !s.needs_erg || hasErg(q.equipment));
-  if (!eligible.length) {
-    // Nothing at this level survives the equipment filter — take the same
-    // phase from any level rather than dropping compromised running entirely.
-    eligible = COMPROMISED_SESSIONS.filter(
-      (s) => s.phase === q.phase && (!s.needs_erg || hasErg(q.equipment)),
-    );
-  }
-  if (!eligible.length) return null;
-
-  const weak = weakestStation(q.stationTiers);
-  const words = (q.weaknesses ?? []).map((w) => w.toLowerCase());
-  const targeted = eligible.filter(
-    (s) =>
-      (weak && s.station === weak) ||
-      (s.station != null && words.some((w) => w.includes(s.station!.replace(/_/g, " ")))),
-  );
-
-  if (targeted.length && q.weekNumber % 2 === 1) {
-    return {
-      session: targeted[Math.floor((q.weekNumber - 1) / 2) % targeted.length],
-      targeted: true,
-      pool: eligible.length,
-    };
-  }
-  const rest = targeted.length ? eligible.filter((s) => !targeted.includes(s)) : eligible;
-  const pool = rest.length ? rest : eligible;
-  return {
-    session: pool[(q.weekNumber - 1) % pool.length],
-    targeted: false,
-    pool: eligible.length,
-  };
+  return pickFromCatalogue(COMPROMISED_SESSIONS, q);
 }
 
 /** Running metres in one session — erg and carry distances are not mileage. */
@@ -1215,18 +1105,7 @@ export function runningMetres(session: CompromisedSession): number {
   return perRound * session.rounds;
 }
 
-/**
- * The session as lines to draw, round count included. One place builds it, so
- * the prose and the number can never disagree.
- */
+/** The session as lines to draw, round count included. */
 export function renderCompromised(session: CompromisedSession): SessionLine[] {
-  if (session.rounds <= 1) return session.lines;
-  const rest = session.rest_between_rounds_sec;
-  return [
-    {
-      exercise: `${session.rounds} rounds${rest ? ` — ${Math.round(rest / 60)} min between rounds` : ""}`,
-      ...(rest ? { rest_sec: rest } : {}),
-    },
-    ...session.lines,
-  ];
+  return renderCatalogue(session);
 }

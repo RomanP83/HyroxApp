@@ -2,7 +2,7 @@
 -- Compromised running: 60 sessions, five levels x four phases x three.
 --
 -- GENERATED from src/lib/engine/compromisedSessions.ts — do not edit by hand.
---   WRITE_SEED=1 npx vitest run compromisedSeed
+--   WRITE_SEED=1 npx vitest run librarySeed
 --
 -- The ids are pinned in the catalogue, because the engine names them while
 -- building a plan: session_blocks.block_id points straight at these rows.
@@ -19,7 +19,7 @@ insert into workout_blocks (id, slug, block_type, station, content, equipment_va
  '[{"exercise":"3 rounds"},{"exercise":"Sled push, light","distance_m":20,"load_by_division":{"open":"50 kg","pro":"75 kg"}},{"exercise":"Easy jog — let the legs come back","distance_m":600,"is_run":true}]'::jsonb,
  'gym', 1, '{compromised_run}', '{compromised,beginner,base,sled_push}'),
 ('2fc1f3aa-ae02-5b1c-924b-f019459ea528', 'cr_b2_deadlift_burpee', 'main', null,
- '[{"exercise":"4 rounds — 2 min between rounds","rest_sec":90},{"exercise":"Run, Zone 3-4","distance_m":500,"is_run":true},{"exercise":"Kettlebell deadlifts","reps":12,"load_by_division":{"open":"24 kg","pro":"32 kg"}},{"exercise":"Burpees","reps":10}]'::jsonb,
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Run, Zone 3-4","distance_m":500,"is_run":true},{"exercise":"Kettlebell deadlifts","reps":12,"load_by_division":{"open":"24 kg","pro":"32 kg"}},{"exercise":"Burpees","reps":10}]'::jsonb,
  'gym', 1, '{compromised_run}', '{compromised,beginner,build}'),
 ('2fd63911-d5bd-5ba1-98d8-2a3bf9680627', 'cr_b2_lunge_to_pace', 'main', 'sandbag_lunges',
  '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sandbag lunges, light","distance_m":40,"load_by_division":{"open":"10 kg","pro":"20 kg"}},{"exercise":"Run at race pace, immediately","distance_m":800,"is_run":true}]'::jsonb,
@@ -58,7 +58,7 @@ insert into workout_blocks (id, slug, block_type, station, content, equipment_va
  '[{"exercise":"4 rounds"},{"exercise":"Sled push at race weight","distance_m":30,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Run at threshold, Zone 4 — straight off the sled","distance_m":1000,"is_run":true}]'::jsonb,
  'gym', 1, '{compromised_run}', '{compromised,intermediate,build,sled_push}'),
 ('b7e82c71-83d7-54c1-b36d-22c3ca50a3c2', 'cr_i2_row_bbj_5k', 'main', 'burpee_broad_jump',
- '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":90},{"exercise":"Row","distance_m":500},{"exercise":"Burpee broad jumps","reps":20},{"exercise":"Run at 5k pace","distance_m":800,"is_run":true}]'::jsonb,
+ '[{"exercise":"3 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Row","distance_m":500},{"exercise":"Burpee broad jumps","reps":20},{"exercise":"Run at 5k pace","distance_m":800,"is_run":true}]'::jsonb,
  'gym', 1, '{compromised_run}', '{compromised,intermediate,build,burpee_broad_jump}'),
 ('2b7257c5-a6de-5e9d-a79d-00b59d23a8b0', 'cr_i2_lunge_race_pace', 'main', 'sandbag_lunges',
  '[{"exercise":"4 rounds"},{"exercise":"Sandbag lunges at race weight","distance_m":50,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"Run at race pace","distance_m":1000,"is_run":true}]'::jsonb,

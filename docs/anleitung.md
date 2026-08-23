@@ -138,7 +138,20 @@ mit unter fünf Sekunden Transition. Jede zweite Woche zielt die Auswahl auf dei
 Station. Ohne Ergometer bekommst du nie eine Erg-Session — die App weicht auf eine andere aus,
 statt die Einheit zu streichen.
 
-*Voraussetzung:* Die 60 Sessions liegen als Bibliothekseinträge in der Datenbank. Wer die App
+**Stationsarbeit** hat seit demselben Prinzip einen eigenen Katalog: noch einmal 60 Sessions über
+fünf Level und vier Phasen. Isolierte Stationsarbeit trainiert Bewegungsökonomie, Kraftausdauer und
+Laktattoleranz an den Geräten — ohne die muskuläre und orthopädische Rechnung, die noch ein Lauf
+aufmachen würde. Genau deshalb steht sie in Wochen, in denen ein weiterer harter Lauf zu viel wäre.
+Auch hier entscheidet dein Level: ein Beginner lernt in Woche 2 die Schlittenposition mit 75 kg, ein
+World-Class-Athlet drückt 50 m Pro-Gewicht unter 1:15. **In keiner dieser Einheiten steckt ein
+Laufmeter** — sie zählen nicht auf dein Wochenvolumen.
+
+Beide Kataloge rotieren dreifach durch die Sessions einer Phase. Steht eine Station als Schwäche
+fest, gehört ihr jede zweite Woche; die Wochen dazwischen rotieren weiter durch den Rest, sodass
+keine Session ungenutzt liegen bleibt. Solange alle Stationen auf derselben Stufe stehen — der
+Zustand jedes neuen Kontos — gibt es keine Schwäche, und es wird auch keine erfunden.
+
+*Voraussetzung:* Die 120 Sessions liegen als Bibliothekseinträge in der Datenbank. Wer die App
 selbst betreibt, muss `supabase/setup.sql` nach dem Update einmal laufen lassen — sonst scheitert
 der Planaufbau mit einer Meldung, die genau das sagt.
 
@@ -526,7 +539,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **Polarisiert** | 75–85 % der Laufdistanz locker, der Rest wirklich hart. Gemessen an der **Distanz je Zone**, nicht an der Zahl der Einheiten. |
 | **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. |
 | **Rebase** | Neuberechnung des Plans ab heute statt nachträglicher Änderung. |
-| **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 11 Stations-, 5 Kraftformen). |
+| **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 5 Kraftformen). Kompromittiertes Laufen und Stationsarbeit kommen aus ihren eigenen Katalogen mit je 60 Sessions nach Level und Phase. |
 
 ---
 
@@ -536,6 +549,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Stationsarbeit: 60 level- und phasenspezifische Sessions ohne einen einzigen Laufmeter; Rotation nutzt jetzt alle drei Sessions einer Phase | [4](#4-plan--die-trainingswoche) |
 | Kompromittierte Läufe werden wieder gespeichert (sie brauchen den neuen Bibliothek-Seed aus `setup.sql`) | [4](#4-plan--die-trainingswoche) |
 | Fehler beim Planaufbau zeigen den echten Grund statt „Unexpected end of JSON input" | [8](#8-settings--setup--tools) |
 | Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |

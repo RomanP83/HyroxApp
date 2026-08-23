@@ -50,7 +50,7 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
   long_run: {
     hr_zone: "Zone 2 · 65-75% HRmax",
     pace_zone: "easy_sec_km",
-    duration_by_phase: { base: 80, build: 70, peak: 60, taper: 45 },
+    duration_by_phase: { base: 80, build: 70, peak: 60, taper: 35 },
     distance_hint: "12-18 km",
     running_fraction: 1,
     hard_fraction: 0,
@@ -62,7 +62,7 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
   run_easy: {
     hr_zone: "Zone 1-2 · below 70% HRmax",
     pace_zone: "easy_sec_km",
-    duration_by_phase: { base: 40, build: 40, peak: 35, taper: 30 },
+    duration_by_phase: { base: 40, build: 40, peak: 35, taper: 22 },
     distance_hint: "5-8 km",
     running_fraction: 1,
     hard_fraction: 0,
@@ -74,7 +74,7 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
   run_intervals: {
     hr_zone: "Zone 4-5 · 88-95% HRmax",
     pace_zone: "interval_sec_km",
-    duration_by_phase: { base: 50, build: 55, peak: 55, taper: 40 },
+    duration_by_phase: { base: 50, build: 55, peak: 55, taper: 32 },
     distance_hint: "8-10 km total",
     running_fraction: 0.75,
     hard_fraction: 0.45,
@@ -88,7 +88,7 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
     pace_zone: "race_sec_km",
     // Base is the gentlest version, not an absence: the block owns running
     // economy, so compromised work is a taste of it (5-10% of the block).
-    duration_by_phase: { base: 45, build: 55, peak: 60, taper: 45 },
+    duration_by_phase: { base: 45, build: 55, peak: 60, taper: 35 },
     distance_hint: "45-75 min",
     running_fraction: 0.6,
     hard_fraction: 0.6,
@@ -351,9 +351,14 @@ export function scaleRunDurations<T extends { session_type: SessionType; planned
     const spec = runSpec(slot.session_type);
     if (!spec) return slot;
     const scaled = Math.round((slot.planned_duration_min * factor) / 5) * 5;
+    // The floor is a floor, not a target: it stops a volume goal shrinking a
+    // session to nothing, and it must never push one back ABOVE what the phase
+    // asked for. Race week prescribes a 35-minute long run on purpose, and a
+    // 45-minute floor would quietly undo the taper.
+    const floor = Math.min(spec.min_minutes, slot.planned_duration_min);
     return {
       ...slot,
-      planned_duration_min: Math.max(spec.min_minutes, Math.min(spec.max_minutes, scaled)),
+      planned_duration_min: Math.max(floor, Math.min(spec.max_minutes, scaled)),
     };
   });
 }

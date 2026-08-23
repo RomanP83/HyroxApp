@@ -66,10 +66,24 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
     ? Math.min(peak.end_week, Math.max(peak.start_week, weeksToRace - 2))
     : null;
 
-  // Benchmark weeks (§5 Schritt 1): week 1, end of build, start of taper.
+  // Benchmark weeks (§5 Schritt 1): week 1, end of build, and one last test
+  // before the race.
+  //
+  // That last one used to sit on the first taper week. With a two-week taper
+  // that is two weeks out and reads exactly right. With a one-week taper it
+  // IS race week — an all-out test seven days before the start, which is a
+  // stress and not a rehearsal, and it took a slot the taper needed for its
+  // own mix. So a short taper tests in the last peak week instead, stepping
+  // back once more if that is the week carrying the full simulation: a test
+  // and a complete run-through in one week is two race efforts in seven days.
   const benchmarkWeeks = new Set<number>([1]);
   if (lastBuild) benchmarkWeeks.add(lastBuild.end_week);
-  if (taper) benchmarkWeeks.add(taper.start_week);
+  if (taper) {
+    const taperWeeks = taper.end_week - taper.start_week + 1;
+    let preRace = taperWeeks > 1 ? taper.start_week : taper.start_week - 1;
+    if (preRace === fullSimWeek) preRace -= 1;
+    if (preRace >= 1) benchmarkWeeks.add(preRace);
+  }
 
   // Deload weeks: every fourth week, right through the peak block — the
   // recovery week is not a base-and-build luxury, and restricting it there is

@@ -325,8 +325,9 @@ sie nicht.
 Phasen, auch im Peak. Zwei Wochen sind nie Deload: eine Testwoche (dafür sollst du frisch sein) und
 die Woche mit der Rennsimulation (die *ist* die Belastung). Fällt der Rhythmus auf eine davon, rückt
 der Deload eine Woche nach vorne und der Takt läuft von dort weiter. Der Taper braucht keinen — er
-ist die Reduktion: das Wochenvolumen sinkt dort um 40–55 %, während die Intensität in kurzen
-Intervallen erhalten bleibt.
+ist die Reduktion: das Wochenvolumen sinkt dort um 41–55 %, während die Intensität in kurzen
+Intervallen erhalten bleibt. Die Häufigkeit bleibt auch — gekürzt wird die Dauer, nicht die Anzahl:
+der lange Lauf der Rennwoche ist 35 Minuten statt 60, die Intervalle 32 statt 55.
 
 **Rebase statt Flickwerk.** Wenn sich etwas Grundlegendes ändert — Verletzung, Pause, neues
 Laufvolumen — wird der Plan **ab heute neu gerechnet**, nicht rückwirkend verbogen. Vergangene
@@ -480,7 +481,13 @@ Programm wie geschrieben.
 Eine Liste standardisierter Tests (z. B. 1 km Zeit, Wall Balls in 2 min). Ergebnis eintragen,
 speichern — die Zielzeit-Prognose wird sofort neu gerechnet und der Verlauf auf `/progress`
 fortgeschrieben. Der Plan setzt Benchmark-Wochen automatisch: Woche 1, Ende des Build-Blocks und
-Beginn des Tapers.
+ein letzter Test vor dem Rennen.
+
+**Der letzte Test liegt nie in der Rennwoche.** Bei zweiwöchigem Taper (16-Wochen-Plan) sitzt er auf
+dessen erster Woche — zwei Wochen vor dem Start. Ist der Taper nur eine Woche lang (12 Wochen und
+kürzer), rückt er in die letzte Peak-Woche: ein All-out-Test sieben Tage vor dem Rennen ist eine
+Belastung, keine Generalprobe. Fällt er dabei auf die Woche mit der Rennsimulation, geht er noch
+eine Woche zurück — zwei Rennleistungen in sieben Tagen sind eine zu viel.
 
 ---
 
@@ -600,6 +607,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Der letzte Benchmark-Test liegt nie in der Rennwoche: bei kurzem Taper rückt er in die letzte Peak-Woche | [10](#10-benchmarks--tests-eintragen) |
 | Trainingsmischung nach Level und Phase als Vorgabe (Anteile statt fester Reihenfolge); kompromittiertes Laufen ab der Basis; Deload alle 3–4 Wochen in allen Phasen; Taper senkt auch Kraft und Stationen; Interferenzregel in beide Richtungen; AM/PM-Abstand auf der Karte; Ergometer-Entlastung als echte Einheit | [4](#4-plan--die-trainingswoche), [6](#6-wie-sich-der-plan-anpasst) |
 | Abmelden auf `/settings` („Dieses Gerät"); nach der Anmeldung mit bestehendem Plan geht es direkt auf `/plan` statt ins Onboarding-Formular | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
 | Schwellen- und VO₂max-Intervalle: 86 level- und phasenspezifische Sessions, bewusst ohne Stationsvorbelastung | [4](#4-plan--die-trainingswoche) |

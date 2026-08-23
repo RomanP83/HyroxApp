@@ -1,13 +1,7 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { SettingsClient } from "@/components/SettingsClient";
-import {
-  assessVolumeTarget,
-  assessWeekPreferences,
-  frequencyAdvice,
-  type ExperienceLevel,
-  type PaceZones,
-} from "@/lib/engine";
+import { assessVolumeTarget, type ExperienceLevel, type PaceZones } from "@/lib/engine";
 import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { signDeepLink } from "@/lib/telegram";
 import { stravaConfigured } from "@/lib/strava";
@@ -82,36 +76,18 @@ export default async function SettingsPage() {
     <SettingsClient
       hasPlan={Boolean(plan)}
       planStatus={plan?.status ?? "none"}
+      experienceLevel={(profile.experience_level as ExperienceLevel) ?? "intermediate"}
       weekShape={{
+        training_days_per_week: trainingDays,
+        doubles_per_week: profile.doubles_per_week ?? 0,
         long_run_day: (profile.preferred_long_run_day as number | null) ?? null,
         strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
         rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
-        max_rest_days: Math.max(0, 7 - trainingDays),
-        warnings: assessWeekPreferences(
-          {
-            longRunDay: (profile.preferred_long_run_day as number | null) ?? null,
-            strengthDays: (profile.preferred_strength_days as number[] | null) ?? [],
-            restDays: (profile.preferred_rest_days as number[] | null) ?? [],
-          },
-          {
-            trainingDays,
-            runsPerWeek: profile.runs_per_week ?? null,
-            doublesPerWeek: profile.doubles_per_week ?? 0,
-          },
-        ),
       }}
       volume={{
         weekly_km_peak: peakKm,
         runs_per_week: profile.runs_per_week ?? null,
-        max_runs: Math.max(2, trainingDays - 1),
         assessment,
-        frequency: profile.experience_level
-          ? frequencyAdvice(
-              profile.experience_level as ExperienceLevel,
-              trainingDays,
-              profile.doubles_per_week ?? 0,
-            )
-          : null,
       }}
       connections={{
         strava: {

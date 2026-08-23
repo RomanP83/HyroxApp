@@ -6,11 +6,14 @@ import { assessWeekPreferences } from "@/lib/engine";
 
 export const runtime = "nodejs";
 
-// Which weekday carries the long run, which carry strength, which are rest.
+// The whole shape of a training week: how many days, how many of them carry a
+// second session, and which weekdays are fixed.
 // Like the running volume, this changes every remaining week, so it goes
 // through the same rebase path rather than mutating week by week.
 const Day = z.number().int().min(1).max(7);
 const Body = z.object({
+  training_days_per_week: z.number().int().min(3).max(6),
+  doubles_per_week: z.number().int().min(0).max(3),
   preferred_long_run_day: Day.nullable(),
   preferred_strength_days: z.array(Day).max(4),
   preferred_rest_days: z.array(Day).max(4),
@@ -29,10 +32,12 @@ export async function PATCH(req: Request) {
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id, training_days_per_week, runs_per_week, doubles_per_week")
+    .select("id, runs_per_week")
     .eq("user_id", user.id)
     .single();
   if (!profile) return NextResponse.json({ error: "no_profile" }, { status: 404 });
+
+  const trainingDays = body.training_days_per_week;
 
   // A day cannot be both a rest day and a training day — that is a typo, not
   // a preference, and the plan would silently pick one of them.
@@ -52,11 +57,32 @@ export async function PATCH(req: Request) {
       { status: 400 },
     );
   }
-  if (body.preferred_rest_days.length > 7 - profile.training_days_per_week) {
+  if (body.preferred_rest_days.length > 7 - trainingDays) {
     return NextResponse.json(
       {
         error: "too_many_rest_days",
-        detail: `You train ${profile.training_days_per_week} days, so at most ${7 - profile.training_days_per_week} can be rest days.`,
+        detail: `${trainingDays} training days leave at most ${7 - trainingDays} rest days — you marked ${body.preferred_rest_days.length}.`,
+      },
+      { status: 400 },
+    );
+  }
+  if (body.preferred_strength_days.length > trainingDays) {
+    return NextResponse.json(
+      {
+        error: "too_many_strength_days",
+        detail: `You marked ${body.preferred_strength_days.length} strength days but train ${trainingDays} days a week.`,
+      },
+      { status: 400 },
+    );
+  }
+  // Fewer training days can strand a running frequency that used to fit. One
+  // session a week stays strength or station work, so runs cap at days - 1.
+  const maxRuns = trainingDays - 1;
+  if (profile.runs_per_week != null && profile.runs_per_week > maxRuns) {
+    return NextResponse.json(
+      {
+        error: "runs_no_longer_fit",
+        detail: `${trainingDays} training days leave room for ${maxRuns} runs, but yours is set to ${profile.runs_per_week}. Lower it under Running volume first — one session a week stays strength or station work.`,
       },
       { status: 400 },
     );
@@ -65,6 +91,8 @@ export async function PATCH(req: Request) {
   const { error } = await supabase
     .from("athlete_profiles")
     .update({
+      training_days_per_week: trainingDays,
+      doubles_per_week: body.doubles_per_week,
       preferred_long_run_day: body.preferred_long_run_day,
       preferred_strength_days: body.preferred_strength_days,
       preferred_rest_days: body.preferred_rest_days,
@@ -79,11 +107,7 @@ export async function PATCH(req: Request) {
       strengthDays: body.preferred_strength_days,
       restDays: body.preferred_rest_days,
     },
-    {
-      trainingDays: profile.training_days_per_week,
-      runsPerWeek: profile.runs_per_week,
-      doublesPerWeek: profile.doubles_per_week ?? 0,
-    },
+    { trainingDays, runsPerWeek: profile.runs_per_week, doublesPerWeek: body.doubles_per_week },
   );
 
   const { data: plan } = await supabase
@@ -98,7 +122,7 @@ export async function PATCH(req: Request) {
   const newPlanId = await rebasePlan(
     supabaseAdmin(),
     plan.id,
-    "You set the shape of your week — the remaining weeks were rebuilt around your fixed days.",
+    `Your week is now ${trainingDays} training days${body.doubles_per_week ? ` plus ${body.doubles_per_week} double${body.doubles_per_week > 1 ? "s" : ""}` : ""} — the remaining weeks were rebuilt around it.`,
   );
 
   return NextResponse.json({ ok: true, rebased: Boolean(newPlanId), planId: newPlanId, warnings });

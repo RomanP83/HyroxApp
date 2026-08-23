@@ -13,7 +13,12 @@
 // ============================================================================
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { FrequencyAdvice, VolumeAssessment } from "@/lib/engine";
+import {
+  assessWeekPreferences,
+  frequencyAdvice,
+  type ExperienceLevel,
+  type VolumeAssessment,
+} from "@/lib/engine";
 import { AppHeader } from "./AppHeader";
 import { haptic } from "@/lib/haptics";
 import {
@@ -31,19 +36,18 @@ const DAY_FULL = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "S
 export interface SettingsProps {
   hasPlan: boolean;
   planStatus: string;
+  experienceLevel: ExperienceLevel;
   weekShape: {
+    training_days_per_week: number;
+    doubles_per_week: number;
     long_run_day: number | null;
     strength_days: number[];
     rest_days: number[];
-    max_rest_days: number;
-    warnings: string[];
   };
   volume: {
     weekly_km_peak: number | null;
     runs_per_week: number | null;
-    max_runs: number;
     assessment: VolumeAssessment | null;
-    frequency: FrequencyAdvice | null;
   };
   connections: {
     strava: { connected: boolean; url: string | null };
@@ -57,11 +61,23 @@ export function SettingsClient(props: SettingsProps) {
   const [toast, setToast] = useState<string | null>(null);
   const [savingShape, setSavingShape] = useState(false);
   const [savingVolume, setSavingVolume] = useState(false);
+  const [trainingDays, setTrainingDays] = useState(props.weekShape.training_days_per_week);
+  const [doubles, setDoubles] = useState(props.weekShape.doubles_per_week);
   const [longRunDay, setLongRunDay] = useState<number | null>(props.weekShape.long_run_day);
   const [strengthDays, setStrengthDays] = useState<number[]>(props.weekShape.strength_days);
   const [restDays, setRestDays] = useState<number[]>(props.weekShape.rest_days);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
+
+  // Both of these are pure engine functions, so the page can answer live
+  // instead of only after a save: change a day and the cost changes with it.
+  const maxRestDays = Math.max(0, 7 - trainingDays);
+  const maxRuns = Math.max(2, trainingDays - 1);
+  const frequency = frequencyAdvice(props.experienceLevel, trainingDays, doubles);
+  const warnings = assessWeekPreferences(
+    { longRunDay, strengthDays, restDays },
+    { trainingDays, runsPerWeek: props.volume.runs_per_week, doublesPerWeek: doubles },
+  );
 
   async function saveWeekShape() {
     setSavingShape(true);
@@ -70,6 +86,8 @@ export function SettingsClient(props: SettingsProps) {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          training_days_per_week: trainingDays,
+          doubles_per_week: doubles,
           preferred_long_run_day: longRunDay,
           preferred_strength_days: strengthDays,
           preferred_rest_days: restDays,
@@ -160,6 +178,37 @@ export function SettingsClient(props: SettingsProps) {
             below rather than silently fixed.
           </p>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ChipRow
+              label="Training days"
+              options={[3, 4, 5, 6]}
+              value={trainingDays}
+              onChange={(v) => {
+                setTrainingDays(v);
+                // Fewer days can strand pins that used to fit; trim rather than
+                // let the athlete discover it at the save button.
+                setRestDays((prev) => prev.slice(0, Math.max(0, 7 - v)));
+                setStrengthDays((prev) => prev.slice(0, v));
+              }}
+              format={(v) => `${v}`}
+            />
+            <ChipRow
+              label="Double days"
+              options={[0, 1, 2, 3]}
+              value={doubles}
+              onChange={setDoubles}
+              format={(v) => (v === 0 ? "None" : `${v}`)}
+            />
+          </div>
+
+          <p
+            className={`max-w-[62ch] text-meta leading-relaxed ${
+              frequency.verdict === "ok" ? "text-ash" : "text-amber"
+            }`}
+          >
+            {frequency.note}
+          </p>
+
           <div className="grid gap-3 sm:grid-cols-3">
             <DayPicker
               label="Long run"
@@ -178,13 +227,13 @@ export function SettingsClient(props: SettingsProps) {
               accent="amber"
             />
             <DayPicker
-              label={`Rest (max ${props.weekShape.max_rest_days})`}
+              label={`Rest (max ${maxRestDays})`}
               selected={restDays}
               onToggle={(d) =>
                 setRestDays((prev) =>
                   prev.includes(d)
                     ? prev.filter((x) => x !== d)
-                    : prev.length >= props.weekShape.max_rest_days
+                    : prev.length >= maxRestDays
                       ? prev
                       : [...prev, d].sort(),
                 )
@@ -193,9 +242,9 @@ export function SettingsClient(props: SettingsProps) {
             />
           </div>
 
-          {props.weekShape.warnings.length > 0 && (
+          {warnings.length > 0 && (
             <ul className="space-y-1.5">
-              {props.weekShape.warnings.map((w) => (
+              {warnings.map((w) => (
                 <li
                   key={w}
                   className="border-l-2 border-amber/50 pl-3 text-meta leading-relaxed text-bone"
@@ -246,7 +295,7 @@ export function SettingsClient(props: SettingsProps) {
                 className="input"
                 type="number"
                 min="2"
-                max={props.volume.max_runs}
+                max={maxRuns}
                 step="1"
                 value={runsPerWeek}
                 placeholder="auto"
@@ -255,15 +304,6 @@ export function SettingsClient(props: SettingsProps) {
             </label>
           </div>
 
-          {props.volume.frequency && (
-            <p
-              className={`max-w-[62ch] text-meta leading-relaxed ${
-                props.volume.frequency.verdict === "ok" ? "text-ash" : "text-amber"
-              }`}
-            >
-              {props.volume.frequency.note}
-            </p>
-          )}
           {props.volume.assessment && (
             <p
               className={`max-w-[62ch] text-meta leading-relaxed ${
@@ -281,8 +321,8 @@ export function SettingsClient(props: SettingsProps) {
             icon={<RunIcon size={16} />}
           />
           <p className="text-micro leading-relaxed text-ash">
-            Up to {props.volume.max_runs} runs with {props.volume.max_runs + 1} training days — one
-            session a week stays strength or station work.
+            Up to {maxRuns} runs with {trainingDays} training days — one session a week stays
+            strength or station work.
           </p>
         </div>
       </section>
@@ -427,6 +467,44 @@ function Connection({
         </a>
       )}
       {state === "unconfigured" && <span className="text-micro text-smoke">not configured</span>}
+    </div>
+  );
+}
+
+function ChipRow({
+  label,
+  options,
+  value,
+  onChange,
+  format,
+}: {
+  label: string;
+  options: number[];
+  value: number;
+  onChange: (v: number) => void;
+  format: (v: number) => string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
+      <div className="flex gap-1">
+        {options.map((o) => (
+          <button
+            key={o}
+            type="button"
+            aria-pressed={value === o}
+            aria-label={`${label}: ${format(o)}`}
+            onClick={() => onChange(o)}
+            className={`h-9 flex-1 rounded-control border text-meta font-semibold transition-colors duration-150 ease-out ${
+              value === o
+                ? "border-flame/70 bg-flame/10 text-chalk"
+                : "border-edge bg-well text-ash hover:border-edge-strong hover:text-bone"
+            }`}
+          >
+            {format(o)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -316,3 +316,20 @@ describe("at least one full rest day", () => {
     }
   });
 });
+
+describe("the frequency note reads as a sentence", () => {
+  it("gets the article right for every level", () => {
+    // The level names are data; "a advanced athlete" is what happens when the
+    // article is written into the sentence instead of derived from them.
+    for (const [level, expected] of [
+      ["beginner", "a beginner"],
+      ["intermediate", "an intermediate"],
+      ["advanced", "an advanced"],
+      ["elite", "an elite"],
+      ["world_class", "a world-class"],
+    ] as const) {
+      const note = frequencyAdvice(level, 9, 0).note; // 9 days: always "high"
+      expect(note, level).toContain(expected);
+    }
+  });
+});

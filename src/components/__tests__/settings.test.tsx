@@ -10,19 +10,18 @@ vi.mock("next/navigation", () => ({
 const base: SettingsProps = {
   hasPlan: true,
   planStatus: "active",
+  experienceLevel: "advanced",
   weekShape: {
+    training_days_per_week: 5,
+    doubles_per_week: 0,
     long_run_day: 7,
     strength_days: [1, 4],
     rest_days: [3],
-    max_rest_days: 2,
-    warnings: [],
   },
   volume: {
     weekly_km_peak: 45,
     runs_per_week: 4,
-    max_runs: 4,
     assessment: null,
-    frequency: { verdict: "ok", note: "5 days sits in the 5-6 sessions." },
   },
   connections: {
     strava: { connected: true, url: "/api/strava/connect" },
@@ -42,11 +41,29 @@ describe("the setup page", () => {
   });
 
   it("shows the pinned days as pressed, and the rest as not", () => {
-    // Sunday long run, Monday and Thursday strength, Wednesday rest.
+    // Sunday long run, Monday and Thursday strength, Wednesday rest — plus the
+    // two chip rows, which each have exactly one pressed option.
     const pressed = (html.match(/aria-pressed="true"/g) ?? []).length;
-    expect(pressed).toBe(4);
+    expect(pressed).toBe(4 + 2);
     expect(html).toContain('aria-label="Long run: Sunday"');
     expect(html).toContain('aria-label="Rest (max 2): Wednesday"');
+  });
+
+  it("puts the training days and the doubles where the week is shaped", () => {
+    expect(html).toContain('aria-label="Training days: 5"');
+    expect(html).toContain('aria-label="Double days: None"');
+    // The rest cap follows the training days, not a value baked in server-side.
+    expect(html).toContain("Rest (max 2)");
+  });
+
+  it("judges the frequency live, against the level", () => {
+    // 5 days is what an advanced athlete is built for; 3 is not.
+    expect(render()).toContain("sub 1:20");
+    const thin = render({
+      weekShape: { ...base.weekShape, training_days_per_week: 3 },
+    });
+    expect(thin).toContain("aerobic volume");
+    expect(thin).toContain("Rest (max 4)");
   });
 
   it("spends the accent once — only the focal card saves in the filled form", () => {
@@ -54,10 +71,17 @@ describe("the setup page", () => {
   });
 
   it("says what a pin costs, when it costs something", () => {
+    // Computed from the pins themselves: Friday long run with the weekend at
+    // rest leaves five sessions for Monday to Friday, and something gives.
     const warned = render({
-      weekShape: { ...base.weekShape, warnings: ["Strength on Thursday follows a hard Wednesday."] },
+      weekShape: {
+        ...base.weekShape,
+        long_run_day: 5,
+        strength_days: [],
+        rest_days: [6, 7],
+      },
     });
-    expect(warned).toContain("Strength on Thursday follows a hard Wednesday.");
+    expect(warned).toContain("plyometrics wants 24-48 h");
   });
 
   it("distinguishes connected, connectable and not configured", () => {

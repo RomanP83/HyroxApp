@@ -77,8 +77,8 @@ Danach vier kurze Schritte. Alles ist später änderbar.
 |---|---|
 | **Division** (Open, Pro, Doubles, Masters) | Bestimmt die Wettkampfgewichte in jeder Station-Beschreibung (z. B. Sled 152 kg vs. 202 kg). |
 | **Erfahrungslevel** | Start-Tiers der Stationen, Grundlage für die Frequenzberatung. |
-| **Trainingstage pro Woche (3–6)** | Wie viele Slots eine Woche bekommt. Bei 5 Tagen überleben die fünf höchstpriorisierten Einheiten der Phase. |
-| **Doppeltage (0–3)** | Tage mit AM- und PM-Einheit. Die PM-Einheit ist immer die leichtere. |
+| **Trainingstage pro Woche (3–6)** | Wie viele Slots eine Woche bekommt. Bei 5 Tagen überleben die fünf höchstpriorisierten Einheiten der Phase. *Später jederzeit unter [Setup](#8-settings--setup--tools) änderbar.* |
+| **Doppeltage (0–3)** | Tage mit AM- und PM-Einheit. Die PM-Einheit ist immer die leichtere. *Später jederzeit unter [Setup](#8-settings--setup--tools) änderbar.* |
 | **Peak-km pro Woche** | Die eine Zahl für das Laufvolumen; eine Kurve verteilt sie über die Phasen. |
 | **Läufe pro Woche** | Optional. Verschiebt die Mischung Richtung Laufen — genau ein Nicht-Lauf-Slot bleibt geschützt. |
 | **Equipment** (Full Gym / Home / Hybrid) | Wählt zwischen Gym- und Home-Varianten aller Blöcke. |
@@ -333,8 +333,13 @@ entscheidest.
 Beide Regler bauen die **verbleibenden Wochen** neu auf; vergangene Wochen bleiben als Protokoll
 stehen. Ohne bestehenden Plan gelten sie für den nächsten.
 
-**Die Form deiner Woche.** Sieben Schalter je Zeile für **Long Run**, **Kraft** und **Ruhetage**,
-Montag zuerst.
+**Die Form deiner Woche.** Ganz oben **Trainingstage** (3–6) und **Doppeltage** (0–3) — zusammen
+ergeben sie deine Einheiten pro Woche. Direkt darunter steht, wie das zu deinem Level passt, und
+zwar **live**: Jede Änderung an den Chips rechnet den Hinweis neu, bevor du speicherst.
+
+Darunter sieben Schalter je Zeile für **Long Run**, **Kraft** und **Ruhetage**, Montag zuerst. Die
+Obergrenze für Ruhetage (`7 − Trainingstage`) bewegt sich mit; nimmst du Trainingstage weg, werden
+zu viele Pins automatisch gekürzt statt dich am Speichern-Knopf auflaufen zu lassen.
 
 *Harte Pins:* Diese Tage gewinnen — auch gegen die Erholungsregeln. Öffnungszeiten im Gym und ein
 freier Sonntag sind Tatsachen, und ein Plan, der sie stillschweigend überstimmt, wird nicht befolgt.
@@ -345,13 +350,14 @@ Tage es zulassen.
 follows a hard Wednesday — plyometrics wants 24-48 h of fresh legs."* Nichts wird heimlich
 korrigiert; du siehst den Preis und entscheidest.
 
-Zwei Dinge lehnt die App beim Speichern ab, statt sie zu erraten: ein Tag, der gleichzeitig Ruhetag
+Drei Dinge lehnt die App beim Speichern ab, statt sie zu erraten: eine Laufanzahl, die nach dem
+Reduzieren der Trainingstage nicht mehr hineinpasst, ein Tag, der gleichzeitig Ruhetag
 und Kraft-/Long-Run-Tag ist, und mehr Ruhetage als deine Trainingsfrequenz übrig lässt. Passt die
 Woche trotzdem nicht, gewinnt das Training den Tag zurück und sagt welchen.
 
-**Laufvolumen.** Peak-Kilometer der Woche und Läufe pro Woche, dazu die Frequenzberatung für dein
-Level und — sobald du geloggt hast — der Abgleich mit dem, was deine letzten vier Wochen wirklich
-getragen haben.
+**Laufvolumen.** Peak-Kilometer der Woche und Läufe pro Woche, dazu — sobald du geloggt hast — der
+Abgleich mit dem, was deine letzten vier Wochen wirklich getragen haben. Die Obergrenze für Läufe
+folgt deinen Trainingstagen: eine Einheit pro Woche bleibt Kraft oder Stationsarbeit.
 
 ### Verbindungen
 
@@ -512,6 +518,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |
 | Setup & Tools ist eine eigene Seite (`/settings`), erreichbar über „Setup" rechts oben; Verbindungen zeigen ihren Zustand | [8](#8-settings--setup--tools) |
 | Von Hand verschobene Einheiten überstehen einen Neuaufbau des Plans (gemerkt an der Kalenderwoche) | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Feste Wochentage für Long Run, Kraft und Ruhetage planweit definierbar; harte Pins mit Hinweis auf ihre Kosten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

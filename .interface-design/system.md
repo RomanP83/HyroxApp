@@ -84,5 +84,11 @@ padding gets ~8px children.
   timeline it exists to explain.
 - `smoke` is disabled and decoration only. Explanatory prose is `ash` at minimum — 11px type set in
   the muted level is a legibility bug, not a hierarchy decision.
+- **Settings get a page, not a drawer** — a control that rebuilds the plan is not a footnote to
+  today's session. `/settings` groups by the decision being made (what your week looks like, what
+  the app is connected to, what happens when something breaks), and reaches from the header's
+  right-hand utility corner rather than as a sixth content tab.
+- **A connection row states its state** — connected / a Connect button / "not configured". An inert
+  button for an integration this deployment never set up is the worse answer.
 - Test hooks are `data-*` attributes (`data-session-card`, `data-session-title`), never styling
   classes — a class is not a contract.

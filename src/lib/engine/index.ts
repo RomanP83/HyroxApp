@@ -6,6 +6,7 @@ export * from "./season";
 export * from "./raceCalendar";
 export * from "./running";
 export * from "./runVariants";
+export * from "./compromisedSessions";
 export * from "./stationVariants";
 export * from "./strengthVariants";
 export * from "./micro";

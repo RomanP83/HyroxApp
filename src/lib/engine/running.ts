@@ -248,6 +248,9 @@ export function frequencyAdvice(
     ? `${trainingDays} days plus ${doublesPerWeek} double${doublesPerWeek > 1 ? "s" : ""} (${sessions} sessions)`
     : `${trainingDays} days`;
   const levelName = level === "world_class" ? "world-class" : level;
+  // "an advanced athlete", "an elite athlete" — the level names are data, so
+  // the article has to be derived rather than written into the sentence.
+  const article = /^[aeiou]/.test(levelName) ? "an" : "a";
 
   // Doubles are earned, not chosen: they enter occasionally from advanced and
   // become the norm only at world class. Below that, the same hours belong on
@@ -261,7 +264,7 @@ export function frequencyAdvice(
   if (sessions > spec.sessions_max || trainingDays > spec.max) {
     return {
       verdict: "high",
-      note: `${label} is above the ${spec.sessions_min}–${spec.sessions_max} sessions a ${levelName} athlete (${spec.target}) is usually built for. It will work if you are already used to it — otherwise the base gives way before the fitness arrives. Focus at this level: ${spec.focus}.`,
+      note: `${label} is above the ${spec.sessions_min}–${spec.sessions_max} sessions ${article} ${levelName} athlete (${spec.target}) is usually built for. It will work if you are already used to it — otherwise the base gives way before the fitness arrives. Focus at this level: ${spec.focus}.`,
     };
   }
   if (sessions < spec.sessions_min || trainingDays < spec.min) {
@@ -276,7 +279,7 @@ export function frequencyAdvice(
       : "";
   return {
     verdict: "ok",
-    note: `${label} sits in the ${spec.sessions_min}–${spec.sessions_max} sessions a ${levelName} athlete (${spec.target}) is built for. Focus at this level: ${spec.focus}.${doublesNote}`,
+    note: `${label} sits in the ${spec.sessions_min}–${spec.sessions_max} sessions ${article} ${levelName} athlete (${spec.target}) is built for. Focus at this level: ${spec.focus}.${doublesNote}`,
   };
 }
 

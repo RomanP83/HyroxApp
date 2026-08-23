@@ -19,16 +19,17 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 5. [Eine Einheit loggen (und den Fehlklick zurücknehmen)](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen)
 6. [Wie sich der Plan anpasst](#6-wie-sich-der-plan-anpasst)
 7. [`/season` — Rennkalender und Jahresplanung](#7-season--rennkalender-und-jahresplanung)
-8. [`/strength` — eigenes Kraftprogramm](#8-strength--eigenes-kraftprogramm)
-9. [`/benchmarks` — Tests eintragen](#9-benchmarks--tests-eintragen)
-10. [`/progress` — Auswertungen](#10-progress--auswertungen)
-11. [Verbindungen: Strava, Garmin, Telegram](#11-verbindungen-strava-garmin-telegram)
-12. [Automatische Abläufe im Hintergrund](#12-automatische-abläufe-im-hintergrund)
-13. [Bezahlung und was frei ist](#13-bezahlung-und-was-frei-ist)
-14. [`/demo` — ausprobieren ohne Konto](#14-demo--ausprobieren-ohne-konto)
-15. [Betreiber-Oberflächen](#15-betreiber-oberflächen)
-16. [Begriffe](#16-begriffe)
-17. [Änderungsprotokoll](#17-änderungsprotokoll)
+8. [`/settings` — Setup & Tools](#8-settings--setup--tools)
+9. [`/strength` — eigenes Kraftprogramm](#9-strength--eigenes-kraftprogramm)
+10. [`/benchmarks` — Tests eintragen](#10-benchmarks--tests-eintragen)
+11. [`/progress` — Auswertungen](#11-progress--auswertungen)
+12. [Verbindungen: Strava, Garmin, Telegram](#12-verbindungen-strava-garmin-telegram)
+13. [Automatische Abläufe im Hintergrund](#13-automatische-abläufe-im-hintergrund)
+14. [Bezahlung und was frei ist](#14-bezahlung-und-was-frei-ist)
+15. [`/demo` — ausprobieren ohne Konto](#15-demo--ausprobieren-ohne-konto)
+16. [Betreiber-Oberflächen](#16-betreiber-oberflächen)
+17. [Begriffe](#17-begriffe)
+18. [Änderungsprotokoll](#18-änderungsprotokoll)
 
 ---
 
@@ -56,6 +57,7 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 | `/strength` | Eigene Kraftprogramme, Sätze protokollieren | nein |
 | `/benchmarks` | Testergebnisse eintragen | nein |
 | `/progress` | Verlauf und Auswertungen | nein |
+| `/settings` | Setup & Tools: Wochenform, Laufvolumen, Verbindungen, Verletzung | nein |
 | `/de/…` | Deutsche Landingpages (8/12/16 Wochen) | ja |
 
 Alle eingeloggten Seiten teilen sich **eine Kopfzeile**: das Logo führt immer zurück auf `/plan`
@@ -75,8 +77,8 @@ Danach vier kurze Schritte. Alles ist später änderbar.
 |---|---|
 | **Division** (Open, Pro, Doubles, Masters) | Bestimmt die Wettkampfgewichte in jeder Station-Beschreibung (z. B. Sled 152 kg vs. 202 kg). |
 | **Erfahrungslevel** | Start-Tiers der Stationen, Grundlage für die Frequenzberatung. |
-| **Trainingstage pro Woche (3–6)** | Wie viele Slots eine Woche bekommt. Bei 5 Tagen überleben die fünf höchstpriorisierten Einheiten der Phase. |
-| **Doppeltage (0–3)** | Tage mit AM- und PM-Einheit. Die PM-Einheit ist immer die leichtere. |
+| **Trainingstage pro Woche (3–6)** | Wie viele Slots eine Woche bekommt. Bei 5 Tagen überleben die fünf höchstpriorisierten Einheiten der Phase. *Später jederzeit unter [Setup](#8-settings--setup--tools) änderbar.* |
+| **Doppeltage (0–3)** | Tage mit AM- und PM-Einheit. Die PM-Einheit ist immer die leichtere. *Später jederzeit unter [Setup](#8-settings--setup--tools) änderbar.* |
 | **Peak-km pro Woche** | Die eine Zahl für das Laufvolumen; eine Kurve verteilt sie über die Phasen. |
 | **Läufe pro Woche** | Optional. Verschiebt die Mischung Richtung Laufen — genau ein Nicht-Lauf-Slot bleibt geschützt. |
 | **Equipment** (Full Gym / Home / Hybrid) | Wählt zwischen Gym- und Home-Varianten aller Blöcke. |
@@ -129,6 +131,13 @@ Deload- und Benchmark-Woche. Anklicken springt in die Woche.
 
 ### Eine Einheitenkarte
 
+**Kompromittierte Läufe** kommen aus einem eigenen Katalog: 60 Sessions über fünf Leistungslevel
+und vier Phasen, je drei pro Kombination. Was du bekommst, hängt an deinem Level — ein Beginner
+läuft 800 m nach leichten Lunges, ein World-Class-Athlet 1000 m in 3:45–3:55 nach dem Pro-Schlitten
+mit unter fünf Sekunden Transition. Jede zweite Woche zielt die Auswahl auf deine schwächste
+Station. Ohne Ergometer bekommst du nie eine Erg-Session — die App weicht auf eine andere aus,
+statt die Einheit zu streichen.
+
 Links an jeder Einheit sitzt eine **Intensitäts-Leiste** in der Farbe dessen, was der Tag verlangt:
 orange = hart, grün = aerob, bernstein = Kraft und Stationen, grau = Erholung. Die Wochenform ist
 damit sichtbar, bevor ein Wort gelesen ist — zwei orange Leisten heißen: harte Woche.
@@ -158,7 +167,7 @@ Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 | **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter deine Pace-Zonen und der ACWR. Die eine Zahl, für die das ganze System existiert. |
 | **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
 | **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
-| **Setup & tools** *(zugeklappt)* | Die Form deiner Woche, Laufvolumen, Strava/Garmin, Telegram, Verletzung melden. Einmal-Aufgaben, die keinen Dauerplatz brauchen — antippen zum Aufklappen. |
+| **Setup & tools** | Ein Link auf die [eigene Setup-Seite](#8-settings--setup--tools). |
 | **Coach-Feedback** | Erscheint nach dem Loggen als Overlay (siehe Abschnitt 6). |
 
 ---
@@ -184,31 +193,8 @@ Das nimmt nicht nur den Eintrag zurück, sondern auch **die Kalibrierung, die er
 App spielt die verbleibenden Logs neu ein und stellt Paces, Tiers und Kraftfaktor auf den Stand ohne
 diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
 
-### Die Form deiner Woche festlegen
-
-Unter *Setup & tools* → **„The shape of your week"** legst du für den **ganzen Plan** fest, welche
-Wochentage fix sind: ein Tag für den **Long Run**, beliebig viele **Kraft-Tage**, und deine
-**Ruhetage**. Sieben Schalter je Zeile, Montag zuerst.
-
-**Harte Pins.** Diese Tage gewinnen — auch gegen die Erholungsregeln. Öffnungszeiten im Gym und ein
-freier Sonntag sind Tatsachen, und ein Plan, der sie stillschweigend überstimmt, wird nicht befolgt.
-Alles Übrige ordnet sich um deine Pins herum an, weiterhin regelkonform, soweit die verbleibenden
-Tage es zulassen.
-
-**Weiche Warnung.** Was ein Pin kostet, steht direkt unter den Schaltern — zum Beispiel *„Strength am
-Donnerstag folgt auf einen harten Mittwoch — Plyometrie will 24–48 h frische Beine."* Nichts wird
-heimlich korrigiert; du siehst den Preis und entscheidest.
-
-Ein paar Regeln, die die App durchsetzt statt sie zu erraten:
-
-- Ein Tag kann nicht gleichzeitig Ruhetag und Kraft-/Long-Run-Tag sein — das wäre ein Tippfehler,
-  keine Präferenz, und wird beim Speichern abgelehnt.
-- Mehr Ruhetage als Wochentage übrig sind, geht nicht (bei 5 Trainingstagen also höchstens 2).
-- Passt die Woche trotzdem nicht, gewinnt das Training: die App nimmt sich den nötigen Tag zurück
-  und sagt welchen.
-
-Speichern baut die **verbleibenden Wochen** neu auf — wie beim Laufvolumen. Vergangene Wochen
-bleiben als Protokoll stehen.
+Die **Form deiner Woche** — feste Wochentage für Long Run, Kraft und Ruhe — legst du auf der
+[Setup-Seite](#8-settings--setup--tools) fest.
 
 ### Verschieben
 
@@ -246,7 +232,7 @@ Zwei Grenzen, die du kennen solltest: Enthält die neu gebaute Woche die Einheit
 weil ein Deload sie gestrichen hat), verfällt die Verschiebung. Und ein **Renntag** hat Vorrang —
 er ist eine Tatsache im Kalender, deine Verschiebung eine Präferenz.
 
-Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#14-demo--ausprobieren-ohne-konto)
+Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#15-demo--ausprobieren-ohne-konto)
 funktioniert es genauso, nur ohne Konto.
 
 ---
@@ -344,7 +330,55 @@ Kalender überlebt auch einen Rebase.
 
 ---
 
-## 8. `/strength` — eigenes Kraftprogramm
+## 8. `/settings` — Setup & Tools
+
+Erreichbar über **Setup** rechts oben, auf jeder Seite. Drei Gruppen, nach dem sortiert, was du
+entscheidest.
+
+### Deine Trainingswoche
+
+Beide Regler bauen die **verbleibenden Wochen** neu auf; vergangene Wochen bleiben als Protokoll
+stehen. Ohne bestehenden Plan gelten sie für den nächsten.
+
+**Die Form deiner Woche.** Ganz oben **Trainingstage** (3–6) und **Doppeltage** (0–3) — zusammen
+ergeben sie deine Einheiten pro Woche. Direkt darunter steht, wie das zu deinem Level passt, und
+zwar **live**: Jede Änderung an den Chips rechnet den Hinweis neu, bevor du speicherst.
+
+Darunter sieben Schalter je Zeile für **Long Run**, **Kraft** und **Ruhetage**, Montag zuerst. Die
+Obergrenze für Ruhetage (`7 − Trainingstage`) bewegt sich mit; nimmst du Trainingstage weg, werden
+zu viele Pins automatisch gekürzt statt dich am Speichern-Knopf auflaufen zu lassen.
+
+*Harte Pins:* Diese Tage gewinnen — auch gegen die Erholungsregeln. Öffnungszeiten im Gym und ein
+freier Sonntag sind Tatsachen, und ein Plan, der sie stillschweigend überstimmt, wird nicht befolgt.
+Alles Übrige ordnet sich um deine Pins herum an, weiterhin regelkonform, soweit die verbleibenden
+Tage es zulassen.
+
+*Weiche Warnung:* Was ein Pin kostet, steht direkt unter den Schaltern — etwa *„Strength on Thursday
+follows a hard Wednesday — plyometrics wants 24-48 h of fresh legs."* Nichts wird heimlich
+korrigiert; du siehst den Preis und entscheidest.
+
+Drei Dinge lehnt die App beim Speichern ab, statt sie zu erraten: eine Laufanzahl, die nach dem
+Reduzieren der Trainingstage nicht mehr hineinpasst, ein Tag, der gleichzeitig Ruhetag
+und Kraft-/Long-Run-Tag ist, und mehr Ruhetage als deine Trainingsfrequenz übrig lässt. Passt die
+Woche trotzdem nicht, gewinnt das Training den Tag zurück und sagt welchen.
+
+**Laufvolumen.** Peak-Kilometer der Woche und Läufe pro Woche, dazu — sobald du geloggt hast — der
+Abgleich mit dem, was deine letzten vier Wochen wirklich getragen haben. Die Obergrenze für Läufe
+folgt deinen Trainingstagen: eine Einheit pro Woche bleibt Kraft oder Stationsarbeit.
+
+### Verbindungen
+
+Strava, Garmin und Telegram als Zeilen mit ihrem Zustand: **connected**, ein *Connect*-Knopf, oder
+*not configured* — Letzteres heißt, dass die Integration auf dieser Installation gar nicht
+eingerichtet ist. Ein toter Knopf wäre die schlechtere Antwort.
+
+### Wenn etwas kaputtgeht
+
+Verletzung melden schaltet in den Reha-Modus; im Reha-Modus steht hier der Weg zurück.
+
+---
+
+## 9. `/strength` — eigenes Kraftprogramm
 
 Gedacht für alle, die ihr Krafttraining bereits in Excel führen.
 
@@ -366,7 +400,7 @@ Programm wie geschrieben.
 
 ---
 
-## 9. `/benchmarks` — Tests eintragen
+## 10. `/benchmarks` — Tests eintragen
 
 Eine Liste standardisierter Tests (z. B. 1 km Zeit, Wall Balls in 2 min). Ergebnis eintragen,
 speichern — die Zielzeit-Prognose wird sofort neu gerechnet und der Verlauf auf `/progress`
@@ -375,7 +409,7 @@ Beginn des Tapers.
 
 ---
 
-## 10. `/progress` — Auswertungen
+## 11. `/progress` — Auswertungen
 
 | Element | Was es zeigt |
 |---|---|
@@ -394,7 +428,7 @@ Schicht benutzt — Diagramm und Engine können nicht auseinanderlaufen.
 
 ---
 
-## 11. Verbindungen: Strava, Garmin, Telegram
+## 12. Verbindungen: Strava, Garmin, Telegram
 
 **Strava / Garmin.** Einmal verbinden; danach werden Läufe automatisch der passenden geplanten
 Einheit zugeordnet und geloggt. Die tatsächlich gelaufene Pace fließt direkt in die
@@ -405,7 +439,7 @@ die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-M
 
 ---
 
-## 12. Automatische Abläufe im Hintergrund
+## 13. Automatische Abläufe im Hintergrund
 
 | Wann | Was passiert |
 |---|---|
@@ -417,7 +451,7 @@ Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht vo
 
 ---
 
-## 13. Bezahlung und was frei ist
+## 14. Bezahlung und was frei ist
 
 **Woche 1 ist dauerhaft kostenlos** — vollständig, mit allen Blöcken, Gewichten und Paces. Ab Woche 2
 ist der Plan gesperrt, bis der Rennzyklus freigeschaltet ist (einmalig oder als Abo).
@@ -428,7 +462,7 @@ bezahlt.
 
 ---
 
-## 14. `/demo` — ausprobieren ohne Konto
+## 15. `/demo` — ausprobieren ohne Konto
 
 Ein kompletter Durchlauf mit Beispieldaten: Plan erzeugen, eine Einheit loggen, die Feedback-Karte
 und den Anpassungs-Feed sehen. Dieselbe Engine wie in der echten App, nur mit einer
@@ -437,7 +471,7 @@ Schicht zu zeigen.
 
 ---
 
-## 15. Betreiber-Oberflächen
+## 16. Betreiber-Oberflächen
 
 Nicht verlinkt, per `robots.txt` ausgeschlossen, durch das Betreiber-Secret geschützt.
 
@@ -467,7 +501,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 
 ---
 
-## 16. Begriffe
+## 17. Begriffe
 
 | Begriff | Bedeutung |
 |---|---|
@@ -477,7 +511,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **Deload** | Entlastungswoche. Im Jahresplan −35 %, innerhalb des Wochenplans −40 % — die beiden Ebenen führen ihre eigene Zahl, absichtlich. |
 | **ACWR** | Verhältnis der Belastung der letzten 7 zu den letzten 28 Tagen. |
 | **RPE** | Subjektives Anstrengungsempfinden, 1–10. |
-| **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. |
+| **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. Die Session ist **level- und phasenabhängig**: 60 Vorgaben über fünf Level und vier Phasen, siehe [Abschnitt 4](#4-plan--die-trainingswoche). |
 | **Polarisiert** | 75–85 % der Laufdistanz locker, der Rest wirklich hart. Gemessen an der **Distanz je Zone**, nicht an der Zahl der Einheiten. |
 | **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. |
 | **Rebase** | Neuberechnung des Plans ab heute statt nachträglicher Änderung. |
@@ -485,30 +519,33 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 
 ---
 
-## 17. Änderungsprotokoll
+## 18. Änderungsprotokoll
 
 Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie beschrieben ist.
 
 | Änderung | Abschnitt |
 |---|---|
+| Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |
+| Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |
+| Setup & Tools ist eine eigene Seite (`/settings`), erreichbar über „Setup" rechts oben; Verbindungen zeigen ihren Zustand | [8](#8-settings--setup--tools) |
 | Von Hand verschobene Einheiten überstehen einen Neuaufbau des Plans (gemerkt an der Kalenderwoche) | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Feste Wochentage für Long Run, Kraft und Ruhetage planweit definierbar; harte Pins mit Hinweis auf ihre Kosten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Fünf Leistungslevel (bis World Class, sub 60) mit Einheiten-Soll; Wochenplaner hält Abstandsregeln ein (keine zwei harten Tage in Folge, Kraft nie nach hartem Tag); 16 Wochen = 5/5/4/2; Erg-Hinweis; Kohlenhydrat-Periodisierung | [3](#3-onboarding--den-plan-erzeugen), [6](#6-wie-sich-der-plan-anpasst) |
-| Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [8](#8-strength--eigenes-kraftprogramm) |
+| Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [9](#9-strength--eigenes-kraftprogramm) |
 | Einheitliche Rückkehr zur Wochenansicht: gemeinsame Kopfzeile auf allen eingeloggten Seiten (Logo → `/plan`), Rückweg auch auf der Betreiberseite | [2](#2-seitenübersicht) |
 | `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |
 | `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |
 | Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Rennkalender mit Haupt-/Nebenrennen wirkt bis in die einzelnen Trainingstage; Kalenderansicht auf `/season`; Plan direkt aus dem Kalender bauen | [7](#7-season--rennkalender-und-jahresplanung) |
 | Trainingsstruktur nachgeschärft: max. zwei harte Tage, eine Simulation pro Zyklus, Plyometrie und Griffkraft als Finisher, Frequenzberatung nach Level | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
-| 11 Stationsvarianten nach Phase | [16](#16-begriffe) |
+| 11 Stationsvarianten nach Phase | [17](#17-begriffe) |
 | 14 Varianten der vier Kernlaufeinheiten, rotierend, jede zweite Woche auf die Schwachstelle | [4](#4-plan--die-trainingswoche) |
 | Laufvolumen selbst steuern: Peak-km pro Zyklus und Läufe pro Woche | [4](#4-plan--die-trainingswoche) |
-| Laufarchitektur: HF-Zonen, Paces, polarisierte Fenster, Eröffnungspuffer nach der Station | [4](#4-plan--die-trainingswoche), [16](#16-begriffe) |
-| Eigenes Kraftprogramm aus Excel importieren, Sätze protokollieren, Progression als Vorschlag | [8](#8-strength--eigenes-kraftprogramm) |
+| Laufarchitektur: HF-Zonen, Paces, polarisierte Fenster, Eröffnungspuffer nach der Station | [4](#4-plan--die-trainingswoche), [17](#17-begriffe) |
+| Eigenes Kraftprogramm aus Excel importieren, Sätze protokollieren, Progression als Vorschlag | [9](#9-strength--eigenes-kraftprogramm) |
 | Quick-Log-Knöpfe umbenannt: „Felt harder / Felt easier" beschreiben, wie es *war* | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Doppeltage (AM/PM) | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
-| AI-Zusammenfassungen statt PDFs einspeisbar | [15](#15-betreiber-oberflächen) |
+| AI-Zusammenfassungen statt PDFs einspeisbar | [16](#16-betreiber-oberflächen) |
 | Jahresperiodisierung mit Makrozyklen, Deloads und Mehrrennen-Logik | [7](#7-season--rennkalender-und-jahresplanung) |
-| Wissenspipeline für eigene PDFs (Vorschläge mit Freigabe) | [15](#15-betreiber-oberflächen) |
+| Wissenspipeline für eigene PDFs (Vorschläge mit Freigabe) | [16](#16-betreiber-oberflächen) |
 | Einzelne Tage zurücksetzen — Undo nimmt auch die Kalibrierung zurück | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

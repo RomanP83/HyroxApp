@@ -20,6 +20,7 @@ import { COMPROMISED_OPENING, compromisedOpeningPace, isRunSession, runSpec } fr
 import { pickRunVariant, type VariantPick } from "./runVariants";
 import { pickStationVariant } from "./stationVariants";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
+import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -147,6 +148,47 @@ export function fillSession(
   // Main block. For a run session the variant layer decides the shape of the
   // week (rotation, with every second week aimed at a weakness); the library
   // block it names is used when it is there, otherwise the generic pick stands.
+  // Compromised running is prescribed per LEVEL as well as per phase: what a
+  // sub-2:00 athlete and a sub-60 athlete do out of a sled is not the same
+  // session at a different pace. Those sixty sessions live in the engine
+  // (compromisedSessions.ts) and render straight into a block — there is no
+  // library row to look up.
+  if (phase && slot.session_type === "compromised_run") {
+    const chosen = pickCompromisedSession({
+      level: profile.experience_level,
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+    });
+    if (chosen) {
+      blocks.push({
+        block_id: chosen.session.slug,
+        slug: chosen.session.slug,
+        block_type: "main",
+        station: chosen.session.station ?? null,
+        content: renderCompromised(chosen.session),
+        sort_order: order++,
+        load_adjustments: {
+          division: profile.division,
+          ...(pace != null
+            ? {
+                pace_sec_km: pace,
+                opening_pace_sec_km: compromisedOpeningPace(pace),
+                opening_distance_m: COMPROMISED_OPENING.buffer_distance_m,
+                stabilise_distance_m: COMPROMISED_OPENING.stabilise_distance_m,
+              }
+            : {}),
+          variant_name: chosen.session.name,
+          variant_why: chosen.session.why,
+          variant_targeted: chosen.targeted,
+        },
+      });
+      return blocks;
+    }
+  }
+
   let picked: VariantPick | null = null;
   let main: WorkoutBlock | undefined;
   if (

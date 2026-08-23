@@ -53,23 +53,36 @@ export async function POST() {
   if (!stateRow) return NextResponse.json({ error: "no_state" }, { status: 409 });
 
   const state = stateFromRow(stateRow as AthleteStateRow);
-  const library = await loadLibrary(supabase);
   const weeksToRace = planWeeksTo(main.date, today);
-  const plan = generatePlan({
-    profile,
-    state,
-    library,
-    weeksToRace,
-    startDate: today,
-    races: racesForPlan(calendar, today, main.date),
-    dayOverrides: await loadDayOverrides(supabase, profile.id, today),
-  });
+  let planId: string;
+  try {
+    const library = await loadLibrary(supabase);
+    const plan = generatePlan({
+      profile,
+      state,
+      library,
+      weeksToRace,
+      startDate: today,
+      races: racesForPlan(calendar, today, main.date),
+      dayOverrides: await loadDayOverrides(supabase, profile.id, today),
+    });
 
-  const planId = await persistPlan(
-    supabase,
-    { profileId: profile.id, raceDate: main.date },
-    plan,
-  );
+    planId = await persistPlan(
+      supabase,
+      { profileId: profile.id, raceDate: main.date },
+      plan,
+    );
+  } catch (e) {
+    // loadLibrary and persistPlan both throw; uncaught, that is a 500
+    // with no body and the browser can only call it a parse error.
+    return NextResponse.json(
+      {
+        error: "plan_build_failed",
+        detail: `Could not build the plan: ${e instanceof Error ? e.message : "unknown error"}`,
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
     planId,

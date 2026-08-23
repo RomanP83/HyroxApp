@@ -119,11 +119,27 @@ export async function PATCH(req: Request) {
     .maybeSingle();
   if (!plan) return NextResponse.json({ ok: true, rebased: false, warnings });
 
-  const newPlanId = await rebasePlan(
-    supabaseAdmin(),
-    plan.id,
-    `Your week is now ${trainingDays} training days${body.doubles_per_week ? ` plus ${body.doubles_per_week} double${body.doubles_per_week > 1 ? "s" : ""}` : ""} — the remaining weeks were rebuilt around it.`,
-  );
+  let newPlanId: string | null = null;
+  try {
+    newPlanId = await rebasePlan(
+      supabaseAdmin(),
+      plan.id,
+      `Your week is now ${trainingDays} training days${body.doubles_per_week ? ` plus ${body.doubles_per_week} double${body.doubles_per_week > 1 ? "s" : ""}` : ""} — the remaining weeks were rebuilt around it.`,
+    );
+  } catch (e) {
+    // A rebase touches the library and the persistence RPC, and both
+    // throw. Letting that escape returns a 500 with no body, which the
+    // browser can only report as a JSON parse error.
+    return NextResponse.json(
+      {
+        error: "rebase_failed",
+        detail: `Your settings were saved, but the plan could not be rebuilt: ${
+          e instanceof Error ? e.message : "unknown error"
+        }`,
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ ok: true, rebased: Boolean(newPlanId), planId: newPlanId, warnings });
 }

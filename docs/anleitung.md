@@ -376,6 +376,13 @@ eingerichtet ist. Ein toter Knopf wäre die schlechtere Antwort.
 
 Verletzung melden schaltet in den Reha-Modus; im Reha-Modus steht hier der Weg zurück.
 
+**Fehlermeldungen sagen, was schiefging.** Scheitert ein Neuaufbau des Plans — hier, auf `/plan`
+oder auf `/season` —, steht der Grund vom Server im Hinweis, etwa *„Could not build the plan:
+persist_plan: …"*. Antwortet der Server gar nichts Lesbares, sagt die App genau das („Something
+broke on the server (500)") statt einer technischen Parser-Meldung. Der häufigste Grund für einen
+Abbruch beim Speichern ist eine Datenbank, die noch nicht auf dem Stand des Codes ist: dann fehlt
+eine Spalte oder ein Enum-Wert, und `supabase/setup.sql` einmal durchlaufen zu lassen behebt es.
+
 ---
 
 ## 9. `/strength` — eigenes Kraftprogramm
@@ -525,6 +532,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Fehler beim Planaufbau zeigen den echten Grund statt „Unexpected end of JSON input" | [8](#8-settings--setup--tools) |
 | Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |
 | Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |
 | Setup & Tools ist eine eigene Seite (`/settings`), erreichbar über „Setup" rechts oben; Verbindungen zeigen ihren Zustand | [8](#8-settings--setup--tools) |

@@ -7,6 +7,7 @@
 // ============================================================================
 import { AppHeader } from "./AppHeader";
 import { useState } from "react";
+import { readApi } from "@/lib/apiResult";
 import { useRouter } from "next/navigation";
 import { CheckIcon, SkipIcon, SparkIcon, SpinnerIcon } from "./icons";
 
@@ -68,8 +69,9 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
       ...init,
       headers: { "content-type": "application/json", ...(init.headers ?? {}) },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail ?? data.error ?? "request failed");
+    const out = await readApi(res);
+    if (!out.ok) throw new Error(out.message);
+    const data = out.data as Record<string, any>;
     return data;
   }
 
@@ -122,7 +124,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
     setBusy(templateId);
     try {
       const res = await fetch(`/api/strength/templates?template=${templateId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error((await res.json()).error ?? "delete failed");
+      if (!res.ok) throw new Error((await readApi(res)).message);
       setToast(`"${templateName}" deleted.`);
       router.refresh();
     } catch (e) {

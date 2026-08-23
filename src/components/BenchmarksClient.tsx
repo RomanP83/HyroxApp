@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { readApi } from "@/lib/apiResult";
 import { AppHeader } from "./AppHeader";
 import { useRouter } from "next/navigation";
 import { fmtClock } from "@/lib/format";
@@ -71,8 +72,9 @@ export function BenchmarksClient({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ slug: def.slug, value }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "save failed");
+      const out = await readApi<Record<string, any>>(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data;
       setToast(
         data.predicted_race_time_sec
           ? `Saved. Estimated finish is now ${fmtClock(data.predicted_race_time_sec)}.`

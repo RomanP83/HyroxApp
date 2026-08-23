@@ -45,11 +45,27 @@ export async function POST(req: Request) {
   }
 
   // recover: rebuild from today (rebase abandons the rehab plan atomically).
-  const newPlanId = await rebasePlan(
-    admin,
-    plan.id,
-    "Welcome back — the plan was rebuilt from today after your injury break, with an eased re-entry and phases re-timed to your race.",
-  );
+  let newPlanId: string | null = null;
+  try {
+    newPlanId = await rebasePlan(
+      admin,
+      plan.id,
+      "Welcome back — the plan was rebuilt from today after your injury break, with an eased re-entry and phases re-timed to your race.",
+    );
+  } catch (e) {
+    // A rebase touches the library and the persistence RPC, and both
+    // throw. Letting that escape returns a 500 with no body, which the
+    // browser can only report as a JSON parse error.
+    return NextResponse.json(
+      {
+        error: "rebase_failed",
+        detail: `Your settings were saved, but the plan could not be rebuilt: ${
+          e instanceof Error ? e.message : "unknown error"
+        }`,
+      },
+      { status: 500 },
+    );
+  }
   if (!newPlanId) return NextResponse.json({ error: "rebase_failed" }, { status: 500 });
   return NextResponse.json({ ok: true, status: "active", planId: newPlanId });
 }

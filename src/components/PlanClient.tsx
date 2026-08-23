@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { readApi } from "@/lib/apiResult";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
@@ -138,8 +139,8 @@ export function PlanClient(props: Props) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    const data = await res.json();
-    if (res.ok) {
+    const out = await readApi(res);
+    if (out.ok) {
       setToast(
         action === "activate"
           ? "Rehab mode on — low-impact until you reactivate."
@@ -147,7 +148,7 @@ export function PlanClient(props: Props) {
       );
       router.refresh();
     } else {
-      setToast(data.error ?? "Something went wrong.");
+      setToast(out.message || "Something went wrong.");
     }
   }
 
@@ -178,8 +179,9 @@ export function PlanClient(props: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error("log failed");
-      const data = await res.json();
+      const out = await readApi<Record<string, any>>(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data;
       const reason = data?.adaptation?.adjustments?.[0]?.reason;
       // A new weight to consider outranks the generic confirmation: it is the
       // one thing that needs the athlete's decision.
@@ -224,8 +226,9 @@ export function PlanClient(props: Props) {
     setFeedback(null);
     try {
       const res = await fetch(`/api/sessions/${sessionId}/log`, { method: "DELETE" });
-      if (!res.ok) throw new Error("reset failed");
-      const data = await res.json();
+      const out = await readApi<Record<string, any>>(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data;
       haptic("confirm");
       setToast(data?.reset?.reason ?? "Day reset — log it again whenever you're ready.");
       router.refresh();
@@ -254,8 +257,9 @@ export function PlanClient(props: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ day_hint: dayHint, day_slot: daySlot }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "move failed");
+      const out = await readApi(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data as Record<string, any>;
       haptic("confirm");
       setToast(data.reason ?? "Moved.");
       router.refresh();
@@ -274,9 +278,9 @@ export function PlanClient(props: Props) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ planId: props.planId, tier }),
     });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else setToast(data.error ?? "Checkout unavailable — set STRIPE_* env vars.");
+    const out = await readApi<{ url?: string }>(res);
+    if (out.data.url) window.location.href = out.data.url;
+    else setToast(out.message || "Checkout unavailable — set STRIPE_* env vars.");
   }
 
   return (

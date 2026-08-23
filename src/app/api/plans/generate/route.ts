@@ -100,22 +100,35 @@ export async function POST(req: Request) {
     ? calendar
     : [...calendar, { date: raceDate, type: named ?? "Race day", priority: "A" as const, is_anchor: true }];
   const races = racesForPlan(withTarget, today, raceDate);
-  const library = await loadLibrary(supabase);
-  const dayOverrides = await loadDayOverrides(supabase, profile.id, today);
-  const plan = generatePlan({
-    profile,
-    state,
-    library,
-    weeksToRace,
-    startDate: today,
-    races,
-    dayOverrides,
-  });
-  const planId = await persistPlan(
-    supabase,
-    { profileId: profile.id, raceDate: body.race_date, raceId: body.race_id ?? null },
-    plan,
-  );
+  let planId: string;
+  try {
+    const library = await loadLibrary(supabase);
+    const dayOverrides = await loadDayOverrides(supabase, profile.id, today);
+    const plan = generatePlan({
+      profile,
+      state,
+      library,
+      weeksToRace,
+      startDate: today,
+      races,
+      dayOverrides,
+    });
+    planId = await persistPlan(
+      supabase,
+      { profileId: profile.id, raceDate: body.race_date, raceId: body.race_id ?? null },
+      plan,
+    );
+  } catch (e) {
+    // loadLibrary and persistPlan both throw; uncaught, that is a 500
+    // with no body and the browser can only call it a parse error.
+    return NextResponse.json(
+      {
+        error: "plan_build_failed",
+        detail: `Could not generate the plan: ${e instanceof Error ? e.message : "unknown error"}`,
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ planId, weeksToRace, predicted_race_time_sec: state.predicted_race_time_sec });
 }

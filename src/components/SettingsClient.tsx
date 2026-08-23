@@ -12,6 +12,7 @@
 // what the app is connected to, and what happens when something breaks.
 // ============================================================================
 import { useState } from "react";
+import { readApi } from "@/lib/apiResult";
 import { useRouter } from "next/navigation";
 import {
   assessWeekPreferences,
@@ -93,8 +94,9 @@ export function SettingsClient(props: SettingsProps) {
           preferred_rest_days: restDays,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
+      const out = await readApi(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data as Record<string, any>;
       haptic("confirm");
       setToast(
         data.warnings?.length
@@ -120,8 +122,9 @@ export function SettingsClient(props: SettingsProps) {
           runs_per_week: runsPerWeek.trim() === "" ? null : Number(runsPerWeek),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
+      const out = await readApi(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data as Record<string, any>;
       haptic("confirm");
       setToast("Saved — the remaining weeks were rebuilt around the new volume.");
       router.refresh();
@@ -138,13 +141,13 @@ export function SettingsClient(props: SettingsProps) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    const data = await res.json();
+    const out = await readApi(res);
     setToast(
-      res.ok
+      out.ok
         ? action === "activate"
           ? "Rehab mode on — low-impact until you reactivate."
           : "Plan rebuilt from today. Welcome back!"
-        : (data.detail ?? "That did not work."),
+        : (out.message || "That did not work."),
     );
     router.refresh();
   }

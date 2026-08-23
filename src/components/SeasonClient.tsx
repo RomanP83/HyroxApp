@@ -6,6 +6,7 @@
 // (the planner is deterministic — same calendar, same year plan).
 // ============================================================================
 import { useEffect, useState } from "react";
+import { readApi } from "@/lib/apiResult";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PALETTE, SEASON_BLOCK_COLORS, titleCase } from "@/lib/format";
@@ -138,8 +139,9 @@ export function SeasonClient(props: Props) {
             .filter(Boolean),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
+      const out = await readApi(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data as Record<string, any>;
       setToast("Year plan rebuilt — every block is explained below.");
       router.refresh();
     } catch (e) {
@@ -154,8 +156,9 @@ export function SeasonClient(props: Props) {
     setBusy(true);
     try {
       const res = await fetch("/api/plans/from-season", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
+      const out = await readApi(res);
+      if (!out.ok) throw new Error(out.message);
+      const data = out.data as Record<string, any>;
       setToast(
         `Training plan built: ${data.weeksToRace} weeks to ${data.main_race.type}` +
           (data.supporting_races ? `, with ${data.supporting_races} race(s) inside it.` : "."),

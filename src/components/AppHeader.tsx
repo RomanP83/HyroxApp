@@ -58,7 +58,20 @@ export function AppHeader({ countdown, action }: Props) {
         </nav>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Setup is a utility, not a sixth thing to read — it sits in the
+            right-hand corner with the other page-level controls. */}
+        <Link
+          href="/settings"
+          aria-current={pathname === "/settings" ? "page" : undefined}
+          aria-label="Setup and tools"
+          title="Setup &amp; tools"
+          className={`rounded-control px-2.5 py-1.5 text-base font-medium transition-colors duration-150 ease-out ${
+            pathname === "/settings" ? "bg-rack text-chalk" : "text-ash hover:bg-rack/60 hover:text-bone"
+          }`}
+        >
+          Setup
+        </Link>
         {countdown && (
           <div className="text-right leading-none">
             <div className="text-micro font-semibold uppercase tracking-widest text-ash">

@@ -3,18 +3,10 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib/engine";
 import {
-  assessVolumeTarget,
   defaultPaceZones,
-  assessWeekPreferences,
-  frequencyAdvice,
   weeklyRunSummary,
-  type ExperienceLevel,
 } from "@/lib/engine";
-import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
-import { signDeepLink } from "@/lib/telegram";
-import { stravaConfigured } from "@/lib/strava";
-import { garminConfigured } from "@/lib/garmin";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
 
 export const dynamic = "force-dynamic";
@@ -33,18 +25,11 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, experience_level, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, preferred_long_run_day, preferred_strength_days, preferred_rest_days",
+      "id, division, subscription_status, training_days_per_week",
     )
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
-
-  // B1: HMAC deep link for the bot; only offered while not yet connected.
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME;
-  const telegramLink =
-    botUsername && !profile.telegram_chat_id
-      ? `https://t.me/${botUsername}?start=${signDeepLink(profile.id)}`
-      : null;
 
   const { data: plan } = await supabase
     .from("plans")
@@ -80,11 +65,6 @@ export default async function PlanPage({
     Boolean(plan.stripe_payment_id) ||
     profile.subscription_status === "active";
 
-  // C2: Strava connect entry point (hidden once connected / when unconfigured).
-  const stravaConnectUrl =
-    stravaConfigured() && !profile.strava_athlete_id ? "/api/strava/connect" : null;
-  const garminConnectUrl =
-    garminConfigured() && !profile.garmin_user_id ? "/api/garmin/connect" : null;
   const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
 
   const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }] =
@@ -246,32 +226,12 @@ export default async function PlanPage({
 
   // The volume corrective: the target the athlete set, measured against the
   // kilometres they have actually been running.
-  const peakKm = profile.weekly_km_peak == null ? null : Number(profile.weekly_km_peak);
-  const buildPhase = (phases ?? []).find(
-    (p: { phase_type: string }) => p.phase_type === "build",
-  ) as { end_week: number } | undefined;
-  const weeksToPeak = Math.max(
-    0,
-    (buildPhase?.end_week ?? plan.total_weeks) - current.week_number,
-  );
-  const assessment =
-    peakKm && zones && Object.keys(zones).length
-      ? assessVolumeTarget({
-          targetKm: peakKm,
-          recentWeeklyKm: await recentWeeklyRunKm(supabase, zones),
-          weeksToPeak,
-        })
-      : null;
-
   return (
     <PlanClient
       planId={plan.id}
       profileId={profile.id}
       paid={paid}
       planStatus={plan.status}
-      telegramLink={telegramLink}
-      stravaConnectUrl={stravaConnectUrl}
-      garminConnectUrl={garminConnectUrl}
       subscriptionAvailable={subscriptionAvailable}
       raceDate={plan.race_date}
       phases={phases ?? []}
@@ -282,37 +242,6 @@ export default async function PlanPage({
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
       locked={locked}
       runSummary={runSummary}
-      weekShape={{
-        long_run_day: (profile.preferred_long_run_day as number | null) ?? null,
-        strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
-        rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
-        max_rest_days: Math.max(0, 7 - (profile.training_days_per_week ?? 4)),
-        warnings: assessWeekPreferences(
-          {
-            longRunDay: (profile.preferred_long_run_day as number | null) ?? null,
-            strengthDays: (profile.preferred_strength_days as number[] | null) ?? [],
-            restDays: (profile.preferred_rest_days as number[] | null) ?? [],
-          },
-          {
-            trainingDays: profile.training_days_per_week ?? 4,
-            runsPerWeek: profile.runs_per_week ?? null,
-            doublesPerWeek: profile.doubles_per_week ?? 0,
-          },
-        ),
-      }}
-      volume={{
-        weekly_km_peak: peakKm,
-        runs_per_week: profile.runs_per_week ?? null,
-        max_runs: Math.max(2, (profile.training_days_per_week ?? 4) - 1),
-        assessment,
-        frequency: profile.experience_level
-          ? frequencyAdvice(
-              profile.experience_level as ExperienceLevel,
-              profile.training_days_per_week ?? 4,
-              profile.doubles_per_week ?? 0,
-            )
-          : null,
-      }}
     />
   );
 }

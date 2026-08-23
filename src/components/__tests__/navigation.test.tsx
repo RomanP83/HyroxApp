@@ -24,4 +24,10 @@ describe("the way back to the week view", () => {
   it("marks the page you are on", () => {
     expect(html).toContain('aria-current="page"');
   });
+
+  it("offers setup from every page, as a utility rather than a sixth tab", () => {
+    expect(html).toContain('href="/settings"');
+    // It sits with the page-level controls, after the five content tabs.
+    expect(html.indexOf('href="/settings"')).toBeGreaterThan(html.indexOf('href="/benchmarks"'));
+  });
 });

@@ -19,17 +19,11 @@ import { PHASE_NUTRITION } from "@/lib/nutrition";
 import type { FrequencyAdvice, PhaseType, VolumeAssessment, WeeklyRunSummary } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
-  CalendarIcon,
-  ChartIcon,
-  DumbbellIcon,
   LeafIcon,
   LockIcon,
   MedicalIcon,
-  RunIcon,
-  SendIcon,
   SparkIcon,
   SpinnerIcon,
-  TargetIcon,
 } from "./icons";
 
 export interface ClientSession {
@@ -70,31 +64,6 @@ interface Props {
   locked: boolean;
   /** What this week's running adds up to — volume and 80/20 distribution. */
   runSummary: WeeklyRunSummary | null;
-  /** The athlete's own volume target, and what their recent weeks support. */
-  volume: {
-    weekly_km_peak: number | null;
-    runs_per_week: number | null;
-    max_runs: number;
-    assessment: VolumeAssessment | null;
-    /** How the chosen load reads against the athlete's experience level. */
-    frequency: FrequencyAdvice | null;
-  };
-  /** The athlete's own week shape: which weekday carries what. */
-  weekShape: {
-    long_run_day: number | null;
-    strength_days: number[];
-    rest_days: number[];
-    /** Rest days the athlete may still claim, given their training days. */
-    max_rest_days: number;
-    /** What the current pins cost — hard pin, soft warn. */
-    warnings: string[];
-  };
-  /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
-  telegramLink: string | null;
-  /** Strava OAuth entry point; null when connected/unconfigured (C2). */
-  stravaConnectUrl: string | null;
-  /** Garmin OAuth entry point; null when connected/unconfigured. */
-  garminConnectUrl: string | null;
   /** Whether the subscription tier is configured (C4). */
   subscriptionAvailable: boolean;
 }
@@ -127,13 +96,6 @@ export function PlanClient(props: Props) {
   }, [props.raceDate]);
 
   const daysToRace = today?.daysToRace ?? null;
-  const [savingVolume, setSavingVolume] = useState(false);
-  const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
-  const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
-  const [savingShape, setSavingShape] = useState(false);
-  const [longRunDay, setLongRunDay] = useState<number | null>(props.weekShape.long_run_day);
-  const [strengthDays, setStrengthDays] = useState<number[]>(props.weekShape.strength_days);
-  const [restDays, setRestDays] = useState<number[]>(props.weekShape.rest_days);
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   // Days that carry an AM *and* a PM session — only there does the marker help.
@@ -279,34 +241,6 @@ export function PlanClient(props: Props) {
     }
   }
 
-  /** Pin the week's fixed days. Like the volume, it rebuilds every week left. */
-  async function saveWeekShape() {
-    setSavingShape(true);
-    try {
-      const res = await fetch("/api/plans/week-shape", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          preferred_long_run_day: longRunDay,
-          preferred_strength_days: strengthDays,
-          preferred_rest_days: restDays,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
-      setToast(
-        data.warnings?.length
-          ? `Week shape saved. ${data.warnings[0]}`
-          : "Week shape saved — the remaining weeks were rebuilt around your fixed days.",
-      );
-      router.refresh();
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "Could not save your week shape.");
-    } finally {
-      setSavingShape(false);
-    }
-  }
-
   /**
    * Move a session to another day of the week. A target that already holds a
    * session is a swap, not an error — the server does both rows in one
@@ -334,29 +268,6 @@ export function PlanClient(props: Props) {
 
   // Volume is a change to every remaining week, so saving it rebuilds the plan
   // from today (the same rebase the injury-recovery flow uses).
-  async function saveVolume(kmPeak: number | null, runsPerWeek: number | null) {
-    setSavingVolume(true);
-    try {
-      const res = await fetch("/api/plans/volume", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ weekly_km_peak: kmPeak, runs_per_week: runsPerWeek }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "could not save");
-      setToast(
-        kmPeak
-          ? `Volume set — the remaining weeks were rebuilt around ${kmPeak} km at the peak.`
-          : "Volume handed back to the engine — the remaining weeks were rebuilt.",
-      );
-      router.refresh();
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "could not save the volume");
-    } finally {
-      setSavingVolume(false);
-    }
-  }
-
   async function unlock(tier: "race_cycle" | "subscription" = "race_cycle") {
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
@@ -448,7 +359,7 @@ export function PlanClient(props: Props) {
                 );
               })}
             </div>
-            <div className="flex justify-between font-mono text-micro text-baseoke">
+            <div className="flex justify-between font-mono text-micro text-smoke">
               <span>W1</span>
               <span>RACE</span>
             </div>
@@ -519,7 +430,7 @@ export function PlanClient(props: Props) {
               <span className="text-micro font-semibold uppercase tracking-widest text-ash">
                 {props.sessions.length} sessions
               </span>
-              <span className="flex items-center gap-3 text-micro text-baseoke">
+              <span className="flex items-center gap-3 text-micro text-smoke">
                 {(["hard", "aerobic", "load"] as const).map((d) => (
                   <span key={d} className="flex items-center gap-1.5">
                     <span
@@ -576,7 +487,7 @@ export function PlanClient(props: Props) {
                 <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
               </dl>
             )}
-            <p className="mt-3 text-micro text-baseoke">Recalibrates every time you log.</p>
+            <p className="mt-3 text-micro text-smoke">Recalibrates every time you log.</p>
           <div className="card">
             <div className="mb-2.5 flex items-center gap-2">
               <SparkIcon size={15} className="text-amber" />
@@ -622,219 +533,15 @@ export function PlanClient(props: Props) {
             ) : null;
           })()}
 
-          {/* Setup is a one-time job. It does not deserve permanent residence
-              next to the thing you open this page for. */}
-          <details className="group rounded-panel border border-edge bg-lane/60 open:bg-lane">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-panel px-4 py-3 text-micro font-semibold uppercase tracking-widest text-ash transition-colors duration-150 hover:text-bone">
-              Setup &amp; tools
-              <span className="text-baseoke transition-transform duration-200 group-open:rotate-90">
-                ▸
-              </span>
-            </summary>
-            <div className="space-y-3 border-t border-edge p-3">
-          {(props.stravaConnectUrl || props.garminConnectUrl) && (
-            <div className="card">
-              <div className="mb-1 flex items-center gap-2 text-base font-semibold">
-                <RunIcon size={16} className="text-amber" /> Auto-log your runs
-              </div>
-              <p className="mb-3 text-meta text-ash">
-                Run paces flow straight into the pace calibration — no manual entry.
-              </p>
-              <div className="space-y-2">
-                {props.stravaConnectUrl && (
-                  <a href={props.stravaConnectUrl} className="btn-primary w-full">
-                    Connect Strava
-                  </a>
-                )}
-                {props.garminConnectUrl && (
-                  <a href={props.garminConnectUrl} className="btn-ghost w-full">
-                    Connect Garmin
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
-
-          {props.telegramLink && (
-            <div className="card">
-              <div className="mb-1 flex items-center gap-2 text-base font-semibold">
-                <SendIcon size={16} className="text-amber" /> One-tap logging via Telegram
-              </div>
-              <p className="mb-3 text-meta text-ash">
-                Get an evening check-in with 4 buttons — log the session without opening the app.
-              </p>
-              <a
-                href={props.telegramLink}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-primary w-full"
-              >
-                Connect Telegram
-              </a>
-            </div>
-          )}
-
-          {props.planStatus !== "rehab" && (
-            <div className="card">
-              <div className="mb-1 text-base font-semibold">Injured?</div>
-              <p className="mb-3 text-meta text-ash">
-                Switch to low-impact rehab mode — the plan pauses gracefully and rebuilds from the
-                day you&apos;re back.
-              </p>
-              <button className="btn-ghost w-full" onClick={() => injury("activate")}>
-                <MedicalIcon size={16} />
-                Flag an injury
-              </button>
-            </div>
-          )}
-
-          {/* ── The shape of your week ─────────────────────────────────────
-              Gym hours and a free Sunday are facts, not training decisions.
-              These days are hard pins: the plan honours them even when they
-              collide with the recovery rules, and says what that costs. */}
-          <div className="card space-y-3">
-            <div className="flex items-center gap-2 text-base font-semibold">
-              <CalendarIcon size={16} className="text-amber" /> The shape of your week
-            </div>
-            <p className="text-meta leading-relaxed text-ash">
-              Fix the days that are fixed in real life. Everything else is arranged around them.
-            </p>
-
-            <div className="space-y-2.5">
-              <DayPicker
-                label="Long run"
-                selected={longRunDay == null ? [] : [longRunDay]}
-                onToggle={(d) => setLongRunDay(longRunDay === d ? null : d)}
-                accent="go"
-              />
-              <DayPicker
-                label="Strength"
-                selected={strengthDays}
-                onToggle={(d) =>
-                  setStrengthDays((prev) =>
-                    prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
-                  )
-                }
-                accent="amber"
-              />
-              <DayPicker
-                label={`Rest (max ${props.weekShape.max_rest_days})`}
-                selected={restDays}
-                onToggle={(d) =>
-                  setRestDays((prev) =>
-                    prev.includes(d)
-                      ? prev.filter((x) => x !== d)
-                      : prev.length >= props.weekShape.max_rest_days
-                        ? prev
-                        : [...prev, d].sort(),
-                  )
-                }
-                accent="smoke"
-              />
-            </div>
-
-            {props.weekShape.warnings.length > 0 && (
-              <ul className="space-y-1.5">
-                {props.weekShape.warnings.map((w) => (
-                  <li
-                    key={w}
-                    className="border-l-2 border-amber/50 pl-3 text-meta leading-relaxed text-bone"
-                  >
-                    {w}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <button
-              className="btn-primary w-full"
-              disabled={savingShape}
-              onClick={() => void saveWeekShape()}
-            >
-              {savingShape ? <SpinnerIcon size={16} /> : <CalendarIcon size={16} />}
-              Save and rebuild the remaining weeks
-            </button>
-            <p className="text-micro leading-relaxed text-ash">
-              Your days win, even against the recovery rules — anything they cost is written above,
-              not silently fixed. A single week still bends with Move on the session itself.
-            </p>
-          </div>
-          <div className="card space-y-3">
-            <div className="flex items-center gap-2 text-base font-semibold">
-              <RunIcon size={16} className="text-amber" /> Running volume
-            </div>
-            <p className="text-meta text-ash">
-              Set the <b>peak week</b> of the cycle — every other week is derived from it. An
-              average would hide the hardest week, which is the one that decides whether the build
-              holds.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-meta">
-                <span className="label">Peak km / week</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="15"
-                  max="150"
-                  step="1"
-                  value={kmPeak}
-                  placeholder="auto"
-                  onChange={(e) => setKmPeak(e.target.value)}
-                />
-              </label>
-              <label className="text-meta">
-                <span className="label">Runs / week</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="2"
-                  max={props.volume.max_runs}
-                  step="1"
-                  value={runsPerWeek}
-                  placeholder="auto"
-                  onChange={(e) => setRunsPerWeek(e.target.value)}
-                />
-              </label>
-            </div>
-            {props.volume.frequency && (
-              <p
-                className={`text-meta ${
-                  props.volume.frequency.verdict === "ok" ? "text-ash" : "text-amber"
-                }`}
-              >
-                {props.volume.frequency.note}
-              </p>
-            )}
-            {/* The corrective: what the last four logged weeks actually support. */}
-            {props.volume.assessment && (
-              <p
-                className={`text-meta ${
-                  props.volume.assessment.verdict === "steep" ? "text-amber" : "text-ash"
-                }`}
-              >
-                {props.volume.assessment.note}
-              </p>
-            )}
-            <button
-              className="btn-primary w-full"
-              disabled={savingVolume}
-              onClick={() =>
-                void saveVolume(
-                  kmPeak.trim() === "" ? null : Number(kmPeak),
-                  runsPerWeek.trim() === "" ? null : Number(runsPerWeek),
-                )
-              }
-            >
-              {savingVolume ? <SpinnerIcon size={16} /> : <RunIcon size={16} />}
-              Rebuild the remaining weeks
-            </button>
-            <p className="text-micro text-baseoke">
-              Up to {props.volume.max_runs} runs with {props.volume.max_runs + 1} training days —
-              one session a week stays strength or station work.
-            </p>
-          </div>
-            </div>
-          </details>
+          {/* Setup lives on its own page: two of those controls rebuild the
+              whole plan, which is not a footnote to today's session. */}
+          <Link
+            href="/settings"
+            className="flex items-center justify-between gap-2 rounded-panel border border-edge bg-lane/60 px-4 py-3 text-micro font-semibold uppercase tracking-widest text-ash transition-colors duration-150 hover:border-edge-strong hover:text-bone"
+          >
+            Setup &amp; tools
+            <span className="text-smoke">→</span>
+          </Link>
         </aside>
       </div>
 
@@ -865,51 +572,7 @@ export function PlanClient(props: Props) {
   );
 }
 
-const DAY_INITIALS = ["", "M", "T", "W", "T", "F", "S", "S"];
-const DAY_FULL = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-/** Seven toggles, one per weekday. Monday first, like the plan's own grid. */
-function DayPicker({
-  label,
-  selected,
-  onToggle,
-  accent,
-}: {
-  label: string;
-  selected: number[];
-  onToggle: (day: number) => void;
-  accent: "go" | "amber" | "smoke";
-}) {
-  const on = {
-    go: "border-go/70 bg-go/15 text-chalk",
-    amber: "border-amber/70 bg-amber/15 text-chalk",
-    smoke: "border-edge-strong bg-rack text-bone",
-  }[accent];
-  return (
-    <div>
-      <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
-      <div className="grid grid-cols-7 gap-1">
-        {[1, 2, 3, 4, 5, 6, 7].map((d) => {
-          const active = selected.includes(d);
-          return (
-            <button
-              key={d}
-              type="button"
-              aria-pressed={active}
-              aria-label={`${label}: ${DAY_FULL[d]}`}
-              onClick={() => onToggle(d)}
-              className={`flex h-9 items-center justify-center rounded-control border text-meta font-semibold transition-colors duration-150 ease-out ${
-                active ? on : "border-edge bg-well text-ash hover:border-edge-strong hover:text-bone"
-              }`}
-            >
-              {DAY_INITIALS[d]}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function Row({ k, v }: { k: string; v: string }) {
   return (

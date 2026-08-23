@@ -128,43 +128,9 @@ export const RUN_VARIANTS: RunVariant[] = [
     why: "Ten-minute blocks of 30 s hard, 30 s jog — anaerobic capacity without the muscular cost of long reps.",
   },
 
-  // ── 4. Compromised running / bricks ───────────────────────────────────
-  {
-    slug: "cr_sled_brick",
-    session_type: "compromised_run",
-    name: "Station-Specific Brick (Sled)",
-    phases: ["build", "peak"],
-    station: "sled_push",
-    keywords: ["sled", "schlitten", "push", "quad", "bein", "leg"],
-    why: "Heavy sled push straight into 800 m at race pace — the switch from burning quads back to a running rhythm.",
-  },
-  {
-    slug: "cr_lactate_flush",
-    session_type: "compromised_run",
-    name: "Lactate Flush Intervals",
-    phases: ["build", "peak"],
-    needs_erg: true,
-    station: "row",
-    keywords: ["row", "rudern", "ski", "erg", "oberkörper", "upper"],
-    why: "Erg at race effort, then 1000 m at controlled threshold — running on with a torso full of lactate.",
-  },
-  {
-    slug: "cr_heavy_legs",
-    session_type: "compromised_run",
-    name: "The Heavy Legs Triple",
-    phases: ["build", "peak"],
-    station: "sandbag_lunges",
-    keywords: ["lunge", "ausfall", "sandbag", "quad", "bein", "leg"],
-    why: "100 m of walking lunges into 1200 m: the first 400 m deliberately buffered, the last 800 m back on race pace.",
-  },
-  {
-    slug: "cr_micro_sim",
-    session_type: "compromised_run",
-    name: "Micro-Simulation",
-    phases: ["peak", "taper"],
-    keywords: ["pacing", "simulation", "wettkampf", "race"],
-    why: "Four rounds of one Hyrox station and exactly 1000 m at goal pace — the race in miniature, station by station.",
-  },
+  // Compromised running is NOT here. It is prescribed per level as well as
+  // per phase — sixty sessions across five levels and four phases — and lives
+  // in compromisedSessions.ts, which fill.ts consults before this catalogue.
 ];
 
 function hasErg(equipment: EquipmentAccess): boolean {

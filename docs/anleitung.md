@@ -131,6 +131,13 @@ Deload- und Benchmark-Woche. Anklicken springt in die Woche.
 
 ### Eine Einheitenkarte
 
+**Kompromittierte Läufe** kommen aus einem eigenen Katalog: 60 Sessions über fünf Leistungslevel
+und vier Phasen, je drei pro Kombination. Was du bekommst, hängt an deinem Level — ein Beginner
+läuft 800 m nach leichten Lunges, ein World-Class-Athlet 1000 m in 3:45–3:55 nach dem Pro-Schlitten
+mit unter fünf Sekunden Transition. Jede zweite Woche zielt die Auswahl auf deine schwächste
+Station. Ohne Ergometer bekommst du nie eine Erg-Session — die App weicht auf eine andere aus,
+statt die Einheit zu streichen.
+
 Links an jeder Einheit sitzt eine **Intensitäts-Leiste** in der Farbe dessen, was der Tag verlangt:
 orange = hart, grün = aerob, bernstein = Kraft und Stationen, grau = Erholung. Die Wochenform ist
 damit sichtbar, bevor ein Wort gelesen ist — zwei orange Leisten heißen: harte Woche.
@@ -504,7 +511,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **Deload** | Entlastungswoche. Im Jahresplan −35 %, innerhalb des Wochenplans −40 % — die beiden Ebenen führen ihre eigene Zahl, absichtlich. |
 | **ACWR** | Verhältnis der Belastung der letzten 7 zu den letzten 28 Tagen. |
 | **RPE** | Subjektives Anstrengungsempfinden, 1–10. |
-| **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. |
+| **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. Die Session ist **level- und phasenabhängig**: 60 Vorgaben über fünf Level und vier Phasen, siehe [Abschnitt 4](#4-plan--die-trainingswoche). |
 | **Polarisiert** | 75–85 % der Laufdistanz locker, der Rest wirklich hart. Gemessen an der **Distanz je Zone**, nicht an der Zahl der Einheiten. |
 | **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. |
 | **Rebase** | Neuberechnung des Plans ab heute statt nachträglicher Änderung. |
@@ -518,6 +525,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |
 | Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |
 | Setup & Tools ist eine eigene Seite (`/settings`), erreichbar über „Setup" rechts oben; Verbindungen zeigen ihren Zustand | [8](#8-settings--setup--tools) |
 | Von Hand verschobene Einheiten überstehen einen Neuaufbau des Plans (gemerkt an der Kalenderwoche) | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

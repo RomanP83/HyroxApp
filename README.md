@@ -249,6 +249,25 @@ Running is 50-60% of a Hyrox, so the plan treats it as an architecture rather th
   block at 60-80%. When your training days cannot carry the target, the week says so instead of
   quietly missing it.
 
+### Compromised running is prescribed per level, not just per phase
+
+What a sub-2:00 athlete and a sub-60 athlete do coming off a sled is not the same session at a
+different pace. Sixty sessions — five levels × four phases × three shapes — live in
+`src/lib/engine/compromisedSessions.ts` and render straight into the session card:
+
+| Level | A build session looks like |
+|---|---|
+| **Beginner** | 3 rounds: 40 m light lunges → 800 m at race pace |
+| **Intermediate** | 4 rounds: 30 m sled at race weight → 1000 m threshold |
+| **Advanced** | 4 rounds: 50 m sled at competition weight → 1000 m held at 4:45-5:00 min/km |
+| **Elite** | 4 rounds: 50 m sled at maximum pressure → 1000 m at 4:15-4:25, no transition |
+| **World class** | 5 rounds: 50 m Pro-weight sled → transition under 5 s → 1000 m at 3:45-3:55 |
+
+They carry their round count as data rather than as prose, so the running volume of a session is
+knowable (`runningMetres()`), and they rotate by week with the same weakness bias as every other
+catalogue. An athlete without an erg never gets an erg session — the picker falls back across
+levels rather than dropping compromised running from the week.
+
 ### One session, several shapes
 
 Each core session has variants, and the engine picks one per week — so a twelve-week plan does not

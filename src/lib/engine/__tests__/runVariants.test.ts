@@ -44,7 +44,9 @@ describe("the variant catalogue", () => {
     expect(byType("long_run")).toHaveLength(3);
     expect(byType("run_easy")).toHaveLength(3);
     expect(byType("run_intervals")).toHaveLength(4);
-    expect(byType("compromised_run")).toHaveLength(4);
+    // Compromised running left this catalogue: it is prescribed per level as
+    // well as per phase, and lives in compromisedSessions.ts.
+    expect(byType("compromised_run")).toHaveLength(0);
   });
 
   it("gives every variant a phase, a name and a reason a coach would give", () => {
@@ -92,7 +94,7 @@ describe("pickRunVariant", () => {
     for (let w = 1; w <= 8; w++) {
       expect(pick("run_easy", "build", w, { equipment: "home_minimal" })?.variant.needs_erg).toBeFalsy();
       expect(
-        pick("compromised_run", "build", w, { equipment: "home_minimal" })?.variant.needs_erg,
+        pick("run_intervals", "build", w, { equipment: "home_minimal" })?.variant.needs_erg,
       ).toBeFalsy();
     }
   });
@@ -100,15 +102,11 @@ describe("pickRunVariant", () => {
   it("aims every second week at the weakest station, and varies the weeks between", () => {
     const tiers = { sled_push: 1, row: 3, wall_balls: 3 };
     const picks = Array.from({ length: 6 }, (_, i) =>
-      pick("compromised_run", "build", i + 1, { stationTiers: tiers }),
+      pick("run_intervals", "build", i + 1, { stationTiers: tiers }),
     );
-    const targeted = picks.filter((p) => p?.targeted);
-    expect(targeted.length).toBe(3);
-    expect(targeted.every((p) => p?.variant.station === "sled_push")).toBe(true);
-    // The weeks in between deliberately avoid it, or the "focus" would just be
-    // the same session every week.
-    const between = picks.filter((p) => !p?.targeted);
-    expect(between.every((p) => p?.variant.station !== "sled_push")).toBe(true);
+    // Intervals carry no station, so nothing is targeted — the rotation still
+    // has to move rather than repeat.
+    expect(new Set(picks.map((p) => p?.variant.slug)).size).toBeGreaterThan(1);
   });
 
   it("reads a stated weakness, not just the station tiers", () => {

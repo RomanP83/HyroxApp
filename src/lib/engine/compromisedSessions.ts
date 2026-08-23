@@ -7,10 +7,13 @@
 // because a sub-2:00 athlete and a sub-60 athlete are not doing the same sport
 // at the same speed.
 //
-// These live in TypeScript rather than in workout_blocks because they are
-// ENGINE data, like RUN_SPECS: distances, paces and loads that get argued with
-// and tuned. They render into exactly the content shape BlockView already
-// draws, so the session card needs to know nothing about any of this.
+// This file is the source of truth: distances, paces and loads that get argued
+// with and tuned, like RUN_SPECS. It is not, however, where they are stored —
+// a plan is saved as references into workout_blocks, so every session here is
+// also a seeded library row (compromisedSeed.ts generates it, keyed by the
+// pinned block_id below). Edit a session here, regenerate the seed, run it.
+// They render into exactly the content shape BlockView already draws, so the
+// session card needs to know nothing about any of this.
 //
 // Three sessions per (level, phase). The picker rotates them by week and, on
 // alternating weeks, prefers the one that attacks the athlete's weakest
@@ -41,6 +44,14 @@ export interface SessionLine {
 }
 
 export interface CompromisedSession {
+  /**
+   * The workout_blocks row this session is stored as. Pinned rather than
+   * generated, because the engine names it while building a plan and the
+   * database has to find that exact row — an id that differed per install
+   * would make the plan unsavable. Recipe for a new one:
+   * uuidv5(uuidv5(URL_NS, "https://hyroxapp.local/workout_blocks"), slug).
+   */
+  block_id: string;
   slug: string;
   /**
    * How many times through `lines`. Data, not prose: without it nothing can
@@ -75,6 +86,7 @@ const work = (exercise: string, extra: Partial<SessionLine> = {}): SessionLine =
 export const COMPROMISED_SESSIONS: CompromisedSession[] = [
   // ══ Level 1 — Beginner (sub 1:40–2:00) ══════════════════════════════════
   {
+    block_id: "9f3f6a03-0910-50fa-9426-471bce36f344",
     slug: "cr_b1_squat_sandwich",
     level: "beginner",
     phase: "base",
@@ -89,6 +101,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "b6c3d7c1-839e-542f-9764-1c11fe73c6c1",
     slug: "cr_b1_ski_to_run",
     level: "beginner",
     phase: "base",
@@ -103,6 +116,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "b08d6e5a-c82e-51ad-bcd8-2cf993da64d1",
     slug: "cr_b1_light_sled",
     level: "beginner",
     phase: "base",
@@ -119,6 +133,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2fc1f3aa-ae02-5b1c-924b-f019459ea528",
     slug: "cr_b2_deadlift_burpee",
     level: "beginner",
     phase: "build",
@@ -133,6 +148,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2fd63911-d5bd-5ba1-98d8-2a3bf9680627",
     slug: "cr_b2_lunge_to_pace",
     level: "beginner",
     phase: "build",
@@ -150,6 +166,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "e7e90191-e94e-5484-b9b8-cb1626c245d6",
     slug: "cr_b2_row_lunge_run",
     level: "beginner",
     phase: "build",
@@ -165,6 +182,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2fddd0ea-787c-5939-9e54-83e6a9b2d10b",
     slug: "cr_b3_mini_sim",
     level: "beginner",
     phase: "peak",
@@ -181,6 +199,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "c92797c9-eaff-5c11-bb58-947dc99ddd0b",
     slug: "cr_b3_carry_jump_run",
     level: "beginner",
     phase: "peak",
@@ -198,6 +217,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "34f64495-a5bc-5902-aa46-2df26494ec9a",
     slug: "cr_b3_half_sim",
     level: "beginner",
     phase: "peak",
@@ -214,6 +234,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "e0a4ba47-01aa-5657-a18c-ba4435bbb990",
     slug: "cr_b4_short_sharp",
     level: "beginner",
     phase: "taper",
@@ -228,6 +249,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "caf7ab13-a6e1-509e-a14f-7231511edc85",
     slug: "cr_b4_transition_drill",
     level: "beginner",
     phase: "taper",
@@ -242,6 +264,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "e73ee23e-b18b-5322-ad29-32242cc85e77",
     slug: "cr_b4_single_rehearsal",
     level: "beginner",
     phase: "taper",
@@ -261,6 +284,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 2 — Intermediate (sub 1:30) ═══════════════════════════════════
   {
+    block_id: "bf4524d0-9fec-5afb-94ba-b4648529bebd",
     slug: "cr_i1_squat_row",
     level: "intermediate",
     phase: "base",
@@ -276,6 +300,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "ea04c866-a724-5818-9df3-63ac7d353fdc",
     slug: "cr_i1_ski_sled_run",
     level: "intermediate",
     phase: "base",
@@ -294,6 +319,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "24123a24-d994-5ce1-a5ef-89e9db5dcbcd",
     slug: "cr_i1_carry_kilometre",
     level: "intermediate",
     phase: "base",
@@ -310,6 +336,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "7a3bba7a-941b-5e7d-b258-83f13328f509",
     slug: "cr_i2_sled_threshold",
     level: "intermediate",
     phase: "build",
@@ -326,6 +353,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "b7e82c71-83d7-54c1-b36d-22c3ca50a3c2",
     slug: "cr_i2_row_bbj_5k",
     level: "intermediate",
     phase: "build",
@@ -342,6 +370,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2b7257c5-a6de-5e9d-a79d-00b59d23a8b0",
     slug: "cr_i2_lunge_race_pace",
     level: "intermediate",
     phase: "build",
@@ -358,6 +387,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "f91b83a1-cdfd-5d4d-bcb4-9382f24ae499",
     slug: "cr_i3_sled_sandwich",
     level: "intermediate",
     phase: "peak",
@@ -373,6 +403,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "35031523-055a-50f0-b078-e1632cbfd74d",
     slug: "cr_i3_ski_carry_chain",
     level: "intermediate",
     phase: "peak",
@@ -391,6 +422,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "710d912c-2a16-5bb0-866d-defbefc5af46",
     slug: "cr_i3_brick_density",
     level: "intermediate",
     phase: "peak",
@@ -405,6 +437,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "073d2d29-9596-50ba-93fe-0ef81ec70e6e",
     slug: "cr_i4_row_sandwich",
     level: "intermediate",
     phase: "taper",
@@ -420,6 +453,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "0571705b-3b10-5cb0-9981-14aa87755545",
     slug: "cr_i4_sharpening_sled",
     level: "intermediate",
     phase: "taper",
@@ -436,6 +470,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "05ef976e-b100-5209-95ef-3f22e8fb74d5",
     slug: "cr_i4_over_pace_touch",
     level: "intermediate",
     phase: "taper",
@@ -455,6 +490,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 3 — Advanced (sub 1:20) ═══════════════════════════════════════
   {
+    block_id: "9324bc34-4403-5811-80b1-8c184d5d4b36",
     slug: "cr_a1_ski_carry_volume",
     level: "advanced",
     phase: "base",
@@ -473,6 +509,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1df8d898-bfe3-51b5-b215-1f0b6bcd497a",
     slug: "cr_a1_double_sled",
     level: "advanced",
     phase: "base",
@@ -493,6 +530,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "cc041fcf-9847-5db8-bca1-5341fa91d00b",
     slug: "cr_a1_long_z2_brick",
     level: "advanced",
     phase: "base",
@@ -508,6 +546,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1436392a-8bc4-5c62-a061-14c488810303",
     slug: "cr_a2_sled_pace_discipline",
     level: "advanced",
     phase: "build",
@@ -524,6 +563,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "cc8b0e21-2fdf-554d-9b68-e9e3a324e212",
     slug: "cr_a2_row_lunge_race",
     level: "advanced",
     phase: "build",
@@ -543,6 +583,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "66fe6ee5-a914-51da-b625-2d87532749e5",
     slug: "cr_a2_jumps_walls_5k",
     level: "advanced",
     phase: "build",
@@ -557,6 +598,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "20cc220c-3d30-5091-8480-2736e5d84fe2",
     slug: "cr_a3_split_consistency",
     level: "advanced",
     phase: "peak",
@@ -572,6 +614,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "3da94aa0-999c-5428-8be3-8658004e0149",
     slug: "cr_a3_race_intensity_chain",
     level: "advanced",
     phase: "peak",
@@ -594,6 +637,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "c6810fd0-4c00-5003-9db1-ecdcb3a95993",
     slug: "cr_a3_pacing_stress",
     level: "advanced",
     phase: "peak",
@@ -612,6 +656,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "8f68273c-af1c-5eb8-976a-63cc345c2aa3",
     slug: "cr_a4_ski_sandwich",
     level: "advanced",
     phase: "taper",
@@ -627,6 +672,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "15a76eec-83e8-586a-aefb-af26e45db07c",
     slug: "cr_a4_kilometre_touch",
     level: "advanced",
     phase: "taper",
@@ -644,6 +690,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "c18b695b-dc1d-56c6-a217-51413c89fb81",
     slug: "cr_a4_roxzone_drills",
     level: "advanced",
     phase: "taper",
@@ -659,6 +706,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 4 — Elite (sub 70 min) ════════════════════════════════════════
   {
+    block_id: "cc1394cb-130c-5627-ae61-2bcd46264d16",
     slug: "cr_e1_ski_drag_volume",
     level: "elite",
     phase: "base",
@@ -674,6 +722,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "5894ccfe-fe02-5bd5-855f-e56865dcc9cc",
     slug: "cr_e1_heavy_double_sled",
     level: "elite",
     phase: "base",
@@ -694,6 +743,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "48f71c48-800a-5eb2-825d-4b4621dbe421",
     slug: "cr_e1_long_aerobic_chain",
     level: "elite",
     phase: "base",
@@ -709,6 +759,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "02077719-5b5b-56cf-bf4f-aad5b8c9828d",
     slug: "cr_e2_lactate_accumulation",
     level: "elite",
     phase: "build",
@@ -725,6 +776,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "28b0603c-8908-5890-830e-b6c899963e55",
     slug: "cr_e2_row_bbj_subthreshold",
     level: "elite",
     phase: "build",
@@ -741,6 +793,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "dd93d730-85f1-5fbb-b28f-31a08f41f927",
     slug: "cr_e2_lunge_split_drift",
     level: "elite",
     phase: "build",
@@ -757,6 +810,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "0b69458f-1739-5194-a356-baeedae5d51d",
     slug: "cr_e3_race_density",
     level: "elite",
     phase: "peak",
@@ -777,6 +831,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "369fe786-8848-5aea-bd6f-4c91db65e918",
     slug: "cr_e3_lactate_washout",
     level: "elite",
     phase: "peak",
@@ -794,6 +849,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "320d444b-a26e-5076-817e-4a0ca1e91eb5",
     slug: "cr_e3_high_velocity_brick",
     level: "elite",
     phase: "peak",
@@ -817,6 +873,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "d612d12f-31ab-591e-ad07-2a98e50051fd",
     slug: "cr_e4_race_pace_ski",
     level: "elite",
     phase: "taper",
@@ -832,6 +889,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1d98c844-90c7-519e-a052-cd752a7d5e59",
     slug: "cr_e4_neuromuscular_sled",
     level: "elite",
     phase: "taper",
@@ -848,6 +906,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "4982d9ca-e7e3-563f-bfc5-290cc62d6dc5",
     slug: "cr_e4_explosive_touch",
     level: "elite",
     phase: "taper",
@@ -864,6 +923,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 5 — World Class (sub 60 min) ══════════════════════════════════
   {
+    block_id: "d9b88256-114f-53c7-b742-798678464608",
     slug: "cr_w1_ski_carry_volume",
     level: "world_class",
     phase: "base",
@@ -879,6 +939,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "a678349f-53cb-5c1c-8094-e30c77a4de95",
     slug: "cr_w1_overload_sled",
     level: "world_class",
     phase: "base",
@@ -895,6 +956,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "9b1a6fa2-415c-5236-a524-0130f683cd83",
     slug: "cr_w1_lt1_row_squat",
     level: "world_class",
     phase: "base",
@@ -910,6 +972,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "625db2ec-b925-5784-84d9-e8600f72408d",
     slug: "cr_w2_glycolytic_stress",
     level: "world_class",
     phase: "build",
@@ -927,6 +990,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1420db8a-26a7-5d18-9060-70f2d1bc208f",
     slug: "cr_w2_lunge_split_precision",
     level: "world_class",
     phase: "build",
@@ -940,6 +1004,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "a8b55089-828a-55d6-b37f-17adac2fc1bb",
     slug: "cr_w2_ski_bbj_vo2",
     level: "world_class",
     phase: "build",
@@ -955,6 +1020,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2c0c9deb-e1b4-5f7e-9b9f-e105b4884f0e",
     slug: "cr_w3_roxzone_precision",
     level: "world_class",
     phase: "peak",
@@ -969,6 +1035,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "dfced421-fb61-5923-a42d-b8387899dda2",
     slug: "cr_w3_lactate_buffer",
     level: "world_class",
     phase: "peak",
@@ -986,6 +1053,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "48a269ed-c932-5a62-98f0-fe89d425b542",
     slug: "cr_w3_dynamic_integration",
     level: "world_class",
     phase: "peak",
@@ -1006,6 +1074,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "964c9dbe-dfde-5f13-a898-ec1eeee00bc9",
     slug: "cr_w4_cadence_focus",
     level: "world_class",
     phase: "taper",
@@ -1021,6 +1090,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "893102c6-00e1-55d1-90e1-6cf71d3ff3ec",
     slug: "cr_w4_short_sharp_stimuli",
     level: "world_class",
     phase: "taper",
@@ -1038,6 +1108,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "5407b926-4932-574f-9288-e8196a3f5791",
     slug: "cr_w4_cns_activation",
     level: "world_class",
     phase: "taper",

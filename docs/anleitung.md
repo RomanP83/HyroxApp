@@ -138,6 +138,10 @@ mit unter fünf Sekunden Transition. Jede zweite Woche zielt die Auswahl auf dei
 Station. Ohne Ergometer bekommst du nie eine Erg-Session — die App weicht auf eine andere aus,
 statt die Einheit zu streichen.
 
+*Voraussetzung:* Die 60 Sessions liegen als Bibliothekseinträge in der Datenbank. Wer die App
+selbst betreibt, muss `supabase/setup.sql` nach dem Update einmal laufen lassen — sonst scheitert
+der Planaufbau mit einer Meldung, die genau das sagt.
+
 Links an jeder Einheit sitzt eine **Intensitäts-Leiste** in der Farbe dessen, was der Tag verlangt:
 orange = hart, grün = aerob, bernstein = Kraft und Stationen, grau = Erholung. Die Wochenform ist
 damit sichtbar, bevor ein Wort gelesen ist — zwei orange Leisten heißen: harte Woche.
@@ -532,6 +536,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Kompromittierte Läufe werden wieder gespeichert (sie brauchen den neuen Bibliothek-Seed aus `setup.sql`) | [4](#4-plan--die-trainingswoche) |
 | Fehler beim Planaufbau zeigen den echten Grund statt „Unexpected end of JSON input" | [8](#8-settings--setup--tools) |
 | Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |
 | Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |

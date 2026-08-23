@@ -150,9 +150,9 @@ export function fillSession(
   // block it names is used when it is there, otherwise the generic pick stands.
   // Compromised running is prescribed per LEVEL as well as per phase: what a
   // sub-2:00 athlete and a sub-60 athlete do out of a sled is not the same
-  // session at a different pace. Those sixty sessions live in the engine
-  // (compromisedSessions.ts) and render straight into a block — there is no
-  // library row to look up.
+  // session at a different pace. Those sixty sessions are authored in the
+  // engine (compromisedSessions.ts) and seeded into the library under a
+  // pinned id, so the block can be named here without looking anything up.
   if (phase && slot.session_type === "compromised_run") {
     const chosen = pickCompromisedSession({
       level: profile.experience_level,
@@ -164,7 +164,9 @@ export function fillSession(
     });
     if (chosen) {
       blocks.push({
-        block_id: chosen.session.slug,
+        // The pinned library id, not the slug: this ends up in
+        // session_blocks.block_id, which is a uuid with a foreign key.
+        block_id: chosen.session.block_id,
         slug: chosen.session.slug,
         block_type: "main",
         station: chosen.session.station ?? null,

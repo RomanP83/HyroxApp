@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { splitPhases, buildPhasePlan } from "../macro";
 import { generatePlan } from "../generate";
 import { initialAthleteState } from "../index";
-import type { AthleteProfile, WorkoutBlock } from "../types";
+import type { AthleteProfile, ExperienceLevel, WorkoutBlock } from "../types";
+import { compromisedLibraryBlocks } from "../compromisedSeed";
 
 // Minimal but representative library so fill() always finds something.
 const library: WorkoutBlock[] = [
@@ -142,4 +143,32 @@ describe("plan generation (5 reference profiles: 8/10/12/16 wks x levels)", () =
       }
     }
   });
+});
+
+describe("a plan only ever names blocks that exist", () => {
+  // session_blocks.block_id is a uuid with a foreign key into workout_blocks.
+  // A block the engine invents but the library does not hold cannot be saved:
+  // the whole plan fails on persist, and the athlete is told nothing useful.
+  // The production library is the seed, compromised running included.
+  const full: WorkoutBlock[] = [...library, ...compromisedLibraryBlocks()];
+  const known = new Set(full.map((b) => b.id));
+
+  const levels: ExperienceLevel[] = ["beginner", "intermediate", "advanced", "elite", "world_class"];
+  for (const level of levels) {
+    it(`holds for a ${level} athlete across a full cycle`, () => {
+      const p = profile({ experience_level: level, training_days_per_week: 6 });
+      const state = initialAthleteState(p);
+      const plan = generatePlan({ profile: p, state, library: full, weeksToRace: 16 });
+      const blocks = plan.phases
+        .flatMap((ph) => ph.weeks)
+        .flatMap((w) => w.sessions)
+        .flatMap((s) => s.blocks);
+      // Proof the compromised catalogue is actually on this path — it is the
+      // one that named a slug where a uuid belonged.
+      const compromised = new Set(compromisedLibraryBlocks().map((b) => b.id));
+      expect(blocks.some((b) => compromised.has(b.block_id))).toBe(true);
+      const unknown = blocks.filter((b) => !known.has(b.block_id)).map((b) => b.block_id);
+      expect(unknown).toEqual([]);
+    });
+  }
 });

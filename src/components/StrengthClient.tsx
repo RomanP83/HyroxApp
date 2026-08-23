@@ -5,10 +5,10 @@
 // see what the parser made of it BEFORE saving, adjust a weight, and answer
 // the progression suggestions the engine leaves after a logged session.
 // ============================================================================
+import { AppHeader } from "./AppHeader";
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarIcon, CheckIcon, SkipIcon, SparkIcon, SpinnerIcon } from "./icons";
+import { CheckIcon, SkipIcon, SparkIcon, SpinnerIcon } from "./icons";
 
 export interface StrengthExercise {
   id: string;
@@ -138,18 +138,13 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
 
   return (
     <main className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">Your strength days</h1>
-          <p className="text-xs text-ash">
-            Your exercises, your kilos, your rep ranges — imported from the sheet you already keep.
-            The plan uses them for every strength session.
-          </p>
-        </div>
-        <Link href="/plan" className="btn-ghost">
-          <CalendarIcon size={16} />
-          This week
-        </Link>
+      <AppHeader />
+      <div>
+        <h1 className="text-h1 font-bold tracking-tight">Your strength days</h1>
+        <p className="mt-1 max-w-[62ch] text-meta leading-relaxed text-ash">
+          Your exercises, your kilos, your rep ranges — imported from the sheet you already keep.
+          The plan uses them for every strength session.
+        </p>
       </div>
 
       {/* ── Open progression suggestions ───────────────────────────────── */}

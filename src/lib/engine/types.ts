@@ -5,7 +5,12 @@
 // ============================================================================
 
 export type Division = "open" | "pro" | "doubles" | "masters_open" | "masters_pro";
-export type ExperienceLevel = "beginner" | "intermediate" | "advanced";
+export type ExperienceLevel =
+  | "beginner"
+  | "intermediate"
+  | "advanced"
+  | "elite"
+  | "world_class";
 export type EquipmentAccess = "full_gym" | "home_minimal" | "hybrid";
 export type PhaseType = "base" | "build" | "peak" | "taper";
 
@@ -76,6 +81,15 @@ export interface AthleteProfile {
   /** Stated weaknesses ("Sled Push", "Laktattoleranz") — steer session choice. */
   weaknesses?: string[] | null;
   equipment_access: EquipmentAccess;
+  /**
+   * The athlete's own week shape, 1 = Monday … 7 = Sunday. These are hard
+   * pins: the plan honours them even when they collide with the recovery
+   * rules, and reports the collision instead of quietly overruling the
+   * athlete (assessWeekPreferences).
+   */
+  preferred_long_run_day?: number | null;
+  preferred_strength_days?: number[] | null;
+  preferred_rest_days?: number[] | null;
 }
 
 export interface AthleteState {
@@ -190,4 +204,16 @@ export interface GenerateInput {
    * them (see raceCalendar.ts).
    */
   races?: { date: string; type: string; priority: "A" | "B" | "C" }[];
+  /**
+   * Sessions the athlete moved by hand, keyed by the CALENDAR week they belong
+   * to. Needs `startDate` to resolve a plan week to its Monday. A generated
+   * week is a proposal; a rearranged week is a decision, and a rebase must not
+   * undo a decision (see applyDayOverrides).
+   */
+  dayOverrides?: {
+    week_start: string;
+    session_type: SessionType;
+    day_hint: number;
+    day_slot: DaySlot;
+  }[];
 }

@@ -35,7 +35,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type experience_level_t as enum ('beginner', 'intermediate', 'advanced');
+  create type experience_level_t as enum ('beginner', 'intermediate', 'advanced', 'elite', 'world_class');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
@@ -1769,3 +1769,160 @@ $$;
 
 revoke all on function move_session(uuid, int, day_slot_t) from public;
 grant execute on function move_session(uuid, int, day_slot_t) to authenticated;
+-- ============================================================================
+-- 0023 — five experience levels instead of three.
+--
+-- The coaching reference splits athletes by target time, and the training
+-- frequency table needs the top of the field: an Elite athlete (sub-70)
+-- trains 6-8 sessions over 5-6 days with occasional doubles, a World-Class
+-- athlete (sub-60) 7-9 sessions over 6 days with AM/PM as the norm — neither
+-- fits into "advanced".
+--
+-- Note for an EXISTING database: this adds the enum values. A fresh install
+-- gets them from 0001 (the create-type there lists them), which is what keeps
+-- setup.sql runnable as a single transaction — a new enum value may not be
+-- USED in the transaction that adds it. Nothing here uses them: the frequency
+-- table and station tiers live in application code.
+-- ============================================================================
+
+alter type experience_level_t add value if not exists 'elite';
+alter type experience_level_t add value if not exists 'world_class';
+-- ============================================================================
+-- 0024 — the athlete's own week shape.
+--
+-- Which weekday the long run sits on, which days carry strength, and which
+-- days are rest are not training decisions the engine should be making alone:
+-- they are gym opening hours, a free Sunday, a standing appointment. The
+-- engine keeps deciding WHAT each week contains; the athlete may now decide
+-- WHEN some of it happens.
+--
+-- Hard pin, soft warn: a pinned day is honoured even when it collides with the
+-- recovery rules (no two hard endurance days back to back, no strength the day
+-- after a hard day). The collision is reported, not silently resolved — see
+-- assessWeekPreferences() in src/lib/engine/micro.ts.
+--
+-- 1 = Monday … 7 = Sunday, the same grid sessions.day_hint uses.
+-- ============================================================================
+
+alter table athlete_profiles
+  add column if not exists preferred_long_run_day int
+    check (preferred_long_run_day between 1 and 7),
+  add column if not exists preferred_strength_days int[] not null default '{}',
+  add column if not exists preferred_rest_days int[] not null default '{}';
+-- ============================================================================
+-- 0025 — manual moves survive a rebase.
+--
+-- Moving a session wrote the new day straight onto the row, and a rebase
+-- regenerates every remaining week from scratch: change your running volume
+-- after arranging a week by hand and the arrangement was gone. The move was
+-- audited in plan_adjustments, but that row keys on the OLD plan's session id,
+-- which no longer exists after the rebase — nothing could replay it.
+--
+-- An override is therefore stored against the CALENDAR week, not the plan:
+-- plan week numbering shifts when a plan is rebuilt from today, but the Monday
+-- a week starts on does not. Plan week W of a plan generated on G starts at
+-- monday(G) + (W-1)*7 — that is the anchor generation already uses for the
+-- race calendar (raceCalendar.ts).
+--
+-- Keyed by session type: "the compromised run of that week moved to Thursday".
+-- A swap writes two rows, one per type, which is exactly what a swap is. A
+-- week holding two sessions of the same type applies the override to the
+-- first — rare, and better than guessing.
+-- ============================================================================
+
+create table if not exists session_day_overrides (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references athlete_profiles(id) on delete cascade,
+  -- Monday of the calendar week this override belongs to.
+  week_start date not null,
+  session_type session_type_t not null,
+  day_hint int not null check (day_hint between 1 and 7),
+  day_slot day_slot_t not null default 'am',
+  created_at timestamptz not null default now(),
+  unique (profile_id, week_start, session_type)
+);
+create index if not exists session_day_overrides_profile_idx
+  on session_day_overrides(profile_id, week_start);
+
+alter table session_day_overrides enable row level security;
+
+drop policy if exists sdo_all on session_day_overrides;
+create policy sdo_all on session_day_overrides for all
+  using (owns_profile(profile_id))
+  with check (owns_profile(profile_id));
+
+-- ============================================================================
+-- 0026 — move_session also reports WHAT it swapped with.
+--
+-- A swap moves two sessions, and 0025 stores manual moves keyed by session
+-- type so a rebase can replay them. The function returned only the other
+-- session's title, which is a display string — the second half of a swap could
+-- not be recorded, so a rebase would put one side back and leave the other.
+-- ============================================================================
+
+create or replace function move_session(p_session uuid, p_day int, p_slot day_slot_t)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v sessions%rowtype;
+  v_other sessions%rowtype;
+begin
+  if p_day < 1 or p_day > 7 then
+    raise exception 'invalid_day';
+  end if;
+
+  select * into v from sessions where id = p_session;
+  if not found then
+    raise exception 'not_found';
+  end if;
+
+  if not exists (
+    select 1
+    from plans p
+    join athlete_profiles ap on ap.id = p.profile_id
+    where p.id = v.plan_id and ap.user_id = auth.uid()
+  ) then
+    raise exception 'not_authorized';
+  end if;
+
+  if v.day_hint = p_day and v.day_slot = p_slot then
+    return jsonb_build_object('moved', false, 'swapped_with', null);
+  end if;
+
+  select * into v_other
+  from sessions
+  where week_id = v.week_id and day_hint = p_day and day_slot = p_slot;
+
+  -- Both rows move in the same transaction; without the deferral the first
+  -- update would collide with the row the second one is about to vacate.
+  set constraints sessions_week_day_slot_uniq deferred;
+
+  if found then
+    update sessions
+    set day_hint = v.day_hint,
+        day_slot = v.day_slot,
+        status = case when status = 'planned' then 'moved' else status end
+    where id = v_other.id;
+  end if;
+
+  update sessions
+  set day_hint = p_day,
+      day_slot = p_slot,
+      status = case when status = 'planned' then 'moved' else status end
+  where id = v.id;
+
+  return jsonb_build_object(
+    'moved', true,
+    'from_day', v.day_hint,
+    'from_slot', v.day_slot,
+    'swapped_with', case when v_other.id is null then null else to_jsonb(v_other.title) end,
+    -- The type as well as the title: a swap is two decisions to remember, and
+    -- session_day_overrides is keyed by type, not by a display string.
+    'swapped_with_type', case when v_other.id is null then null else to_jsonb(v_other.session_type) end
+  );
+end;
+$$;
+

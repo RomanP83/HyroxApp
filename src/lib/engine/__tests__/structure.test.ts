@@ -76,6 +76,74 @@ describe("two hard days a week, no more", () => {
   });
 });
 
+describe("the 16-week cycle earns the long taper", () => {
+  it("splits 5 base / 5 build / 4 peak / 2 taper", () => {
+    // The reference gives peak 3-4 weeks and the taper 1-2; a 16-week runway
+    // is what affords both their long form.
+    expect(splitPhases(16).map((p) => p.weeks)).toEqual([5, 5, 4, 2]);
+  });
+});
+
+describe("spacing across the week (the recovery physiology)", () => {
+  const HARD: SessionType[] = ["run_intervals", "compromised_run", "full_sim", "benchmark", "race_day"];
+
+  /** AM sessions of one week, keyed by calendar day. */
+  function daysOf(w: { sessions: { day_hint: number; day_slot: string; session_type: SessionType }[] }) {
+    return w.sessions
+      .filter((s) => s.day_slot !== "pm")
+      .map((s) => ({ day: s.day_hint, type: s.session_type }))
+      .sort((a, b) => a.day - b.day);
+  }
+
+  it("never puts two hard endurance days back to back", () => {
+    // Between two hard days there is always a Zone-2 day, a load day, or a
+    // gap — the reference's "Dienstag Intervalle, Samstag Simulation" shape.
+    for (const days of [3, 4, 5, 6]) {
+      for (const { w } of plan({ training_days_per_week: days }, 12).weeks) {
+        const seq = daysOf(w);
+        for (let i = 1; i < seq.length; i++) {
+          const adjacentHard =
+            seq[i].day - seq[i - 1].day === 1 &&
+            HARD.includes(seq[i].type) &&
+            HARD.includes(seq[i - 1].type);
+          expect(adjacentHard, `${days}d week ${JSON.stringify(seq)}`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("never schedules strength on the day right after a hard day", () => {
+    // The strength session opens with plyometrics, and for 24-48h after a
+    // hard day the CNS is not fresh enough for explosive work.
+    for (const days of [4, 5, 6]) {
+      for (const { w } of plan({ training_days_per_week: days }, 12).weeks) {
+        const seq = daysOf(w);
+        for (let i = 1; i < seq.length; i++) {
+          const strengthAfterHard =
+            seq[i].day - seq[i - 1].day === 1 &&
+            seq[i].type === "strength" &&
+            HARD.includes(seq[i - 1].type);
+          expect(strengthAfterHard, `${days}d week ${JSON.stringify(seq)}`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("orders a double day strength-first: the AM is the key session, the PM is easy", () => {
+    // Minimum separation on a double day is the AM/PM split itself, and the
+    // neurally demanding session comes first — strength before endurance.
+    const { weeks } = plan({ training_days_per_week: 5, doubles_per_week: 2 }, 12);
+    for (const { w } of weeks) {
+      for (const s of w.sessions) {
+        if (s.day_slot !== "pm") continue;
+        expect(["run_easy", "mobility"]).toContain(s.session_type);
+        const host = w.sessions.find((h) => h.day_hint === s.day_hint && h.day_slot !== "pm")!;
+        expect(HARD.includes(host.session_type) && s.session_type === "run_easy").toBe(false);
+      }
+    }
+  });
+});
+
 describe("full race simulations", () => {
   it("happens exactly once per cycle, not once per peak week", () => {
     for (const weeks of [10, 12, 16]) {
@@ -186,23 +254,43 @@ describe("polarisation after the restructure", () => {
 });
 
 describe("frequency advice by experience", () => {
+  // The reference table: level -> days, sessions and target time.
+  //   beginner 3-4d/3-4s · intermediate 4-5d/4-5s · advanced 5d/5-6s
+  //   elite 5-6d/6-8s (doubles sometimes) · world class 6d/7-9s (doubles the norm)
+
   it("says when a beginner has picked an advanced load", () => {
     const advice = frequencyAdvice("beginner", 6);
     expect(advice.verdict).toBe("high");
-    expect(advice.note).toContain("3-4");
+    expect(advice.note).toContain("3–4");
   });
 
-  it("treats AM/PM splits as the top level's tool, not as extra sessions", () => {
-    // The prescription puts splits inside an advanced athlete's 5-6 days.
-    expect(frequencyAdvice("advanced", 6, 1).verdict).toBe("ok");
+  it("lets doubles in from advanced upward, and not before", () => {
+    // An advanced athlete's 5 days plus one double = 6 sessions, in range.
+    expect(frequencyAdvice("advanced", 5, 1).verdict).toBe("ok");
     const early = frequencyAdvice("intermediate", 5, 1);
     expect(early.verdict).toBe("high");
-    expect(early.note).toContain("AM/PM splits belong to the top level");
+    expect(early.note).toContain("AM/PM splits enter the picture from the advanced level");
   });
 
-  it("confirms a load that fits the level", () => {
+  it("judges sessions, not just days — six days without doubles overloads advanced", () => {
+    // The reference caps advanced at 5 days; the sixth day is elite territory.
+    expect(frequencyAdvice("advanced", 6, 0).verdict).toBe("high");
+    expect(frequencyAdvice("elite", 6, 2).verdict).toBe("ok"); // 8 sessions
+    expect(frequencyAdvice("elite", 6, 3).verdict).toBe("high"); // 9 sessions
+  });
+
+  it("expects doubles at world class — six days alone is under its floor", () => {
+    // 7-9 sessions on 6 days requires at least one AM/PM split.
+    expect(frequencyAdvice("world_class", 6, 0).verdict).toBe("low");
+    const wc = frequencyAdvice("world_class", 6, 2);
+    expect(wc.verdict).toBe("ok");
+    expect(frequencyAdvice("world_class", 6, 1).note).toContain("sub 60");
+  });
+
+  it("confirms a load that fits the level, and names the target time", () => {
     expect(frequencyAdvice("intermediate", 5, 0).verdict).toBe("ok");
-    expect(frequencyAdvice("advanced", 6, 1).verdict).toBe("ok");
+    expect(frequencyAdvice("intermediate", 5, 0).note).toContain("sub 1:30");
+    expect(frequencyAdvice("elite", 5, 1).verdict).toBe("ok");
   });
 
   it("flags a load below the level, without refusing it", () => {
@@ -212,8 +300,9 @@ describe("frequency advice by experience", () => {
   });
 
   it("names what the level should be focusing on", () => {
-    expect(frequencyAdvice("advanced", 6).note).toContain("AM/PM");
     expect(frequencyAdvice("beginner", 3).note).toContain("station standards");
+    expect(frequencyAdvice("elite", 6, 1).note).toContain("plyometrics");
+    expect(frequencyAdvice("world_class", 6, 1).note).toContain("transitions");
   });
 });
 

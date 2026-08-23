@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
+import { loadDayOverrides } from "@/lib/dayOverrides";
 import { loadSeasonRaces, pickMainRace, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { generatePlan, type AthleteProfile } from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
@@ -61,6 +62,7 @@ export async function POST() {
     weeksToRace,
     startDate: today,
     races: racesForPlan(calendar, today, main.date),
+    dayOverrides: await loadDayOverrides(supabase, profile.id, today),
   });
 
   const planId = await persistPlan(

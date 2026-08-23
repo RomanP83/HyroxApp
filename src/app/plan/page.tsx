@@ -5,6 +5,7 @@ import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib
 import {
   assessVolumeTarget,
   defaultPaceZones,
+  assessWeekPreferences,
   frequencyAdvice,
   weeklyRunSummary,
   type ExperienceLevel,
@@ -32,7 +33,7 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, experience_level, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week",
+      "id, division, experience_level, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, preferred_long_run_day, preferred_strength_days, preferred_rest_days",
     )
     .eq("user_id", user.id)
     .single();
@@ -281,6 +282,24 @@ export default async function PlanPage({
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
       locked={locked}
       runSummary={runSummary}
+      weekShape={{
+        long_run_day: (profile.preferred_long_run_day as number | null) ?? null,
+        strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
+        rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
+        max_rest_days: Math.max(0, 7 - (profile.training_days_per_week ?? 4)),
+        warnings: assessWeekPreferences(
+          {
+            longRunDay: (profile.preferred_long_run_day as number | null) ?? null,
+            strengthDays: (profile.preferred_strength_days as number[] | null) ?? [],
+            restDays: (profile.preferred_rest_days as number[] | null) ?? [],
+          },
+          {
+            trainingDays: profile.training_days_per_week ?? 4,
+            runsPerWeek: profile.runs_per_week ?? null,
+            doublesPerWeek: profile.doubles_per_week ?? 0,
+          },
+        ),
+      }}
       volume={{
         weekly_km_peak: peakKm,
         runs_per_week: profile.runs_per_week ?? null,

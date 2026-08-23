@@ -12,8 +12,10 @@ export const ENGINE_VERSION = "v1.2";
 
 // ── Macro phase-split lookup (weeks_to_race -> [base, build, peak, taper]) ────
 // Taper is never negotiable (PP4).
+// A 16-week cycle earns the long taper (the reference's "1-2 weeks") and the
+// full 4-week peak; shorter cycles shed taper first to 1, then peak weeks.
 export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]> = {
-  16: [6, 6, 3, 1],
+  16: [5, 5, 4, 2],
   12: [4, 4, 3, 1],
   10: [3, 4, 2, 1],
   8: [2, 3, 2, 1],
@@ -217,7 +219,14 @@ export function defaultPaceZones(fiveKSeconds: number | null): PaceZones {
 }
 
 export function defaultStationTiers(level: string): StationTiers {
-  const tier = level === "advanced" ? 3 : level === "beginner" ? 1 : 2;
+  // Three tiers of prescription, five levels of athlete: elite and world-class
+  // start on the top tier and differentiate through calibration, not the seed.
+  const tier =
+    level === "advanced" || level === "elite" || level === "world_class"
+      ? 3
+      : level === "beginner"
+        ? 1
+        : 2;
   const tiers: StationTiers = {};
   for (const s of STATIONS) tiers[s] = tier;
   return tiers;

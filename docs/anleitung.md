@@ -57,6 +57,10 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 | `/benchmarks` | Testergebnisse eintragen | nein |
 | `/progress` | Verlauf und Auswertungen | nein |
 | `/de/…` | Deutsche Landingpages (8/12/16 Wochen) | ja |
+
+Alle eingeloggten Seiten teilen sich **eine Kopfzeile**: das Logo führt immer zurück auf `/plan`
+(die Wochenansicht), daneben stehen die fünf Bereiche als Tabs, der aktuelle ist markiert. Auch die
+Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
 | `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
 
 ---
@@ -82,9 +86,19 @@ Danach vier kurze Schritte. Alles ist später änderbar.
 **Live-Vorschau:** Noch bevor irgendetwas gespeichert wird, rechnet die Engine im Browser die
 Phasenaufteilung und die geschätzte Zielzeit — man sieht das Ergebnis, bevor man sich festlegt.
 
-**Frequenzhinweis:** Die App vergleicht deine gewählten Tage mit dem, wofür dein Level gebaut ist
-(3–4 / 4–5 / 5–6), und sagt es, wenn es zu viel oder zu wenig ist. Doppeltage werden getrennt
-bewertet — AM/PM-Splits gehören ins Repertoire der obersten Stufe. **Es ist ein Hinweis, keine
+**Frequenzhinweis:** Die App vergleicht deine gewählten Tage *und Einheiten* (Tage + Doppeltage)
+mit dem, wofür dein Level gebaut ist:
+
+| Level | Zielzeit | Tage | Einheiten |
+|---|---|---|---|
+| Beginner | 1:40+ | 3–4 | 3–4 |
+| Intermediate | sub 1:30 | 4–5 | 4–5 |
+| Advanced | sub 1:20 | 5 | 5–6 |
+| Elite | sub 70 min | 5–6 | 6–8 (teils Doppeltage) |
+| World Class | sub 60 min | 6 | 7–9 (AM/PM die Regel) |
+
+Doppeltage gibt es ab Advanced; auf World-Class-Niveau sind sie der Normalfall — sechs Tage ohne
+Doppeltag liegen dort sogar *unter* dem Soll, und die App sagt das. **Es ist ein Hinweis, keine
 Sperre:** du entscheidest.
 
 Am Ende: **Plan erzeugen.** Die Engine baut Phasen → Wochen → Einheiten → Blöcke, alles wird in
@@ -131,7 +145,9 @@ Zugeklappt: Titel, Typ, Dauer, RPE-Ziel. Bei Laufeinheiten zusätzlich direkt si
 
 Aufgeklappt: alle Blöcke — Warm-up, Hauptteil, Finisher — mit Sätzen, Wiederholungen, Gewichten
 oder Distanzen, gerendert auf deine Division und deinen aktuellen Stand. Kraft-Einheiten zeigen
-zusätzlich ein Eingabefeld pro Satz.
+dort zusätzlich dein importiertes Programm mit einem Eingabefeld pro Satz; **zugeklappt** steht
+stattdessen nur eine Zeile (Programmname, Übungszahl, „tap to log sets") — ein Tap darauf öffnet
+die Karte.
 
 Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 
@@ -142,7 +158,7 @@ Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 | **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter deine Pace-Zonen und der ACWR. Die eine Zahl, für die das ganze System existiert. |
 | **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
 | **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
-| **Setup & tools** *(zugeklappt)* | Strava/Garmin verbinden, Telegram, Verletzung melden, Laufvolumen ändern. Einmal-Aufgaben, die keinen Dauerplatz brauchen — antippen zum Aufklappen. |
+| **Setup & tools** *(zugeklappt)* | Die Form deiner Woche, Laufvolumen, Strava/Garmin, Telegram, Verletzung melden. Einmal-Aufgaben, die keinen Dauerplatz brauchen — antippen zum Aufklappen. |
 | **Coach-Feedback** | Erscheint nach dem Loggen als Overlay (siehe Abschnitt 6). |
 
 ---
@@ -168,7 +184,35 @@ Das nimmt nicht nur den Eintrag zurück, sondern auch **die Kalibrierung, die er
 App spielt die verbleibenden Logs neu ein und stellt Paces, Tiers und Kraftfaktor auf den Stand ohne
 diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
 
+### Die Form deiner Woche festlegen
+
+Unter *Setup & tools* → **„The shape of your week"** legst du für den **ganzen Plan** fest, welche
+Wochentage fix sind: ein Tag für den **Long Run**, beliebig viele **Kraft-Tage**, und deine
+**Ruhetage**. Sieben Schalter je Zeile, Montag zuerst.
+
+**Harte Pins.** Diese Tage gewinnen — auch gegen die Erholungsregeln. Öffnungszeiten im Gym und ein
+freier Sonntag sind Tatsachen, und ein Plan, der sie stillschweigend überstimmt, wird nicht befolgt.
+Alles Übrige ordnet sich um deine Pins herum an, weiterhin regelkonform, soweit die verbleibenden
+Tage es zulassen.
+
+**Weiche Warnung.** Was ein Pin kostet, steht direkt unter den Schaltern — zum Beispiel *„Strength am
+Donnerstag folgt auf einen harten Mittwoch — Plyometrie will 24–48 h frische Beine."* Nichts wird
+heimlich korrigiert; du siehst den Preis und entscheidest.
+
+Ein paar Regeln, die die App durchsetzt statt sie zu erraten:
+
+- Ein Tag kann nicht gleichzeitig Ruhetag und Kraft-/Long-Run-Tag sein — das wäre ein Tippfehler,
+  keine Präferenz, und wird beim Speichern abgelehnt.
+- Mehr Ruhetage als Wochentage übrig sind, geht nicht (bei 5 Trainingstagen also höchstens 2).
+- Passt die Woche trotzdem nicht, gewinnt das Training: die App nimmt sich den nötigen Tag zurück
+  und sagt welchen.
+
+Speichern baut die **verbleibenden Wochen** neu auf — wie beim Laufvolumen. Vergangene Wochen
+bleiben als Protokoll stehen.
+
 ### Verschieben
+
+Für eine **einzelne** Woche abweichen — ohne den Standard zu ändern — geht weiterhin über Move:
 
 **Move** sitzt im aufgeklappten Zustand der Einheit — eine Zeile „Verschieben" unter jeder
 zugeklappten Karte wäre Mobiliar in einer Liste, die man nach dem heutigen Training überfliegt.
@@ -192,6 +236,16 @@ Was dabei passiert:
   Zustand mit zwei Einheiten auf derselben Tageshälfte bringen.
 - Jede Verschiebung landet im Anpassungsprotokoll — inklusive der Einheit, mit der getauscht wurde.
 
+**Eine Verschiebung überlebt einen Neuaufbau.** Wird der Plan neu gerechnet — Volumen geändert,
+Wochenform gespeichert, nach einer Verletzung, oder automatisch nach sieben inaktiven Tagen —
+kommt jede von Hand verschobene Einheit auf ihren Tag zurück. Die App merkt sich das an der
+**Kalenderwoche**, nicht an der Planwoche: Wochennummern verschieben sich beim Neuaufbau, Montage
+nicht. Ein Tausch wird als beide Hälften gemerkt, kommt also vollständig zurück.
+
+Zwei Grenzen, die du kennen solltest: Enthält die neu gebaute Woche die Einheit nicht mehr (etwa
+weil ein Deload sie gestrichen hat), verfällt die Verschiebung. Und ein **Renntag** hat Vorrang —
+er ist eine Tatsache im Kalender, deine Verschiebung eine Präferenz.
+
 Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#14-demo--ausprobieren-ohne-konto)
 funktioniert es genauso, nur ohne Konto.
 
@@ -214,6 +268,16 @@ Woche, damit nichts davonläuft.
 | Dauerhaft hohe RPE (14 Tage) | Automatischer Deload |
 | ACWR unter 0,8 | Sanfter Wiedereinstieg |
 | 7 Tage inaktiv | Plan wird ab heute neu aufgebaut |
+
+**Die Woche ist physiologisch sortiert.** Der Planer hält beim Verteilen der Tage zwei Regeln ein:
+Zwischen zwei harten Ausdauertagen liegt immer ein Zone-2-Tag, ein Kraft-/Stationstag oder eine
+Kalenderlücke — nie zwei harte Tage direkt hintereinander. Und Krafttraining (das mit Plyometrie
+beginnt) liegt nie auf dem Tag unmittelbar nach einem harten Tag, weil das Nervensystem dafür
+24–48 h Frische braucht. Auf Doppeltagen kommt die anspruchsvollere Einheit zuerst (Kraft/Station
+am Morgen), die PM-Einheit ist immer leicht — der AM/PM-Abstand ist genau die Trennung, die der
+Interferenz-Effekt verlangt. In Basis und Build weist die Laufauswertung zudem darauf hin, dass
+20–40 % der lockeren Kilometer auf SkiErg, Ruderergometer oder Rad wandern können — gleicher
+Motor, schonender für die Achillessehne.
 
 **Rebase statt Flickwerk.** Wenn sich etwas Grundlegendes ändert — Verletzung, Pause, neues
 Laufvolumen — wird der Plan **ab heute neu gerechnet**, nicht rückwirkend verbogen. Vergangene
@@ -291,8 +355,10 @@ bereiche („6 - 8"), Supersatz-Markierungen und Körpergewichts-Zeilen ohne Las
 **Vorschau vor dem Speichern.** Du siehst, was der Parser verstanden hat, und kannst korrigieren,
 bevor irgendetwas gespeichert wird.
 
-**Sätze protokollieren.** Auf der Kraft-Einheit in `/plan` steht pro Satz ein Eingabefeld für
-Wiederholungen und Gewicht. Leer gelassen heißt „wie programmiert".
+**Sätze protokollieren.** Auf der **aufgeklappten** Kraft-Einheit in `/plan` steht pro Satz ein
+Eingabefeld für Wiederholungen und Gewicht; zugeklappt zeigt die Karte nur eine Programmzeile.
+Leer gelassen heißt „wie programmiert" — auch wer ohne Aufklappen „As planned" tippt, loggt das
+Programm wie geschrieben.
 
 **Progression als Vorschlag.** Nach einem geloggten Training schlägt die App die nächste Last vor
 (doppelte Progression: erst Wiederholungen ans obere Ende, dann Gewicht rauf). Der Vorschlag
@@ -425,6 +491,11 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Von Hand verschobene Einheiten überstehen einen Neuaufbau des Plans (gemerkt an der Kalenderwoche) | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
+| Feste Wochentage für Long Run, Kraft und Ruhetage planweit definierbar; harte Pins mit Hinweis auf ihre Kosten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
+| Fünf Leistungslevel (bis World Class, sub 60) mit Einheiten-Soll; Wochenplaner hält Abstandsregeln ein (keine zwei harten Tage in Folge, Kraft nie nach hartem Tag); 16 Wochen = 5/5/4/2; Erg-Hinweis; Kohlenhydrat-Periodisierung | [3](#3-onboarding--den-plan-erzeugen), [6](#6-wie-sich-der-plan-anpasst) |
+| Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [8](#8-strength--eigenes-kraftprogramm) |
+| Einheitliche Rückkehr zur Wochenansicht: gemeinsame Kopfzeile auf allen eingeloggten Seiten (Logo → `/plan`), Rückweg auch auf der Betreiberseite | [2](#2-seitenübersicht) |
 | `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |
 | `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |
 | Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

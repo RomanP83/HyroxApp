@@ -85,6 +85,8 @@ interface Props {
    * should get it: a focal point that competes with six others is not one.
    */
   focal?: boolean;
+  /** Start expanded — the details are the point, not a tap away. */
+  defaultOpen?: boolean;
 }
 
 /** The variant the engine chose for this week's core session, if any. */
@@ -128,8 +130,9 @@ export function SessionCard({
   moving,
   occupied,
   focal,
+  defaultOpen,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const [moveOpen, setMoveOpen] = useState(false);
   // Which half of the day the picked day should land in. Defaults to the half
   // the session already sits in, so a plain "Wednesday instead of Tuesday" is
@@ -329,7 +332,23 @@ export function SessionCard({
         </div>
       )}
 
-      {strength && onLog && !isRest && (status === "planned" || status === "moved") && (
+      {/* Collapsed, the imported programme is one line — a closed card must
+          not be a page of inputs. Open the card to fill in sets; logging
+          without opening records everything as programmed. */}
+      {strength && !open && !isRest && (status === "planned" || status === "moved") && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-3 flex w-full items-center justify-between gap-3 rounded-control border border-edge bg-well/60 px-3 py-2 text-meta transition-colors duration-150 hover:border-edge-strong"
+        >
+          <span className="font-semibold text-bone">{strength.templateName}</span>
+          <span className="text-ash">
+            {strength.exercises.length} exercises · tap to log sets
+          </span>
+        </button>
+      )}
+
+      {strength && onLog && open && !isRest && (status === "planned" || status === "moved") && (
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between text-meta">
             <span className="font-semibold">{strength.templateName}</span>

@@ -164,21 +164,65 @@ export const VOLUME_BY_PHASE: Record<PhaseType, [number, number]> = {
  * with doubles is not training harder, they are accumulating fatigue they have
  * no base for — but this advises, it never blocks: the athlete decides.
  */
-export const FREQUENCY_BY_LEVEL: Record<ExperienceLevel, { min: number; max: number; focus: string }> = {
+export const FREQUENCY_BY_LEVEL: Record<
+  ExperienceLevel,
+  {
+    min: number;
+    max: number;
+    /** Total sessions a week (days + doubles) the level is built for. */
+    sessions_min: number;
+    sessions_max: number;
+    /** The finish-time bracket this level maps to, for the advice text. */
+    target: string;
+    /** Doubles at this level: not yet / occasionally / the norm. */
+    doubles: "none" | "some" | "regular";
+    focus: string;
+  }
+> = {
   beginner: {
     min: 3,
     max: 4,
-    focus: "aerobic base, the station standards, and basic strength",
+    sessions_min: 3,
+    sessions_max: 4,
+    target: "sub 1:40–2:00",
+    doubles: "none",
+    focus: "aerobic base (Zone 2), the station standards, and basic strength",
   },
   intermediate: {
     min: 4,
     max: 5,
-    focus: "threshold work, compromised running and heavy lifts",
+    sessions_min: 4,
+    sessions_max: 5,
+    target: "sub 1:30",
+    doubles: "none",
+    focus: "threshold work, basic strength and pacing discipline",
   },
   advanced: {
     min: 5,
+    max: 5,
+    sessions_min: 5,
+    sessions_max: 6,
+    target: "sub 1:20",
+    doubles: "some",
+    focus: "threshold runs, compromised running and heavy lifts",
+  },
+  elite: {
+    min: 5,
     max: 6,
-    focus: "lactate tolerance, pacing consistency and fast transitions — this is where AM/PM splits earn their place",
+    sessions_min: 6,
+    sessions_max: 8,
+    target: "sub 70 min",
+    doubles: "some",
+    focus: "lactate tolerance, maximal pacing density and plyometrics",
+  },
+  world_class: {
+    min: 6,
+    max: 6,
+    sessions_min: 7,
+    sessions_max: 9,
+    target: "sub 60 min",
+    doubles: "regular",
+    focus: "maximal running economy, and shaving seconds off stations and transitions",
   },
 };
 
@@ -198,32 +242,41 @@ export function frequencyAdvice(
   trainingDays: number,
   doublesPerWeek = 0,
 ): FrequencyAdvice {
-  const { min, max, focus } = FREQUENCY_BY_LEVEL[level];
+  const spec = FREQUENCY_BY_LEVEL[level];
+  const sessions = trainingDays + doublesPerWeek;
   const label = doublesPerWeek
-    ? `${trainingDays} days plus ${doublesPerWeek} double${doublesPerWeek > 1 ? "s" : ""}`
+    ? `${trainingDays} days plus ${doublesPerWeek} double${doublesPerWeek > 1 ? "s" : ""} (${sessions} sessions)`
     : `${trainingDays} days`;
+  const levelName = level === "world_class" ? "world-class" : level;
 
-  if (doublesPerWeek > 0 && level !== "advanced") {
+  // Doubles are earned, not chosen: they enter occasionally from advanced and
+  // become the norm only at world class. Below that, the same hours belong on
+  // the days that already exist.
+  if (doublesPerWeek > 0 && spec.doubles === "none") {
     return {
       verdict: "high",
-      note: `${label}: AM/PM splits belong to the top level, where they sit inside a ${min}-${max} day week rather than on top of it. Add the volume to your existing days first. Focus at this level: ${focus}.`,
+      note: `${label}: AM/PM splits enter the picture from the advanced level (${FREQUENCY_BY_LEVEL.advanced.target}) upward. Add the volume to your existing days first. Focus at this level: ${spec.focus}.`,
     };
   }
-  if (trainingDays > max) {
+  if (sessions > spec.sessions_max || trainingDays > spec.max) {
     return {
       verdict: "high",
-      note: `${label} is above the ${min}-${max} a ${level} athlete is usually built for. It will work if you are already used to it — otherwise the base gives way before the fitness arrives. Focus at this level: ${focus}.`,
+      note: `${label} is above the ${spec.sessions_min}–${spec.sessions_max} sessions a ${levelName} athlete (${spec.target}) is usually built for. It will work if you are already used to it — otherwise the base gives way before the fitness arrives. Focus at this level: ${spec.focus}.`,
     };
   }
-  if (trainingDays < min) {
+  if (sessions < spec.sessions_min || trainingDays < spec.min) {
     return {
       verdict: "low",
-      note: `${label} is below the ${min}-${max} this level asks for; the plan will fit, but there is not much room for the aerobic volume that carries a Hyrox. Focus at this level: ${focus}.`,
+      note: `${label} is below the ${spec.sessions_min}–${spec.sessions_max} sessions this level asks for; the plan will fit, but there is not much room for the aerobic volume that carries a Hyrox. Focus at this level: ${spec.focus}.`,
     };
   }
+  const doublesNote =
+    spec.doubles === "regular" && doublesPerWeek === 0
+      ? " At this level AM/PM splits are the norm — a double day is where the extra sessions live."
+      : "";
   return {
     verdict: "ok",
-    note: `${label} sits in the ${min}-${max} range for a ${level} athlete. Focus at this level: ${focus}.`,
+    note: `${label} sits in the ${spec.sessions_min}–${spec.sessions_max} sessions a ${levelName} athlete (${spec.target}) is built for. Focus at this level: ${spec.focus}.${doublesNote}`,
   };
 }
 
@@ -362,6 +415,14 @@ export function assessVolumeTarget(opts: {
  * of the flat target split, and the first 200 m are for finding rhythm and
  * breathing again — not for making up time.
  */
+/**
+ * Share of the EASY running volume that can live on SkiErg, Rower or BikeErg.
+ * The point is the Achilles and the joints: 20-40% of the aerobic base moved
+ * onto an erg keeps the engine growing without the tendon cost of the same
+ * kilometres on tarmac.
+ */
+export const ERG_OFFLOAD_SHARE = { min: 0.2, max: 0.4 } as const;
+
 export const COMPROMISED_OPENING = {
   buffer_sec_km: 20, // the prescription's +15-25 s, one number the plan can render
   buffer_distance_m: 400,
@@ -446,7 +507,7 @@ export function weeklyRunSummary(
     easy_share: easyShare,
     volume,
     polarisation,
-    note: summaryNote(runs, totalKm, easyShare, volume, polarisation, [kmMin, easyMin, easyMax]),
+    note: summaryNote(runs, totalKm, easyShare, volume, polarisation, [kmMin, easyMin, easyMax], phase),
   };
 }
 
@@ -457,10 +518,16 @@ function summaryNote(
   volume: WeeklyRunSummary["volume"],
   polarisation: WeeklyRunSummary["polarisation"],
   [kmMin, easyMin, easyMax]: [number, number, number],
+  phase?: PhaseType,
 ): string {
   if (!runs) return "No running this week.";
   const pct = Math.round(easyShare * 100);
   const head = `${runs} runs · ${totalKm} km · ${pct}% aerobic`;
+  // The joint-sparing lever, where the aerobic volume actually lives.
+  const erg =
+    phase === "base" || phase === "build"
+      ? ` ${Math.round(ERG_OFFLOAD_SHARE.min * 100)}–${Math.round(ERG_OFFLOAD_SHARE.max * 100)}% of the easy kilometres can live on the SkiErg, Rower or BikeErg — same engine, kinder Achilles.`
+      : "";
   if (volume === "below" && runs < RUNNING_TARGETS.runs_per_week_min) {
     return `${head}. Fewer runs than the ${RUNNING_TARGETS.runs_per_week_min}-4 a Hyrox build wants — add a training day before adding intensity.`;
   }
@@ -478,5 +545,5 @@ function summaryNote(
   }
   return `${head}. Right in this block's polarised window (${Math.round(easyMin * 100)}-${Math.round(
     easyMax * 100,
-  )}% aerobic).`;
+  )}% aerobic).${erg}`;
 }

@@ -5,7 +5,10 @@ import { StrengthClient, type StrengthTemplate } from "../StrengthClient";
 import { parseStrengthTemplate } from "@/lib/strength/parse";
 import type { GeneratedSession } from "@/lib/engine";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: () => undefined }),
+  usePathname: () => "/strength",
+}));
 
 const SHEET = [
   "\tTag A: Oberkörper\tSätze\tWiederholungen\tGewicht\tSatz 1\tSatz 2",
@@ -100,6 +103,10 @@ describe("StrengthClient", () => {
     })),
   };
   const html = renderToStaticMarkup(<StrengthClient templates={[template]} />);
+
+  it("carries the shared header — the way back to the week view", () => {
+    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>Hyrox/);
+  });
 
   it("puts an open suggestion up front, with both answers", () => {
     expect(html).toContain("Ready to go up");

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppHeader } from "@/components/AppHeader";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { computeLoadState, type LoadEntry } from "@/lib/engine";
@@ -128,13 +128,11 @@ export default async function ProgressPage() {
 
   return (
     <main className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
-          ← Back to plan
-        </Link>
-        <span className="pill">Progress · every number from your logs</span>
+      <AppHeader />
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-h1 font-bold tracking-tight">Progress</h1>
+        <span className="pill">every number from your logs</span>
       </div>
-      <h1 className="text-2xl font-bold">Progress</h1>
 
       {/* KPI row */}
       <div className="grid gap-3 sm:grid-cols-4">

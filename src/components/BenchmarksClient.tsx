@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { AppHeader } from "./AppHeader";
 import { useRouter } from "next/navigation";
 import { fmtClock } from "@/lib/format";
 import { TargetIcon } from "./icons";
@@ -89,14 +89,11 @@ export function BenchmarksClient({
 
   return (
     <main className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
-          ← Back to plan
-        </Link>
-        <span className="pill">Benchmark protocol · start / mid / pre-race</span>
+      <AppHeader />
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-h1 font-bold tracking-tight">Benchmarks</h1>
+        <span className="pill">start / mid / pre-race</span>
       </div>
-
-      <h1 className="text-2xl font-bold">Benchmarks</h1>
       <p className="max-w-2xl text-ash">
         Re-testing 1–2 key efforts makes progress provable — and every result recalibrates your
         pace zones and finish-time estimate on real numbers, not guesses.

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 // ============================================================================
 // Operator surface for the knowledge pipeline (docs/knowledge-pipeline.md).
 // Upload a PDF, read what the extractor proposes, approve or reject it. The
@@ -245,6 +246,11 @@ export default function KnowledgeAdminPage() {
 
   return (
     <main className="space-y-6">
+      {/* Operator surface: deliberately outside the athlete nav, but never a
+          dead end — one link back to the app. */}
+      <Link href="/plan" className="inline-block text-meta text-ash hover:text-chalk">
+        ← Hyrox·Hub
+      </Link>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Knowledge pipeline</h1>

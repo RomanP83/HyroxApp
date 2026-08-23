@@ -57,6 +57,10 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 | `/benchmarks` | Testergebnisse eintragen | nein |
 | `/progress` | Verlauf und Auswertungen | nein |
 | `/de/…` | Deutsche Landingpages (8/12/16 Wochen) | ja |
+
+Alle eingeloggten Seiten teilen sich **eine Kopfzeile**: das Logo führt immer zurück auf `/plan`
+(die Wochenansicht), daneben stehen die fünf Bereiche als Tabs, der aktuelle ist markiert. Auch die
+Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
 | `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
 
 ---
@@ -425,6 +429,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Einheitliche Rückkehr zur Wochenansicht: gemeinsame Kopfzeile auf allen eingeloggten Seiten (Logo → `/plan`), Rückweg auch auf der Betreiberseite | [2](#2-seitenübersicht) |
 | `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |
 | `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |
 | Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

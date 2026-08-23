@@ -22,8 +22,9 @@ export const PHASE_NUTRITION: Record<PhaseType, NutritionTip> = {
   build: {
     headline: "Build: carbs are training equipment now",
     points: [
-      "Front-load carbs before compromised-running and station days — these sessions are glycolytic.",
+      "Periodise carbs with the week: 5–8 g/kg on hard days, less on rest days — fuel the work, not the calendar.",
       "Within 60 min after hard sessions: carbs + protein (~3:1) to keep back-to-back quality days possible.",
+      "After a heavy evening session, buffer your bedtime: strength work delays sleep onset, hard endurance fragments the night — both steal the recovery the session was for.",
       "Hydration debt shows up as fake fatigue — check urine color before blaming the plan.",
     ],
   },

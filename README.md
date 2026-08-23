@@ -187,11 +187,15 @@ The whole plan is checked against a handful of coaching rules, and the tests fai
 |---|---|
 | **Two hard days a week, no more** | `capHardSessions()` runs last on every week — a benchmark, a simulation or an ambitious run frequency gives the slot back to the phase's next session |
 | **One full race simulation per cycle** | placed three weeks out, not once per peak week: a complete run-through costs 2-3 days of recovery |
-| **12 weeks = 4 base / 4 build / 3 peak / 1 taper** | `PHASE_SPLIT_TABLE` |
+| **12 weeks = 4/4/3/1 · 16 weeks = 5/5/4/2** | `PHASE_SPLIT_TABLE` — a 16-week runway affords the reference's long peak (4w) and long taper (2w) |
 | **Strength in every phase** | heavy compounds at 3 reps in base and build, maintenance in peak, a power primer in race week |
 | **Plyometrics and grip, in a rested state** | finishers on the strength day, alternating week by week — they are the two must-dos that only work fresh |
 | **At least one full rest day** | no week ever fills seven days, at any frequency |
-| **Frequency fits the level** | 3-4 / 4-5 / 5-6 sessions by experience, with AM/PM splits treated as the top level's tool. The app advises; it never blocks |
+| **Frequency fits the level** | Five levels, mapped to target times: beginner 3-4 sessions (1:40+), intermediate 4-5 (sub 1:30), advanced 5-6 (sub 1:20), elite 6-8 (sub 70, doubles sometimes), world class 7-9 (sub 60, AM/PM the norm). The app advises; it never blocks |
+| **No two hard endurance days back to back** | the week scheduler always puts a Zone-2 day, a load day or a calendar gap between them |
+| **Strength never the day after a hard day** | the strength session opens with plyometrics, and the CNS needs 24-48 h after a hard day before explosive work |
+| **Doubles are ordered, not stacked** | on an AM/PM day the neurally demanding session comes first (strength/station AM), the PM is always easy — the split itself is the 2-6 h separation the interference effect demands |
+| **20-40% of the easy volume can live on the erg** | SkiErg/Rower/BikeErg carry aerobic base without the Achilles cost — the weekly readout says so in base and build |
 
 Deliberate exception: the one simulation week sits below its polarised window, and the taper's window
 is wider because a taper cuts volume while keeping the sharp sessions — the hard share rises by

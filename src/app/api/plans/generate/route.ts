@@ -7,7 +7,7 @@ import { generatePlan, initialAthleteState, type AthleteProfile } from "@/lib/en
 
 const Body = z.object({
   division: z.enum(["open", "pro", "doubles", "masters_open", "masters_pro"]),
-  experience_level: z.enum(["beginner", "intermediate", "advanced"]),
+  experience_level: z.enum(["beginner", "intermediate", "advanced", "elite", "world_class"]),
   five_k_seconds: z.number().int().positive().nullable().optional(),
   station_estimates: z.record(z.number()).optional(),
   training_days_per_week: z.number().int().min(3).max(6),

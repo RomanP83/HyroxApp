@@ -222,6 +222,46 @@ export function doublesForWeek(input: {
 }
 
 /**
+ * Lay the week's sessions onto its calendar days so the recovery physiology
+ * actually works out (the two rules are the evidence-based ones):
+ *
+ *   1. No two hard endurance days back to back. Between two hard days there
+ *      is always a Zone-2 day, a load day, or a gap in the calendar.
+ *   2. Strength never lands on the day immediately after a hard day: the
+ *      strength session opens with plyometrics, and for 24-48 h after a hard
+ *      day the CNS is not fresh enough for explosive work.
+ *
+ * Deterministic greedy: walk the calendar days in order and take the highest-
+ * priority remaining session that the previous day allows. If nothing fits,
+ * relax rule 2 first, then rule 1 — a legal week always comes out, and a
+ * constraint only ever bends when the day count forces it.
+ */
+export function orderAcrossWeek(types: SessionType[], days: number[]): SessionType[] {
+  const remaining = [...types];
+  const out: SessionType[] = [];
+
+  for (let k = 0; k < days.length; k++) {
+    const adjacent = k > 0 && days[k] - days[k - 1] === 1;
+    const prev = out[out.length - 1];
+    const prevHard = adjacent && prev != null && HARD_TYPES.includes(prev);
+
+    const allowed = (t: SessionType, relax: number) => {
+      if (!prevHard) return true;
+      if (HARD_TYPES.includes(t)) return relax >= 2; // rule 1
+      if (t === "strength") return relax >= 1; // rule 2
+      return true;
+    };
+
+    let pickIdx = -1;
+    for (let relax = 0; relax <= 2 && pickIdx < 0; relax++) {
+      pickIdx = remaining.findIndex((t) => allowed(t, relax));
+    }
+    out.push(remaining.splice(pickIdx, 1)[0]);
+  }
+  return out;
+}
+
+/**
  * Decide the ordered list of session types for one week, then attach day hints,
  * durations and RPE targets. Deterministic given the inputs.
  */
@@ -265,8 +305,9 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
   types = capHardSessions(types, phase);
 
   const days = spreadDays(types.length);
+  const ordered = orderAcrossWeek(types, days);
 
-  const slots: SessionSlot[] = types.map((session_type, i) => ({
+  const slots: SessionSlot[] = ordered.map((session_type, i) => ({
     session_type,
     day_hint: days[i] ?? i + 1,
     day_slot: "am" as DaySlot,

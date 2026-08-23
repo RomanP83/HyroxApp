@@ -10,7 +10,7 @@ import { CheckIcon, SpinnerIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
 
 type Division = "open" | "pro" | "doubles" | "masters_open";
-type Level = "beginner" | "intermediate" | "advanced";
+type Level = "beginner" | "intermediate" | "advanced" | "elite" | "world_class";
 type Equipment = "full_gym" | "home_minimal" | "hybrid";
 
 export const dynamic = "force-dynamic";
@@ -213,11 +213,13 @@ export default function Onboarding() {
             onChange={(v) => setDivision(v as Division)}
           />
           <ChipGroup
-            label="How seasoned are you?"
+            label="How seasoned are you? (target finish time)"
             options={[
-              ["beginner", "New to this"],
-              ["intermediate", "Trained before"],
-              ["advanced", "Competitive"],
+              ["beginner", "New · 1:40+"],
+              ["intermediate", "Trained · sub 1:30"],
+              ["advanced", "Competitive · sub 1:20"],
+              ["elite", "Elite · sub 70 min"],
+              ["world_class", "World class · sub 60"],
             ]}
             value={level}
             onChange={(v) => setLevel(v as Level)}

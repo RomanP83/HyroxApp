@@ -86,9 +86,19 @@ Danach vier kurze Schritte. Alles ist später änderbar.
 **Live-Vorschau:** Noch bevor irgendetwas gespeichert wird, rechnet die Engine im Browser die
 Phasenaufteilung und die geschätzte Zielzeit — man sieht das Ergebnis, bevor man sich festlegt.
 
-**Frequenzhinweis:** Die App vergleicht deine gewählten Tage mit dem, wofür dein Level gebaut ist
-(3–4 / 4–5 / 5–6), und sagt es, wenn es zu viel oder zu wenig ist. Doppeltage werden getrennt
-bewertet — AM/PM-Splits gehören ins Repertoire der obersten Stufe. **Es ist ein Hinweis, keine
+**Frequenzhinweis:** Die App vergleicht deine gewählten Tage *und Einheiten* (Tage + Doppeltage)
+mit dem, wofür dein Level gebaut ist:
+
+| Level | Zielzeit | Tage | Einheiten |
+|---|---|---|---|
+| Beginner | 1:40+ | 3–4 | 3–4 |
+| Intermediate | sub 1:30 | 4–5 | 4–5 |
+| Advanced | sub 1:20 | 5 | 5–6 |
+| Elite | sub 70 min | 5–6 | 6–8 (teils Doppeltage) |
+| World Class | sub 60 min | 6 | 7–9 (AM/PM die Regel) |
+
+Doppeltage gibt es ab Advanced; auf World-Class-Niveau sind sie der Normalfall — sechs Tage ohne
+Doppeltag liegen dort sogar *unter* dem Soll, und die App sagt das. **Es ist ein Hinweis, keine
 Sperre:** du entscheidest.
 
 Am Ende: **Plan erzeugen.** Die Engine baut Phasen → Wochen → Einheiten → Blöcke, alles wird in
@@ -220,6 +230,16 @@ Woche, damit nichts davonläuft.
 | Dauerhaft hohe RPE (14 Tage) | Automatischer Deload |
 | ACWR unter 0,8 | Sanfter Wiedereinstieg |
 | 7 Tage inaktiv | Plan wird ab heute neu aufgebaut |
+
+**Die Woche ist physiologisch sortiert.** Der Planer hält beim Verteilen der Tage zwei Regeln ein:
+Zwischen zwei harten Ausdauertagen liegt immer ein Zone-2-Tag, ein Kraft-/Stationstag oder eine
+Kalenderlücke — nie zwei harte Tage direkt hintereinander. Und Krafttraining (das mit Plyometrie
+beginnt) liegt nie auf dem Tag unmittelbar nach einem harten Tag, weil das Nervensystem dafür
+24–48 h Frische braucht. Auf Doppeltagen kommt die anspruchsvollere Einheit zuerst (Kraft/Station
+am Morgen), die PM-Einheit ist immer leicht — der AM/PM-Abstand ist genau die Trennung, die der
+Interferenz-Effekt verlangt. In Basis und Build weist die Laufauswertung zudem darauf hin, dass
+20–40 % der lockeren Kilometer auf SkiErg, Ruderergometer oder Rad wandern können — gleicher
+Motor, schonender für die Achillessehne.
 
 **Rebase statt Flickwerk.** Wenn sich etwas Grundlegendes ändert — Verletzung, Pause, neues
 Laufvolumen — wird der Plan **ab heute neu gerechnet**, nicht rückwirkend verbogen. Vergangene
@@ -433,6 +453,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Fünf Leistungslevel (bis World Class, sub 60) mit Einheiten-Soll; Wochenplaner hält Abstandsregeln ein (keine zwei harten Tage in Folge, Kraft nie nach hartem Tag); 16 Wochen = 5/5/4/2; Erg-Hinweis; Kohlenhydrat-Periodisierung | [3](#3-onboarding--den-plan-erzeugen), [6](#6-wie-sich-der-plan-anpasst) |
 | Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [8](#8-strength--eigenes-kraftprogramm) |
 | Einheitliche Rückkehr zur Wochenansicht: gemeinsame Kopfzeile auf allen eingeloggten Seiten (Logo → `/plan`), Rückweg auch auf der Betreiberseite | [2](#2-seitenübersicht) |
 | `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |

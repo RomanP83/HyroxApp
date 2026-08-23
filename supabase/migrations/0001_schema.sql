@@ -19,7 +19,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type experience_level_t as enum ('beginner', 'intermediate', 'advanced');
+  create type experience_level_t as enum ('beginner', 'intermediate', 'advanced', 'elite', 'world_class');
 exception when duplicate_object then null; end $$;
 
 do $$ begin

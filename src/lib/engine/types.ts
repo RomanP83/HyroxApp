@@ -5,7 +5,12 @@
 // ============================================================================
 
 export type Division = "open" | "pro" | "doubles" | "masters_open" | "masters_pro";
-export type ExperienceLevel = "beginner" | "intermediate" | "advanced";
+export type ExperienceLevel =
+  | "beginner"
+  | "intermediate"
+  | "advanced"
+  | "elite"
+  | "world_class";
 export type EquipmentAccess = "full_gym" | "home_minimal" | "hybrid";
 export type PhaseType = "base" | "build" | "peak" | "taper";
 

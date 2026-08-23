@@ -129,7 +129,7 @@ export default async function ProgressPage() {
   return (
     <main className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/plan" className="text-sm text-muted hover:text-ink">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Back to plan
         </Link>
         <span className="pill">Progress · every number from your logs</span>
@@ -187,7 +187,7 @@ export default async function ProgressPage() {
 function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="card">
-      <div className="text-xs text-muted">{label}</div>
+      <div className="text-xs text-ash">{label}</div>
       <div className="text-2xl font-bold">{value}</div>
     </div>
   );
@@ -197,7 +197,7 @@ function Card({ title, sub, children }: { title: string; sub: string; children: 
   return (
     <div className="card">
       <h2 className="font-semibold">{title}</h2>
-      <p className="mb-3 text-xs text-muted">{sub}</p>
+      <p className="mb-3 text-xs text-ash">{sub}</p>
       {children}
     </div>
   );

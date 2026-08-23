@@ -76,6 +76,13 @@ export const ChartIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+  </Svg>
+);
+
 export const TargetIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" />
@@ -127,6 +134,19 @@ export const MoveIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M8 7h12M8 12h12M8 17h12" />
     <path d="M4 7h.01M4 12h.01M4 17h.01" />
+  </Svg>
+);
+
+export const UndoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9h11a5 5 0 0 1 0 10h-6" />
+    <path d="M8 5L4 9l4 4" />
+  </Svg>
+);
+
+export const DumbbellIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" />
   </Svg>
 );
 

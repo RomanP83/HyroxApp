@@ -16,12 +16,79 @@ export function fmtClock(totalSeconds?: number | null): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
 }
 
+/**
+ * The palette, once, in TypeScript — for the places that need a colour as a
+ * value (inline styles, canvas, chart strokes) rather than a class. Same
+ * numbers as tailwind.config.ts; changing one means changing both.
+ */
+export const PALETTE = {
+  flame: "#ff5a1f",
+  amber: "#e8a33a",
+  go: "#35b88a",
+  stop: "#e0646c",
+  smoke: "#55636f",
+  ash: "#7b8b98",
+  cool: "#6ea8fe",
+  violet: "#a78bfa",
+} as const;
+
 export const PHASE_COLORS: Record<string, string> = {
-  base: "#3ecf8e",
-  build: "#ffb020",
-  peak: "#ff5a1f",
-  taper: "#6ea8fe",
+  base: PALETTE.go,
+  build: PALETTE.amber,
+  peak: PALETTE.flame,
+  taper: PALETTE.cool,
 };
+
+/** Season block colours — the year view reuses the phase palette so a block
+ *  and the plan phase it later becomes read as the same thing. */
+export const SEASON_BLOCK_COLORS: Record<string, string> = {
+  post_race_recovery: PALETTE.smoke,
+  base: PALETTE.go,
+  build: PALETTE.amber,
+  race_specific: PALETTE.flame,
+  bridge: PALETTE.violet,
+  taper: PALETTE.cool,
+  open_base: "#3b4653",
+};
+
+/**
+ * What a day demands of you — the one axis a training week is actually read
+ * on. This is the same split the engine reasons with (see MAX_HARD_SESSIONS_
+ * PER_WEEK), so the colour on screen and the rule in the engine cannot drift.
+ */
+export type Demand = "hard" | "aerobic" | "load" | "recovery";
+
+const DEMAND_OF: Record<string, Demand> = {
+  run_intervals: "hard",
+  compromised_run: "hard",
+  full_sim: "hard",
+  benchmark: "hard",
+  race_day: "hard",
+  long_run: "aerobic",
+  run_easy: "aerobic",
+  strength: "load",
+  station_work: "load",
+  mobility: "recovery",
+  rest: "recovery",
+};
+
+export const DEMAND_COLORS: Record<Demand, string> = {
+  hard: PALETTE.flame,
+  aerobic: PALETTE.go,
+  load: PALETTE.amber,
+  recovery: PALETTE.smoke,
+};
+
+export const DEMAND_LABELS: Record<Demand, string> = {
+  hard: "Hard",
+  aerobic: "Aerobic",
+  load: "Load",
+  recovery: "Recovery",
+};
+
+export function demandOf(sessionType: string): Demand {
+  return DEMAND_OF[sessionType] ?? "load";
+}
 
 export function titleCase(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());

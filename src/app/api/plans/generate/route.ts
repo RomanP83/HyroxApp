@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
+import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { generatePlan, initialAthleteState, type AthleteProfile } from "@/lib/engine";
 
 const Body = z.object({
@@ -10,17 +11,14 @@ const Body = z.object({
   five_k_seconds: z.number().int().positive().nullable().optional(),
   station_estimates: z.record(z.number()).optional(),
   training_days_per_week: z.number().int().min(3).max(6),
+  doubles_per_week: z.number().int().min(0).max(3).optional(),
+  weekly_km_peak: z.number().min(15).max(150).nullable().optional(),
+  runs_per_week: z.number().int().min(2).max(6).nullable().optional(),
   equipment_access: z.enum(["full_gym", "home_minimal", "hybrid"]),
   telegram_chat_id: z.string().optional(),
   race_date: z.string(), // ISO date
   race_id: z.string().uuid().nullable().optional(),
 });
-
-function weeksUntil(raceDate: string): number {
-  const ms = new Date(raceDate).getTime() - Date.now();
-  const weeks = Math.ceil(ms / (7 * 86_400_000));
-  return Math.max(4, Math.min(20, weeks));
-}
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
@@ -46,6 +44,9 @@ export async function POST(req: Request) {
         five_k_seconds: body.five_k_seconds ?? null,
         station_estimates: body.station_estimates ?? {},
         training_days_per_week: body.training_days_per_week,
+        doubles_per_week: body.doubles_per_week ?? 0,
+        weekly_km_peak: body.weekly_km_peak ?? null,
+        runs_per_week: body.runs_per_week ?? null,
         equipment_access: body.equipment_access,
         telegram_chat_id: body.telegram_chat_id ?? null,
       },
@@ -79,10 +80,27 @@ export async function POST(req: Request) {
     { onConflict: "profile_id" },
   );
 
-  // 3) Generate + persist the plan.
-  const weeksToRace = weeksUntil(body.race_date);
+  // 3) Generate + persist the plan. Any race already in the athlete's calendar
+  // that falls inside this cycle bends the training days around it (a B race
+  // buys a short taper, a C race replaces the week's hard session).
+  const today = new Date().toISOString().slice(0, 10);
+  const raceDate = body.race_date.slice(0, 10);
+  const weeksToRace = planWeeksTo(raceDate, today);
+
+  // The target race is always in the plan, whether or not it is in the season
+  // calendar yet — a plan that does not end on its race day is a plan with a
+  // hole in it. Everything else in the calendar rides inside the cycle.
+  const calendar = await loadSeasonRaces(supabase, profile.id);
+  const named = body.race_id
+    ? ((await supabase.from("races").select("name").eq("id", body.race_id).maybeSingle()).data
+        ?.name as string | undefined)
+    : undefined;
+  const withTarget = calendar.some((r) => r.date === raceDate)
+    ? calendar
+    : [...calendar, { date: raceDate, type: named ?? "Race day", priority: "A" as const, is_anchor: true }];
+  const races = racesForPlan(withTarget, today, raceDate);
   const library = await loadLibrary(supabase);
-  const plan = generatePlan({ profile, state, library, weeksToRace });
+  const plan = generatePlan({ profile, state, library, weeksToRace, startDate: today, races });
   const planId = await persistPlan(
     supabase,
     { profileId: profile.id, raceDate: body.race_date, raceId: body.race_id ?? null },

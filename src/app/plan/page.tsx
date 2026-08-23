@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { Division, GeneratedSession, RenderedBlock } from "@/lib/engine";
+import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib/engine";
+import {
+  assessVolumeTarget,
+  defaultPaceZones,
+  frequencyAdvice,
+  weeklyRunSummary,
+  type ExperienceLevel,
+} from "@/lib/engine";
+import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import { signDeepLink } from "@/lib/telegram";
 import { stravaConfigured } from "@/lib/strava";
@@ -23,7 +31,9 @@ export default async function PlanPage({
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id, division, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status")
+    .select(
+      "id, division, experience_level, telegram_chat_id, strava_athlete_id, garmin_user_id, subscription_status, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week",
+    )
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
@@ -50,7 +60,7 @@ export default async function PlanPage({
       <main className="mx-auto max-w-md space-y-4 pt-20 text-center animate-fade-up">
         <div className="text-4xl">🏁</div>
         <h1 className="text-2xl font-bold">Your plan starts here</h1>
-        <p className="text-muted">
+        <p className="text-ash">
           Two minutes of questions, and the engine builds a week-by-week plan backward from your
           race date — week 1 free.
         </p>
@@ -76,7 +86,7 @@ export default async function PlanPage({
     garminConfigured() && !profile.garmin_user_id ? "/api/garmin/connect" : null;
   const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
 
-  const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }] =
+  const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }] =
     await Promise.all([
       supabase.from("plan_phases").select("phase_type, start_week, end_week").eq("plan_id", plan.id),
       supabase
@@ -91,6 +101,13 @@ export default async function PlanPage({
         .eq("plan_id", plan.id)
         .order("created_at", { ascending: false })
         .limit(8),
+      supabase
+        .from("strength_templates")
+        .select(
+          "id, name, sort_order, strength_exercises(id, position, name, sets, rep_min, rep_max, load_kg, superset_group)",
+        )
+        .eq("profile_id", profile.id)
+        .order("sort_order", { ascending: true }),
     ]);
 
   const weekList = weeks ?? [];
@@ -103,12 +120,47 @@ export default async function PlanPage({
   const { data: sessionRows } = await supabase
     .from("sessions")
     .select(
-      "id, day_hint, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))",
+      "id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))",
     )
     .eq("week_id", current.id)
     .order("sort_order", { ascending: true });
 
   const locked = current.week_number > 1 && !paid;
+
+  // The athlete's own strength day replaces the library's main block. Several
+  // days rotate by week, so Tag A / Tag B alternate the way they would in the
+  // sheet. Nothing is written: the plan tree stays as generated, this is how
+  // the week is *shown* and logged.
+  const templates = (strengthTemplates ?? []) as unknown as {
+    id: string;
+    name: string;
+    strength_exercises: {
+      id: string;
+      position: number;
+      name: string;
+      sets: number;
+      rep_min: number | null;
+      rep_max: number | null;
+      load_kg: number | string | null;
+      superset_group: string | null;
+    }[];
+  }[];
+  const usable = templates.filter((t) => t.strength_exercises?.length);
+  const strengthTemplate = usable.length
+    ? usable[(current.week_number - 1) % usable.length]
+    : null;
+  const strengthExercises = (strengthTemplate?.strength_exercises ?? [])
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      sets: e.sets,
+      rep_min: e.rep_min,
+      rep_max: e.rep_max,
+      load_kg: e.load_kg == null ? null : Number(e.load_kg),
+      superset_group: e.superset_group,
+    }));
 
   const clientSessions: ClientSession[] = (sessionRows ?? []).map((s: any) => {
     // A1/K1: locked weeks never ship their blocks to the browser — the lock
@@ -131,6 +183,7 @@ export default async function PlanPage({
           }));
     const session: GeneratedSession = {
       day_hint: s.day_hint,
+      day_slot: (s.day_slot ?? "am") as GeneratedSession["day_slot"],
       session_type: s.session_type,
       title: s.title,
       planned_duration_min: s.planned_duration_min,
@@ -138,8 +191,76 @@ export default async function PlanPage({
       sort_order: s.sort_order,
       blocks,
     };
+    // A strength session shows the athlete's own exercises instead of the
+    // library block — warm-up and mobility around it stay as generated.
+    if (strengthTemplate && s.session_type === "strength" && !locked) {
+      session.blocks = [
+        ...blocks.filter((b) => b.block_type !== "main"),
+        {
+          block_id: strengthTemplate.id,
+          slug: "personal_strength_day",
+          block_type: "main",
+          station: null,
+          sort_order: 1,
+          content: strengthExercises.map((e) => ({
+            exercise: e.name,
+            sets: e.sets,
+            rep_min: e.rep_min,
+            rep_max: e.rep_max,
+            load_kg: e.load_kg,
+            superset_group: e.superset_group,
+          })),
+          load_adjustments: { division: profile.division as Division },
+        },
+      ];
+      return {
+        id: s.id,
+        session,
+        status: s.status,
+        strength: { templateName: strengthTemplate.name, exercises: strengthExercises },
+      };
+    }
     return { id: s.id, session, status: s.status };
   });
+
+  // The running architecture of this week: volume and the aerobic/hard split,
+  // computed from the live pace zones rather than stored — it follows the
+  // athlete's calibration automatically.
+  const zones = (state?.pace_zones as ReturnType<typeof defaultPaceZones> | undefined) ?? null;
+  const currentPhase = (phases ?? []).find(
+    (p: { start_week: number; end_week: number }) =>
+      current.week_number >= p.start_week && current.week_number <= p.end_week,
+  );
+  const runSummary =
+    zones && Object.keys(zones).length
+      ? weeklyRunSummary(
+          (sessionRows ?? []).map((s: { session_type: GeneratedSession["session_type"]; planned_duration_min: number }) => ({
+            session_type: s.session_type,
+            planned_duration_min: s.planned_duration_min,
+          })),
+          zones,
+          currentPhase?.phase_type as PhaseType | undefined,
+        )
+      : null;
+
+  // The volume corrective: the target the athlete set, measured against the
+  // kilometres they have actually been running.
+  const peakKm = profile.weekly_km_peak == null ? null : Number(profile.weekly_km_peak);
+  const buildPhase = (phases ?? []).find(
+    (p: { phase_type: string }) => p.phase_type === "build",
+  ) as { end_week: number } | undefined;
+  const weeksToPeak = Math.max(
+    0,
+    (buildPhase?.end_week ?? plan.total_weeks) - current.week_number,
+  );
+  const assessment =
+    peakKm && zones && Object.keys(zones).length
+      ? assessVolumeTarget({
+          targetKm: peakKm,
+          recentWeeklyKm: await recentWeeklyRunKm(supabase, zones),
+          weeksToPeak,
+        })
+      : null;
 
   return (
     <PlanClient
@@ -159,6 +280,20 @@ export default async function PlanPage({
       state={state}
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
       locked={locked}
+      runSummary={runSummary}
+      volume={{
+        weekly_km_peak: peakKm,
+        runs_per_week: profile.runs_per_week ?? null,
+        max_runs: Math.max(2, (profile.training_days_per_week ?? 4) - 1),
+        assessment,
+        frequency: profile.experience_level
+          ? frequencyAdvice(
+              profile.experience_level as ExperienceLevel,
+              profile.training_days_per_week ?? 4,
+              profile.doubles_per_week ?? 0,
+            )
+          : null,
+      }}
     />
   );
 }

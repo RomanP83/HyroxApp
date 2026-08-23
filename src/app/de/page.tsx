@@ -39,13 +39,13 @@ export default function GermanHome() {
     <main className="space-y-16">
       <header className="flex items-center justify-between">
         <span className="text-lg font-bold tracking-tight">
-          Hyrox<span className="text-accent">·</span>Hub
+          Hyrox<span className="text-flame">·</span>Hub
         </span>
         <nav className="flex items-center gap-3 text-sm">
-          <Link href="/" className="text-muted hover:text-ink">
+          <Link href="/" className="text-ash hover:text-chalk">
             🇬🇧 English
           </Link>
-          <Link href="/demo" className="text-muted hover:text-ink">
+          <Link href="/demo" className="text-ash hover:text-chalk">
             Live-Demo
           </Link>
           <Link href="/onboarding" className="btn-primary">
@@ -57,10 +57,10 @@ export default function GermanHome() {
       <section className="space-y-6 pt-8 text-center">
         <span className="pill mx-auto">Dein Plan bis zum Renntag · kein Random-WOD-Feed</span>
         <h1 className="mx-auto max-w-3xl text-4xl font-extrabold leading-tight sm:text-5xl">
-          Ein Hyrox Trainingsplan, rückwärts von <em className="text-accent not-italic">deinem</em>{" "}
+          Ein Hyrox Trainingsplan, rückwärts von <em className="text-flame not-italic">deinem</em>{" "}
           Rennen geplant — der sich nach jedem Training anpasst.
         </h1>
-        <p className="mx-auto max-w-2xl text-lg text-muted">
+        <p className="mx-auto max-w-2xl text-lg text-ash">
           Sichtbare Phasen, konkrete Gewichte und Paces je Division, und eine Engine, die nach
           jeder gelogten Einheit rekalibriert. Adaption wie bei running.COACH — für Hyrox, ohne
           Wearable-Pflicht.
@@ -77,7 +77,7 @@ export default function GermanHome() {
 
       <section className="grid gap-3 sm:grid-cols-2">
         {painQuotes.map((q) => (
-          <div key={q} className="card text-muted">
+          <div key={q} className="card text-ash">
             {q}
           </div>
         ))}
@@ -90,7 +90,7 @@ export default function GermanHome() {
             <div key={p.name} className="card">
               <div className="mb-2 h-1.5 w-full rounded-full" style={{ background: p.color }} />
               <div className="font-semibold">{p.name}</div>
-              <div className="text-sm text-muted">{p.desc}</div>
+              <div className="text-sm text-ash">{p.desc}</div>
             </div>
           ))}
         </div>
@@ -122,9 +122,9 @@ export default function GermanHome() {
         </div>
       </section>
 
-      <footer className="border-t border-line pt-6 text-sm text-muted">
+      <footer className="border-t border-edge pt-6 text-sm text-ash">
         Einmalpreis pro Race-Cycle. Solo gebaut, in public. ·{" "}
-        <Link href="/demo" className="text-accent hover:underline">
+        <Link href="/demo" className="text-flame hover:underline">
           Engine ausprobieren
         </Link>
       </footer>
@@ -136,7 +136,7 @@ function Feature({ title, body }: { title: string; body: string }) {
   return (
     <div className="card">
       <h3 className="mb-1 font-semibold">{title}</h3>
-      <p className="text-sm text-muted">{body}</p>
+      <p className="text-sm text-ash">{body}</p>
     </div>
   );
 }

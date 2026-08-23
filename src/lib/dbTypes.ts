@@ -77,3 +77,29 @@ export interface RaceRow {
   country: string | null;
   event_date: string;
 }
+
+/**
+ * Parse a `session_logs.state_before` snapshot (jsonb) back into engine state.
+ * The snapshot is written by applyMicroForSession() as a plain AthleteState;
+ * anything older (logged before the reset feature shipped) yields null, which
+ * the reset path treats as "cannot roll the fitness state back".
+ */
+export function stateFromSnapshot(value: unknown): AthleteState | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  if (typeof v.acwr !== "number" || typeof v.pace_zones !== "object" || v.pace_zones === null) {
+    return null;
+  }
+  return {
+    acute_load_7d: Number(v.acute_load_7d ?? 0),
+    chronic_load_28d: Number(v.chronic_load_28d ?? 0),
+    acwr: Number(v.acwr),
+    pace_zones: v.pace_zones as PaceZones,
+    station_tiers: (v.station_tiers ?? {}) as Record<string, number>,
+    predicted_race_time_sec:
+      typeof v.predicted_race_time_sec === "number" ? v.predicted_race_time_sec : null,
+    strength_modifier: Number(v.strength_modifier ?? 1),
+    pace_zones_ref: (v.pace_zones_ref ?? v.pace_zones) as PaceZones,
+    pace_ref_at: typeof v.pace_ref_at === "string" ? v.pace_ref_at : null,
+  };
+}

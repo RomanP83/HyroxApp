@@ -9,12 +9,17 @@ import type {
   AthleteProfile,
   AthleteState,
   EquipmentVariant,
+  PhaseType,
   RenderedBlock,
   SessionType,
   Station,
   WorkoutBlock,
 } from "./types";
 import { STATIONS } from "./types";
+import { COMPROMISED_OPENING, compromisedOpeningPace, isRunSession, runSpec } from "./running";
+import { pickRunVariant, type VariantPick } from "./runVariants";
+import { pickStationVariant } from "./stationVariants";
+import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -29,20 +34,10 @@ export function stationForWeek(weekNumber: number): Station {
   return STATIONS[(weekNumber - 1) % STATIONS.length];
 }
 
-/** Which pace zone a session type runs at. */
+/** Which pace zone a session type runs at — one table, in running.ts. */
 function paceForSession(state: AthleteState, type: SessionType): number | undefined {
-  const z = state.pace_zones;
-  switch (type) {
-    case "run_easy":
-      return z.easy_sec_km;
-    case "run_intervals":
-      return z.interval_sec_km;
-    case "compromised_run":
-    case "full_sim":
-      return z.race_sec_km;
-    default:
-      return undefined;
-  }
+  const spec = runSpec(type);
+  return spec ? state.pace_zones[spec.pace_zone] : undefined;
 }
 
 interface PickOpts {
@@ -60,6 +55,20 @@ function pickBlock(opts: PickOpts): WorkoutBlock | undefined {
   let candidates = library.filter(
     (b) => b.block_type === blockType && b.session_types.includes(sessionType),
   );
+  // Long runs and recovery runs share the library's run blocks; the "long" tag
+  // is what separates a 80-minute Zone-2 block from a 6 km shake-out. Typing
+  // them apart would mean a new enum value in the seed, which a single-
+  // transaction setup.sql cannot do (see migration 0016).
+  if (sessionType === "long_run") {
+    const runBlocks = library.filter(
+      (b) => b.block_type === blockType && b.session_types.includes("run_easy"),
+    );
+    const long = runBlocks.filter((b) => b.tags.includes("long"));
+    candidates = long.length ? long : runBlocks;
+  } else if (sessionType === "run_easy") {
+    const short = candidates.filter((b) => !b.tags.includes("long"));
+    if (short.length) candidates = short;
+  }
   // Variant: exact match, else allow gym as universal fallback.
   const variantMatch = candidates.filter((b) => b.equipment_variant === variant);
   if (variantMatch.length) candidates = variantMatch;
@@ -107,12 +116,17 @@ export function fillSession(
   state: AthleteState,
   library: WorkoutBlock[],
   weekNumber: number,
+  /** Which phase the week belongs to — decides which variants are eligible. */
+  phase?: PhaseType,
 ): RenderedBlock[] {
   const variant = variantFor(profile);
   const blocks: RenderedBlock[] = [];
   let order = 0;
 
   if (slot.session_type === "rest") return blocks;
+  // A race day has no prescription to render: the event is the session, and
+  // its warm-up belongs to the athlete's own routine, not to the library.
+  if (slot.session_type === "race_day") return blocks;
   if (slot.session_type === "mobility") {
     const mob = pickBlock({ library, sessionType: "mobility", blockType: "mobility", variant });
     if (mob) blocks.push(render(mob, profile, order++, { division: profile.division }));
@@ -130,8 +144,37 @@ export function fillSession(
   const wu = pickBlock({ library, sessionType: slot.session_type, blockType: "warmup", variant });
   if (wu) blocks.push(render(wu, profile, order++, { division: profile.division }));
 
-  // Main block.
-  const main = pickBlock({
+  // Main block. For a run session the variant layer decides the shape of the
+  // week (rotation, with every second week aimed at a weakness); the library
+  // block it names is used when it is there, otherwise the generic pick stands.
+  let picked: VariantPick | null = null;
+  let main: WorkoutBlock | undefined;
+  if (
+    phase &&
+    (isRunSession(slot.session_type) ||
+      slot.session_type === "station_work" ||
+      slot.session_type === "strength")
+  ) {
+    const query = {
+      sessionType: slot.session_type,
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+    };
+    picked = isRunSession(slot.session_type)
+      ? pickRunVariant(query)
+      : slot.session_type === "strength"
+        ? pickStrengthVariant(query)
+        : pickStationVariant(query);
+    // The demo library carries the slug as its id; the database has both.
+    main = picked
+      ? library.find((b) => (b.slug ?? b.id) === picked!.variant.slug)
+      : undefined;
+    if (!main) picked = null;
+  }
+  main ??= pickBlock({
     library,
     sessionType: slot.session_type,
     blockType: "main",
@@ -146,15 +189,48 @@ export function fillSession(
       slot.session_type === "strength" && state.strength_modifier !== 1
         ? state.strength_modifier
         : undefined;
+    // Coming out of a station the first 400 m carry a buffer on the flat split,
+    // and the first 200 m are for breathing — not for making up time.
+    const compromised =
+      pace != null && (slot.session_type === "compromised_run" || slot.session_type === "full_sim")
+        ? {
+            opening_pace_sec_km: compromisedOpeningPace(pace),
+            opening_distance_m: COMPROMISED_OPENING.buffer_distance_m,
+            stabilise_distance_m: COMPROMISED_OPENING.stabilise_distance_m,
+          }
+        : undefined;
     blocks.push(
       render(main, profile, order++, {
         division: profile.division,
         station_tier: targetTier,
         pace_sec_km: pace,
         strength_modifier: strengthMod,
+        ...compromised,
+        variant_name: picked?.variant.name,
+        variant_why: picked?.variant.why,
+        variant_fallback: picked?.variant.fallback,
+        variant_targeted: picked?.targeted,
         note: station ? `${station} focus @ tier ${targetTier}` : undefined,
       }),
     );
+  }
+
+  // A strength day carries a finisher — this is where plyometrics and grip
+  // work live, because both only do their job in a rested state. Nothing
+  // attached finishers before, which is why the library's grip block was never
+  // once prescribed.
+  if (phase && slot.session_type === "strength") {
+    const finisher = pickStrengthFinisher(weekNumber, phase);
+    const block = library.find((b) => (b.slug ?? b.id) === finisher.slug);
+    if (block) {
+      blocks.push(
+        render(block, profile, order++, {
+          division: profile.division,
+          variant_name: finisher.name,
+          variant_why: finisher.why,
+        }),
+      );
+    }
   }
 
   // A short mobility cap on hard, non-run days for recovery hygiene.

@@ -159,6 +159,8 @@ export interface GarminActivitySummary {
   activityName?: string;
   durationInSeconds?: number;
   distanceInMeters?: number;
+  /** Unix seconds; Garmin sends this on every activity summary. */
+  startTimeInSeconds?: number;
 }
 
 export function isGarminRun(activityType?: string): boolean {
@@ -187,5 +189,8 @@ export async function processGarminSummary(
     distanceM: summary.distanceInMeters ?? 0,
     source: "Garmin",
     name: summary.activityName,
+    startedAt: summary.startTimeInSeconds
+      ? new Date(summary.startTimeInSeconds * 1000).toISOString()
+      : undefined,
   });
 }

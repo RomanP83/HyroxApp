@@ -4,20 +4,31 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
-import { SessionCard, type LogAction } from "./SessionCard";
+import { AppHeader } from "./AppHeader";
+import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthSetInput } from "./SessionCard";
 import { FeedbackCard } from "./FeedbackCard";
-import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
+import {
+  DEMAND_COLORS,
+  DEMAND_LABELS,
+  fmtClock,
+  fmtPace,
+  PHASE_COLORS,
+  titleCase,
+} from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
-import type { PhaseType } from "@/lib/engine";
+import type { FrequencyAdvice, PhaseType, VolumeAssessment, WeeklyRunSummary } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
+  CalendarIcon,
   ChartIcon,
+  DumbbellIcon,
   LeafIcon,
   LockIcon,
   MedicalIcon,
   RunIcon,
   SendIcon,
   SparkIcon,
+  SpinnerIcon,
   TargetIcon,
 } from "./icons";
 
@@ -25,6 +36,8 @@ export interface ClientSession {
   id: string;
   session: GeneratedSession;
   status: "planned" | "done" | "skipped" | "moved";
+  /** The athlete's own strength day, when this session is one. */
+  strength?: { templateName: string; exercises: StrengthExerciseInput[] } | null;
 }
 
 interface WeekMeta {
@@ -55,6 +68,17 @@ interface Props {
   state: any;
   adjustments: string[];
   locked: boolean;
+  /** What this week's running adds up to — volume and 80/20 distribution. */
+  runSummary: WeeklyRunSummary | null;
+  /** The athlete's own volume target, and what their recent weeks support. */
+  volume: {
+    weekly_km_peak: number | null;
+    runs_per_week: number | null;
+    max_runs: number;
+    assessment: VolumeAssessment | null;
+    /** How the chosen load reads against the athlete's experience level. */
+    frequency: FrequencyAdvice | null;
+  };
   /** Deep link to connect the Telegram bot; null when connected/unconfigured. */
   telegramLink: string | null;
   /** Strava OAuth entry point; null when connected/unconfigured (C2). */
@@ -67,6 +91,8 @@ interface Props {
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
 
+const DAY_INITIALS = ["", "M", "T", "W", "T", "F", "S", "S"];
+
 export function PlanClient(props: Props) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
@@ -74,10 +100,42 @@ export function PlanClient(props: Props) {
   const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
   // Perceived speed (#6): flip the card state the instant the tap lands;
   // the server round-trip only confirms (or reverts on error).
-  const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped">>({});
+  const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped" | "planned">>({});
+  const [resetting, setResetting] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  // Today is a client fact: resolving it during render would make the server
+  // and the browser disagree about which day to highlight.
+  const [today, setToday] = useState<{ weekday: number; daysToRace: number } | null>(null);
+
+  useEffect(() => {
+    const now = new Date();
+    const weekday = now.getDay() === 0 ? 7 : now.getDay(); // Monday = 1
+    const race = new Date(`${props.raceDate.slice(0, 10)}T00:00:00Z`).getTime();
+    const midnight = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    setToday({
+      weekday,
+      daysToRace: Math.max(0, Math.round((race - midnight) / 86_400_000)),
+    });
+  }, [props.raceDate]);
+
+  const daysToRace = today?.daysToRace ?? null;
+  const [savingVolume, setSavingVolume] = useState(false);
+  const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
+  const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
+  // Days that carry an AM *and* a PM session — only there does the marker help.
+  const doubleDays = new Set(
+    props.sessions
+      .map((cs) => cs.session.day_hint)
+      .filter((day, i, all) => all.indexOf(day) !== i),
+  );
   const currentPhase = phaseOf(props.currentWeek.week_number);
+  // Which halves of the week are already occupied. The card only sees itself,
+  // so the page — which sees the whole week — hands it the map.
+  const occupied = new Set(
+    props.sessions.map((cs) => `${cs.session.day_hint}-${cs.session.day_slot ?? "am"}`),
+  );
 
   // B6: returning from Stripe — verify the checkout session server-side
   // instead of trusting a query flag, then clean the URL.
@@ -119,7 +177,12 @@ export function PlanClient(props: Props) {
     }
   }
 
-  async function log(sessionId: string, action: LogAction, target: number) {
+  async function log(
+    sessionId: string,
+    action: LogAction,
+    target: number,
+    strengthSets?: StrengthSetInput[],
+  ) {
     setBusy({ sessionId, action });
     // Instant feedback (#6): the card flips before the network answers.
     setOptimistic((m) => ({ ...m, [sessionId]: action === "skip" ? "skipped" : "done" }));
@@ -127,12 +190,15 @@ export function PlanClient(props: Props) {
       const body =
         action === "skip"
           ? { skip: true }
-          : action === "planned"
-            ? { completed_as_planned: true }
-            : {
-                completed_as_planned: false,
-                rpe_actual: Math.max(1, Math.min(10, target + ACTION_RPE[action])),
-              };
+          : {
+              ...(action === "planned"
+                ? { completed_as_planned: true }
+                : {
+                    completed_as_planned: false,
+                    rpe_actual: Math.max(1, Math.min(10, target + ACTION_RPE[action])),
+                  }),
+              ...(strengthSets?.length ? { strength_sets: strengthSets } : {}),
+            };
       const res = await fetch(`/api/sessions/${sessionId}/log`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -141,11 +207,19 @@ export function PlanClient(props: Props) {
       if (!res.ok) throw new Error("log failed");
       const data = await res.json();
       const reason = data?.adaptation?.adjustments?.[0]?.reason;
+      // A new weight to consider outranks the generic confirmation: it is the
+      // one thing that needs the athlete's decision.
+      const suggestion = data?.strength?.suggestions?.[0];
+      if (suggestion) {
+        setToast(
+          `${suggestion.exercise}: ${suggestion.reason} Take it on the strength page whenever you want.`,
+        );
+      }
       if (data?.feedback && action !== "skip") {
         haptic("milestone");
         setFeedback(data.feedback);
-        if (reason) setToast(reason);
-      } else {
+        if (reason && !suggestion) setToast(reason);
+      } else if (!suggestion) {
         setToast(
           reason ??
             (action === "skip"
@@ -166,6 +240,83 @@ export function PlanClient(props: Props) {
     }
   }
 
+  // Mis-tap insurance (PP3): give a single day back. The server drops the log,
+  // restores the pre-log fitness state and replays every later log, so the
+  // plan lands exactly where it would be had the day never been logged.
+  async function reset(sessionId: string) {
+    setResetting(sessionId);
+    const previous = optimistic[sessionId];
+    setOptimistic((m) => ({ ...m, [sessionId]: "planned" }));
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/log`, { method: "DELETE" });
+      if (!res.ok) throw new Error("reset failed");
+      const data = await res.json();
+      haptic("confirm");
+      setToast(data?.reset?.reason ?? "Day reset — log it again whenever you're ready.");
+      router.refresh();
+    } catch {
+      setOptimistic((m) => {
+        if (previous) return { ...m, [sessionId]: previous };
+        const { [sessionId]: _, ...rest } = m;
+        return rest;
+      });
+      setToast("Couldn't reset that day. Give it another tap.");
+    } finally {
+      setResetting(null);
+    }
+  }
+
+  /**
+   * Move a session to another day of the week. A target that already holds a
+   * session is a swap, not an error — the server does both rows in one
+   * transaction, so the week can never end up with two sessions in one half.
+   */
+  async function move(sessionId: string, dayHint: number, daySlot: "am" | "pm") {
+    setMovingId(sessionId);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/move`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day_hint: dayHint, day_slot: daySlot }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "move failed");
+      haptic("confirm");
+      setToast(data.reason ?? "Moved.");
+      router.refresh();
+    } catch {
+      setToast("Couldn't move that session. Give it another tap.");
+    } finally {
+      setMovingId(null);
+    }
+  }
+
+  // Volume is a change to every remaining week, so saving it rebuilds the plan
+  // from today (the same rebase the injury-recovery flow uses).
+  async function saveVolume(kmPeak: number | null, runsPerWeek: number | null) {
+    setSavingVolume(true);
+    try {
+      const res = await fetch("/api/plans/volume", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ weekly_km_peak: kmPeak, runs_per_week: runsPerWeek }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "could not save");
+      setToast(
+        kmPeak
+          ? `Volume set — the remaining weeks were rebuilt around ${kmPeak} km at the peak.`
+          : "Volume handed back to the engine — the remaining weeks were rebuilt.",
+      );
+      router.refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "could not save the volume");
+    } finally {
+      setSavingVolume(false);
+    }
+  }
+
   async function unlock(tier: "race_cycle" | "subscription" = "race_cycle") {
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
@@ -179,32 +330,21 @@ export function PlanClient(props: Props) {
 
   return (
     <main className="space-y-6">
-      <div className="flex items-center justify-between">
-        <span className="text-lg font-bold">
-          Hyrox<span className="text-accent">·</span>Hub
-        </span>
-        <div className="flex items-center gap-2 text-sm">
-          <Link href="/progress" className="btn-ghost">
-            <ChartIcon size={16} />
-            Progress
-          </Link>
-          <Link href="/benchmarks" className="btn-ghost">
-            <TargetIcon size={16} />
-            Benchmarks
-          </Link>
-          <span className="pill">Race {new Date(props.raceDate).toLocaleDateString()}</span>
-          {!props.paid && (
+      <AppHeader
+        countdown={{ label: "Race day", days: daysToRace }}
+        action={
+          !props.paid ? (
             <button className="btn-primary" onClick={() => unlock()}>
               Unlock full plan
             </button>
-          )}
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       {props.planStatus === "rehab" && (
-        <div className="card border-warn/50 bg-surface2 flex flex-wrap items-center justify-between gap-3 animate-fade-up">
-          <div className="flex items-start gap-3 text-sm">
-            <MedicalIcon size={18} className="mt-0.5 shrink-0 text-warn" />
+        <div className="card border-amber/50 bg-rack flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+          <div className="flex items-start gap-3 text-base">
+            <MedicalIcon size={18} className="mt-0.5 shrink-0 text-amber" />
             <span>
               <b>Rehab mode.</b> Stick to mobility and low-impact work — no plan stop, no lost
               progress. When you&apos;re ready, the plan rebuilds from that day.
@@ -217,9 +357,9 @@ export function PlanClient(props: Props) {
       )}
 
       {!props.paid && (
-        <div className="card border-accent/40 bg-surface2 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <div className="card border-flame/40 bg-rack flex flex-wrap items-center justify-between gap-2 text-base">
           <span className="flex items-start gap-3">
-            <LockIcon size={18} className="mt-0.5 shrink-0 text-accent" />
+            <LockIcon size={18} className="mt-0.5 shrink-0 text-flame" />
             <span>
               <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every
               week’s sessions, weights and paces — one-time price, for your race.
@@ -233,79 +373,207 @@ export function PlanClient(props: Props) {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          {/* Phase bar */}
-          <div className="flex gap-1">
-            {props.weeks.map((w) => {
-              const ph = phaseOf(w.week_number);
-              const active = w.week_number === props.currentWeek.week_number;
-              return (
-                <Link
-                  key={w.week_number}
-                  href={`/plan?week=${w.week_number}`}
-                  title={`Week ${w.week_number} · ${ph?.phase_type}`}
-                  className={`h-8 flex-1 rounded ${active ? "ring-2 ring-white" : ""}`}
-                  style={{
-                    background: PHASE_COLORS[ph?.phase_type ?? "base"],
-                    opacity: active ? 1 : 0.55,
-                  }}
-                />
-              );
-            })}
+      <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+        <div className="space-y-5">
+          {/* ── The cycle, demoted to a strip: context, not the task. ─────── */}
+          <div>
+            <div className="flex gap-[3px]">
+              {props.weeks.map((w) => {
+                const ph = phaseOf(w.week_number);
+                const active = w.week_number === props.currentWeek.week_number;
+                const marked = w.is_deload || w.is_benchmark_week;
+                return (
+                  <Link
+                    key={w.week_number}
+                    href={`/plan?week=${w.week_number}`}
+                    aria-label={`Week ${w.week_number}`}
+                    title={`Week ${w.week_number} · ${titleCase(ph?.phase_type ?? "")}${
+                      w.is_deload ? " · deload" : ""
+                    }${w.is_benchmark_week ? " · benchmark" : ""}`}
+                    className="group relative flex-1 py-2"
+                  >
+                    <span
+                      className={`block rounded-full transition-all duration-150 ease-out ${
+                        active ? "h-2" : "h-1 group-hover:h-1.5"
+                      }`}
+                      style={{
+                        background: PHASE_COLORS[ph?.phase_type ?? "base"],
+                        opacity: active ? 1 : 0.35,
+                      }}
+                    />
+                    {marked && (
+                      <span className="absolute left-1/2 top-0.5 h-1 w-1 -translate-x-1/2 rounded-full bg-amber" />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="flex justify-between font-mono text-micro text-baseoke">
+              <span>W1</span>
+              <span>RACE</span>
+            </div>
           </div>
 
-          <div className="card">
-            <div className="flex items-center gap-2">
-              <span className="pill" style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}>
+          {/* ── Why this week: the promise the product is built on, at size. ── */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span
+                className="font-mono text-micro font-bold uppercase tracking-widest"
+                style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}
+              >
                 {titleCase(currentPhase?.phase_type ?? "")}
               </span>
-              <span className="font-semibold">Week {props.currentWeek.week_number}</span>
-              {props.currentWeek.is_deload && <span className="pill text-accent2">deload</span>}
-              {props.currentWeek.is_benchmark_week && <span className="pill text-accent2">benchmark</span>}
+              <h1 className="text-h2 font-bold tracking-tight">
+                Week <span className="font-mono tabular-nums">{props.currentWeek.week_number}</span>
+              </h1>
+              {props.currentWeek.is_deload && <span className="pill text-amber">deload</span>}
+              {props.currentWeek.is_benchmark_week && (
+                <span className="pill text-amber">benchmark</span>
+              )}
             </div>
-            <p className="mt-3 text-sm text-muted">{props.currentWeek.weekly_goal}</p>
+            <p className="mt-2 max-w-[62ch] text-lead leading-relaxed text-bone">
+              {props.currentWeek.weekly_goal}
+            </p>
+
+            {props.runSummary && props.runSummary.runs > 0 && (
+              <div className="mt-4 max-w-md">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                    Running
+                  </span>
+                  <span className="font-mono text-meta tabular-nums text-bone">
+                    {props.runSummary.total_km} km · {props.runSummary.runs} runs ·{" "}
+                    {Math.round(props.runSummary.easy_share * 100)}% aerobic
+                  </span>
+                </div>
+                {/* Aerobic vs. hard kilometres — the 80/20 rule, measured. */}
+                <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-well">
+                  <div
+                    className="bg-go"
+                    style={{ width: `${Math.round(props.runSummary.easy_share * 100)}%` }}
+                    title={`${props.runSummary.easy_km} km aerobic`}
+                  />
+                  <div
+                    className="bg-flame"
+                    style={{ width: `${100 - Math.round(props.runSummary.easy_share * 100)}%` }}
+                    title={`${props.runSummary.hard_km} km hard`}
+                  />
+                </div>
+                <p
+                  className={`mt-2 text-meta ${
+                    props.runSummary.volume === "on_target" &&
+                    props.runSummary.polarisation === "on_target"
+                      ? "text-ash"
+                      : "text-amber"
+                  }`}
+                >
+                  {props.runSummary.note.replace(/^[\d.]+ runs · [\d.]+ km · \d+% aerobic\. /, "")}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ── The week. One card leads: the one you are standing in. ────── */}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                {props.sessions.length} sessions
+              </span>
+              <span className="flex items-center gap-3 text-micro text-baseoke">
+                {(["hard", "aerobic", "load"] as const).map((d) => (
+                  <span key={d} className="flex items-center gap-1.5">
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: DEMAND_COLORS[d] }}
+                    />
+                    {DEMAND_LABELS[d]}
+                  </span>
+                ))}
+              </span>
+            </div>
           </div>
 
           {props.sessions.map((cs) => (
             <SessionCard
               key={cs.id}
+              focal={today?.weekday === cs.session.day_hint && cs.status === "planned"}
               session={cs.session}
               status={optimistic[cs.id] ?? cs.status}
               locked={props.locked}
               busyAction={busy?.sessionId === cs.id ? busy.action : null}
-              onLog={props.locked ? undefined : (a) => log(cs.id, a, cs.session.intensity_rpe_target)}
+              onLog={
+                props.locked
+                  ? undefined
+                  : (a, sets) => log(cs.id, a, cs.session.intensity_rpe_target, sets)
+              }
+              strength={cs.strength ?? null}
+              onReset={props.locked ? undefined : () => reset(cs.id)}
+              resetting={resetting === cs.id}
+              showSlot={doubleDays.has(cs.session.day_hint)}
+              onMove={
+                props.locked ? undefined : (day, slot) => void move(cs.id, day, slot)
+              }
+              moving={movingId === cs.id}
+              occupied={occupied}
             />
           ))}
         </div>
 
         <aside className="space-y-4">
+          {/* The one number the whole system exists to move. It reads like the
+              clock it will be measured against, not like a metric tile. */}
+          <div className="card-focal">
+            <div className="text-micro font-semibold uppercase tracking-widest text-ash">
+              Estimated finish
+            </div>
+            <div className="mt-1.5 font-mono text-clock font-bold tabular-nums text-chalk">
+              {fmtClock(props.state?.predicted_race_time_sec)}
+            </div>
+            {props.state && (
+              <dl className="mt-4 space-y-1.5 border-t border-edge pt-3">
+                <Row k="Easy pace" v={fmtPace(props.state.pace_zones?.easy_sec_km)} />
+                <Row k="Race pace" v={fmtPace(props.state.pace_zones?.race_sec_km)} />
+                <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
+              </dl>
+            )}
+            <p className="mt-3 text-micro text-baseoke">Recalibrates every time you log.</p>
           <div className="card">
-            <div className="text-sm text-muted">Estimated finish</div>
-            <div className="text-3xl font-bold">{fmtClock(props.state?.predicted_race_time_sec)}</div>
-            <div className="text-xs text-muted">estimate · calibrates as you log</div>
+            <div className="mb-2.5 flex items-center gap-2">
+              <SparkIcon size={15} className="text-amber" />
+              <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                Why your plan changed
+              </span>
+            </div>
+            {props.adjustments.length === 0 ? (
+              <p className="text-meta leading-relaxed text-ash">
+                Nothing needed adjusting yet. Every change the engine makes gets explained here, in
+                plain words.
+              </p>
+            ) : (
+              <ul className="space-y-2.5">
+                {props.adjustments.map((r, i) => (
+                  <li
+                    key={i}
+                    className="animate-fade-up border-l-2 border-amber/40 pl-3 text-meta leading-relaxed text-bone"
+                  >
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
-          {props.state && (
-            <div className="card">
-              <div className="mb-2 text-sm font-semibold">Pace zones · ACWR</div>
-              <div className="space-y-1 text-xs">
-                <Row k="Easy" v={fmtPace(props.state.pace_zones?.easy_sec_km)} />
-                <Row k="Race" v={fmtPace(props.state.pace_zones?.race_sec_km)} />
-                <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
-              </div>
-            </div>
-          )}
+          </div>
 
           {(() => {
             const phase = currentPhase?.phase_type as PhaseType | undefined;
             const tip = phase ? PHASE_NUTRITION[phase] : undefined;
             return tip ? (
               <div className="card">
-                <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                  <LeafIcon size={16} className="text-ok" /> {tip.headline}
+                <div className="mb-1 flex items-center gap-2 text-base font-semibold">
+                  <LeafIcon size={16} className="text-go" /> {tip.headline}
                 </div>
-                <ul className="space-y-1 text-xs text-muted">
+                <ul className="space-y-1 text-meta text-ash">
                   {tip.points.map((pt) => (
                     <li key={pt}>• {pt}</li>
                   ))}
@@ -314,12 +582,22 @@ export function PlanClient(props: Props) {
             ) : null;
           })()}
 
+          {/* Setup is a one-time job. It does not deserve permanent residence
+              next to the thing you open this page for. */}
+          <details className="group rounded-panel border border-edge bg-lane/60 open:bg-lane">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-panel px-4 py-3 text-micro font-semibold uppercase tracking-widest text-ash transition-colors duration-150 hover:text-bone">
+              Setup &amp; tools
+              <span className="text-baseoke transition-transform duration-200 group-open:rotate-90">
+                ▸
+              </span>
+            </summary>
+            <div className="space-y-3 border-t border-edge p-3">
           {(props.stravaConnectUrl || props.garminConnectUrl) && (
             <div className="card">
-              <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                <RunIcon size={16} className="text-accent2" /> Auto-log your runs
+              <div className="mb-1 flex items-center gap-2 text-base font-semibold">
+                <RunIcon size={16} className="text-amber" /> Auto-log your runs
               </div>
-              <p className="mb-3 text-xs text-muted">
+              <p className="mb-3 text-meta text-ash">
                 Run paces flow straight into the pace calibration — no manual entry.
               </p>
               <div className="space-y-2">
@@ -339,10 +617,10 @@ export function PlanClient(props: Props) {
 
           {props.telegramLink && (
             <div className="card">
-              <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                <SendIcon size={16} className="text-accent2" /> One-tap logging via Telegram
+              <div className="mb-1 flex items-center gap-2 text-base font-semibold">
+                <SendIcon size={16} className="text-amber" /> One-tap logging via Telegram
               </div>
-              <p className="mb-3 text-xs text-muted">
+              <p className="mb-3 text-meta text-ash">
                 Get an evening check-in with 4 buttons — log the session without opening the app.
               </p>
               <a
@@ -358,8 +636,8 @@ export function PlanClient(props: Props) {
 
           {props.planStatus !== "rehab" && (
             <div className="card">
-              <div className="mb-1 text-sm font-semibold">Injured?</div>
-              <p className="mb-3 text-xs text-muted">
+              <div className="mb-1 text-base font-semibold">Injured?</div>
+              <p className="mb-3 text-meta text-ash">
                 Switch to low-impact rehab mode — the plan pauses gracefully and rebuilds from the
                 day you&apos;re back.
               </p>
@@ -370,29 +648,82 @@ export function PlanClient(props: Props) {
             </div>
           )}
 
-          <div className="card">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-              <SparkIcon size={16} className="text-accent2" /> Why your plan changed
+          <div className="card space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold">
+              <RunIcon size={16} className="text-amber" /> Running volume
             </div>
-            {props.adjustments.length === 0 ? (
-              <div className="text-xs text-muted">
-                You&apos;re all caught up — nothing needed adjusting yet. Every change the engine
-                makes will be explained here, in plain words.
-              </div>
-            ) : (
-              <ul className="space-y-2 text-xs">
-                {props.adjustments.map((r, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 rounded border border-line bg-surface2 p-2 animate-fade-up"
-                  >
-                    <SparkIcon size={14} className="mt-0.5 shrink-0 text-accent2" />
-                    <span>{r}</span>
-                  </li>
-                ))}
-              </ul>
+            <p className="text-meta text-ash">
+              Set the <b>peak week</b> of the cycle — every other week is derived from it. An
+              average would hide the hardest week, which is the one that decides whether the build
+              holds.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-meta">
+                <span className="label">Peak km / week</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="15"
+                  max="150"
+                  step="1"
+                  value={kmPeak}
+                  placeholder="auto"
+                  onChange={(e) => setKmPeak(e.target.value)}
+                />
+              </label>
+              <label className="text-meta">
+                <span className="label">Runs / week</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="2"
+                  max={props.volume.max_runs}
+                  step="1"
+                  value={runsPerWeek}
+                  placeholder="auto"
+                  onChange={(e) => setRunsPerWeek(e.target.value)}
+                />
+              </label>
+            </div>
+            {props.volume.frequency && (
+              <p
+                className={`text-meta ${
+                  props.volume.frequency.verdict === "ok" ? "text-ash" : "text-amber"
+                }`}
+              >
+                {props.volume.frequency.note}
+              </p>
             )}
+            {/* The corrective: what the last four logged weeks actually support. */}
+            {props.volume.assessment && (
+              <p
+                className={`text-meta ${
+                  props.volume.assessment.verdict === "steep" ? "text-amber" : "text-ash"
+                }`}
+              >
+                {props.volume.assessment.note}
+              </p>
+            )}
+            <button
+              className="btn-primary w-full"
+              disabled={savingVolume}
+              onClick={() =>
+                void saveVolume(
+                  kmPeak.trim() === "" ? null : Number(kmPeak),
+                  runsPerWeek.trim() === "" ? null : Number(runsPerWeek),
+                )
+              }
+            >
+              {savingVolume ? <SpinnerIcon size={16} /> : <RunIcon size={16} />}
+              Rebuild the remaining weeks
+            </button>
+            <p className="text-micro text-baseoke">
+              Up to {props.volume.max_runs} runs with {props.volume.max_runs + 1} training days —
+              one session a week stays strength or station work.
+            </p>
           </div>
+            </div>
+          </details>
         </aside>
       </div>
 
@@ -402,7 +733,7 @@ export function PlanClient(props: Props) {
           onClick={() => setFeedback(null)}
         >
           <div className="w-full max-w-lg animate-pop-in" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-center text-sm font-semibold text-muted">
+            <div className="mb-2 text-center text-base font-semibold text-ash">
               Training feedback
             </div>
             <FeedbackCard feedback={feedback} onClose={() => setFeedback(null)} />
@@ -412,10 +743,10 @@ export function PlanClient(props: Props) {
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg animate-fade-up"
+          className="fixed bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-edge bg-lane px-4 py-2 text-base shadow-lg animate-fade-up"
           onClick={() => setToast(null)}
         >
-          <SparkIcon size={14} className="shrink-0 text-accent2" />
+          <SparkIcon size={14} className="shrink-0 text-amber" />
           {toast}
         </div>
       )}
@@ -425,9 +756,9 @@ export function PlanClient(props: Props) {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-muted">{k}</span>
-      <span className="font-mono">{v}</span>
+    <div className="flex items-baseline justify-between gap-3 text-meta">
+      <dt className="text-ash">{k}</dt>
+      <dd className="font-mono tabular-nums text-bone">{v}</dd>
     </div>
   );
 }

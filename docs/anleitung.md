@@ -1,0 +1,443 @@
+# Anleitung zur App
+
+Diese Anleitung beschreibt **jede Funktion der Web-App und wie sie arbeitet** — aus Sicht des
+Nutzers, mit einem kurzen Blick unter die Haube, wo das Verhalten sonst überraschen würde.
+
+Sie wird **fortlaufend** mit jeder neuen Funktion erweitert; das Änderungsprotokoll am Ende hält
+fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
+[`season-periodisation.md`](season-periodisation.md), [`knowledge-pipeline.md`](knowledge-pipeline.md),
+[`implementation-plan.md`](implementation-plan.md), [`personal-setup.md`](personal-setup.md).
+
+---
+
+## Inhalt
+
+1. [Das Grundprinzip in drei Sätzen](#1-das-grundprinzip-in-drei-sätzen)
+2. [Seitenübersicht](#2-seitenübersicht)
+3. [Onboarding — den Plan erzeugen](#3-onboarding--den-plan-erzeugen)
+4. [`/plan` — die Trainingswoche](#4-plan--die-trainingswoche)
+5. [Eine Einheit loggen (und den Fehlklick zurücknehmen)](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen)
+6. [Wie sich der Plan anpasst](#6-wie-sich-der-plan-anpasst)
+7. [`/season` — Rennkalender und Jahresplanung](#7-season--rennkalender-und-jahresplanung)
+8. [`/strength` — eigenes Kraftprogramm](#8-strength--eigenes-kraftprogramm)
+9. [`/benchmarks` — Tests eintragen](#9-benchmarks--tests-eintragen)
+10. [`/progress` — Auswertungen](#10-progress--auswertungen)
+11. [Verbindungen: Strava, Garmin, Telegram](#11-verbindungen-strava-garmin-telegram)
+12. [Automatische Abläufe im Hintergrund](#12-automatische-abläufe-im-hintergrund)
+13. [Bezahlung und was frei ist](#13-bezahlung-und-was-frei-ist)
+14. [`/demo` — ausprobieren ohne Konto](#14-demo--ausprobieren-ohne-konto)
+15. [Betreiber-Oberflächen](#15-betreiber-oberflächen)
+16. [Begriffe](#16-begriffe)
+17. [Änderungsprotokoll](#17-änderungsprotokoll)
+
+---
+
+## 1. Das Grundprinzip in drei Sätzen
+
+1. **Der Plan wird gerechnet, nicht generiert.** Im Kern läuft kein Sprachmodell, sondern eine
+   deterministische Engine (`src/lib/engine/**`): gleiche Eingaben → immer derselbe Plan. Das ist
+   der Grund, warum jede Entscheidung erklärbar und testbar ist.
+2. **Rückwärts vom Renntag.** Zuerst steht der Taper fest, dann der rennspezifische Block, dann der
+   Build — die Basis bekommt, was übrig bleibt.
+3. **Die App passt sich an dich an, nicht umgekehrt.** Jede geloggte Einheit verschiebt Paces,
+   Gewichte und Volumen ein Stück; jede Anpassung wird protokolliert und ist rücknehmbar.
+
+---
+
+## 2. Seitenübersicht
+
+| Seite | Wofür | Ohne Login? |
+|---|---|---|
+| `/` | Startseite, Pitch, Einstieg | ja |
+| `/demo` | Kompletter Durchlauf mit Beispieldaten | ja |
+| `/onboarding` | Profil anlegen, Plan erzeugen | Login nötig (Magic Link) |
+| `/plan` | Die aktuelle Trainingswoche | nein |
+| `/season` | Rennkalender und Jahresplanung | nein |
+| `/strength` | Eigene Kraftprogramme, Sätze protokollieren | nein |
+| `/benchmarks` | Testergebnisse eintragen | nein |
+| `/progress` | Verlauf und Auswertungen | nein |
+| `/de/…` | Deutsche Landingpages (8/12/16 Wochen) | ja |
+| `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
+
+---
+
+## 3. Onboarding — den Plan erzeugen
+
+**Anmeldung** läuft über einen Magic Link: E-Mail eingeben, Link im Postfach klicken. Kein Passwort.
+
+Danach vier kurze Schritte. Alles ist später änderbar.
+
+| Eingabe | Was sie bewirkt |
+|---|---|
+| **Division** (Open, Pro, Doubles, Masters) | Bestimmt die Wettkampfgewichte in jeder Station-Beschreibung (z. B. Sled 152 kg vs. 202 kg). |
+| **Erfahrungslevel** | Start-Tiers der Stationen, Grundlage für die Frequenzberatung. |
+| **Trainingstage pro Woche (3–6)** | Wie viele Slots eine Woche bekommt. Bei 5 Tagen überleben die fünf höchstpriorisierten Einheiten der Phase. |
+| **Doppeltage (0–3)** | Tage mit AM- und PM-Einheit. Die PM-Einheit ist immer die leichtere. |
+| **Peak-km pro Woche** | Die eine Zahl für das Laufvolumen; eine Kurve verteilt sie über die Phasen. |
+| **Läufe pro Woche** | Optional. Verschiebt die Mischung Richtung Laufen — genau ein Nicht-Lauf-Slot bleibt geschützt. |
+| **Equipment** (Full Gym / Home / Hybrid) | Wählt zwischen Gym- und Home-Varianten aller Blöcke. |
+| **5-km-Zeit** | Leitet alle Pace-Zonen ab (easy / race / interval) und die erste Zielzeit-Prognose. |
+| **Renndatum** | Aus der Rennliste oder frei gewählt. Der Plan wird rückwärts davon geplant. |
+
+**Live-Vorschau:** Noch bevor irgendetwas gespeichert wird, rechnet die Engine im Browser die
+Phasenaufteilung und die geschätzte Zielzeit — man sieht das Ergebnis, bevor man sich festlegt.
+
+**Frequenzhinweis:** Die App vergleicht deine gewählten Tage mit dem, wofür dein Level gebaut ist
+(3–4 / 4–5 / 5–6), und sagt es, wenn es zu viel oder zu wenig ist. Doppeltage werden getrennt
+bewertet — AM/PM-Splits gehören ins Repertoire der obersten Stufe. **Es ist ein Hinweis, keine
+Sperre:** du entscheidest.
+
+Am Ende: **Plan erzeugen.** Die Engine baut Phasen → Wochen → Einheiten → Blöcke, alles wird in
+einer einzigen Transaktion gespeichert (`persist_plan`), damit kein halber Plan entstehen kann.
+
+---
+
+## 4. `/plan` — die Trainingswoche
+
+Die Hauptseite. Links die Einheiten der Woche, rechts die Kontextkarten.
+
+### Was oben steht
+
+Kopfzeile: die Navigation zeigt, auf welcher Seite du bist, und rechts steht der **Countdown** —
+nicht das Renndatum, sondern wie viele Tage bleiben. Darunter der **Zyklus-Streifen**: eine Linie
+pro Woche in der Farbe ihrer Phase, die aktuelle Woche hervorgehoben, ein Bernsteinpunkt über jeder
+Deload- und Benchmark-Woche. Anklicken springt in die Woche.
+
+### Die Wochenansicht
+
+- **Wochenziel** in einem Satz: warum diese Woche so aussieht (Phase, Deload, Benchmark — oder das
+  Rennen, das in ihr liegt).
+- **Wochenwechsel** über die Nummern; abgeschlossene Wochen bleiben lesbar.
+- **Doppeltage** sind mit AM/PM markiert.
+- **Laufauswertung der Woche:** geplante Kilometer, Anteil im lockeren Bereich, und ob das im
+  polarisierten Fenster der Phase liegt. Liegt es daneben, nennt die Karte den Hebel (meist: ein
+  Doppeltag holt die Kilometer zurück).
+
+### Eine Einheitenkarte
+
+Links an jeder Einheit sitzt eine **Intensitäts-Leiste** in der Farbe dessen, was der Tag verlangt:
+orange = hart, grün = aerob, bernstein = Kraft und Stationen, grau = Erholung. Die Wochenform ist
+damit sichtbar, bevor ein Wort gelesen ist — zwei orange Leisten heißen: harte Woche.
+
+**Die Einheit von heute** ist hervorgehoben und trägt als einzige einen gefüllten Knopf. Alle
+anderen Einheiten haben dieselben vier Knöpfe, nur ruhiger — sonst gäbe es sechs Blickfänge, also
+keinen.
+
+Zugeklappt: Titel, Typ, Dauer, RPE-Ziel. Bei Laufeinheiten zusätzlich direkt sichtbar:
+
+- **Variante** der Woche (z. B. „Pyramid Intervals") — und ob sie auf deine Schwachstelle zielt
+- **HF-Zone** und **Zielpace**
+- Bei kompromittierten Läufen: **die Eröffnungspace** (+20 s/km über die ersten 400 m)
+
+Aufgeklappt: alle Blöcke — Warm-up, Hauptteil, Finisher — mit Sätzen, Wiederholungen, Gewichten
+oder Distanzen, gerendert auf deine Division und deinen aktuellen Stand. Kraft-Einheiten zeigen
+zusätzlich ein Eingabefeld pro Satz.
+
+Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
+
+### Die Karten rechts
+
+| Karte | Funktion |
+|---|---|
+| **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter deine Pace-Zonen und der ACWR. Die eine Zahl, für die das ganze System existiert. |
+| **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
+| **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
+| **Setup & tools** *(zugeklappt)* | Strava/Garmin verbinden, Telegram, Verletzung melden, Laufvolumen ändern. Einmal-Aufgaben, die keinen Dauerplatz brauchen — antippen zum Aufklappen. |
+| **Coach-Feedback** | Erscheint nach dem Loggen als Overlay (siehe Abschnitt 6). |
+
+---
+
+## 5. Eine Einheit loggen (und den Fehlklick zurücknehmen)
+
+Vier Knöpfe pro Einheit — **ein Tap genügt**:
+
+| Knopf | Bedeutung | Wirkung |
+|---|---|---|
+| **As planned** | So absolviert wie geplant | Geplante Werte werden als Ist-Werte übernommen. |
+| **Felt harder** | *War* härter als erwartet | Nächste Einheiten werden etwas leichter: Pace/Last gehen einen Schritt zurück. |
+| **Felt easier** | *War* leichter als erwartet | Nach zwei solchen Rückmeldungen in Folge geht es einen Schritt hoch. |
+| **Skip** | Nicht gemacht | Wird als ausgelassen protokolliert und fließt in die Compliance ein. |
+
+> **Wichtig zur Formulierung:** „Felt harder/easier" beschreibt, **wie es war** — nicht, was du dir
+> wünschst. Genau deshalb heißen die Knöpfe seit der Umbenennung so und tragen einen Tooltip.
+
+### Undo
+
+Vertippt? Unter der Knopfreihe erscheint bei einer geloggten Einheit **„Logged by mistake? · Undo"**.
+Das nimmt nicht nur den Eintrag zurück, sondern auch **die Kalibrierung, die er ausgelöst hat**: Die
+App spielt die verbleibenden Logs neu ein und stellt Paces, Tiers und Kraftfaktor auf den Stand ohne
+diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
+
+### Verschieben
+
+**Move** sitzt im aufgeklappten Zustand der Einheit — eine Zeile „Verschieben" unter jeder
+zugeklappten Karte wäre Mobiliar in einer Liste, die man nach dem heutigen Training überfliegt.
+Karte antippen, dann **Move**: ein Tap öffnet die Wochentage — Mo bis So als Reihe. Der Tag, auf dem die Einheit schon liegt, ist markiert und nicht anklickbar; jeder andere
+verschiebt sie dorthin.
+
+**Ein belegter Tag ist kein Fehler, sondern ein Tausch.** Liegt auf dem Zieltag schon eine Einheit,
+tauschen die beiden ihre Tage. Nichts fällt weg, und kein Tag bekommt zwei Einheiten in derselben
+Tageshälfte. Der Hinweis am Chip sagt das vorher an („Mittwoch ist belegt — die beiden Einheiten
+tauschen die Tage").
+
+**Doppeltage:** Trägt der Tag eine AM- *und* eine PM-Einheit, erscheint zusätzlich eine Umschaltung
+für die Tageshälfte. Ohne Doppeltag entfällt sie — dann ist Verschieben ein einziger Tap.
+
+Was dabei passiert:
+
+- Eine noch offene Einheit bekommt den Status **„moved"** und bleibt normal loggbar.
+- Eine **bereits geloggte** Einheit behält ihren Status: Verschieben wirft „erledigt" oder
+  „ausgelassen" nicht weg.
+- Der Tausch läuft in **einer** Transaktion. Ein Abbruch mittendrin kann die Woche nicht in einen
+  Zustand mit zwei Einheiten auf derselben Tageshälfte bringen.
+- Jede Verschiebung landet im Anpassungsprotokoll — inklusive der Einheit, mit der getauscht wurde.
+
+Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#14-demo--ausprobieren-ohne-konto)
+funktioniert es genauso, nur ohne Konto.
+
+---
+
+## 6. Wie sich der Plan anpasst
+
+Zwei Schichten, klar getrennt:
+
+**Schicht 1 — nach jeder Einheit (Mikro).** Aus deiner Rückmeldung werden Pace-Zonen, Stations-Tiers
+und der Kraftfaktor in kleinen Schritten nachgeführt (±5 s/km, ±5 % Last), gedeckelt auf ±3 % pro
+Woche, damit nichts davonläuft.
+
+**Schicht 2 — nachts (Makro).** Ein Hintergrundlauf prüft die Belastungsentwicklung:
+
+| Signal | Reaktion |
+|---|---|
+| ACWR über 1,3 | Restwoche wird auf 85 % getrimmt |
+| ACWR über 1,5 | Automatischer Deload |
+| Dauerhaft hohe RPE (14 Tage) | Automatischer Deload |
+| ACWR unter 0,8 | Sanfter Wiedereinstieg |
+| 7 Tage inaktiv | Plan wird ab heute neu aufgebaut |
+
+**Rebase statt Flickwerk.** Wenn sich etwas Grundlegendes ändert — Verletzung, Pause, neues
+Laufvolumen — wird der Plan **ab heute neu gerechnet**, nicht rückwirkend verbogen. Vergangene
+Wochen bleiben als Protokoll stehen.
+
+**Coach-Feedback.** Nach dem Loggen erscheint eine Karte mit einem Erfüllungsindex und einem kurzen
+Text, was die Anpassung bedeutet. Der Text ist deterministisch vorformuliert; ist ein API-Schlüssel
+hinterlegt, wird er sprachlich veredelt — fällt das aus, steht der Standardtext da. **Der Plan
+selbst wird nie von einem Sprachmodell verändert.**
+
+**Alles ist protokolliert.** Jede automatische Anpassung landet mit Grund in einem Änderungs-Log,
+das du auf `/plan` und `/progress` sehen kannst.
+
+---
+
+## 7. `/season` — Rennkalender und Jahresplanung
+
+### Rennen eintragen
+
+Zwei Wege: als Zeile (Datum, Bezeichnung, Priorität) oder **per Klick auf einen Tag im Kalender**.
+Ein per Klick angelegtes Rennen startet als Nebenwettkampf und kann oben hochgestuft werden.
+
+### Die drei Prioritäten
+
+| | Was es ist | Was der Plan daraus macht |
+|---|---|---|
+| **A — Hauptrennen** | Das Rennen, um das die Saison gebaut wird | Eigener Makrozyklus: voller Taper davor, 2–3 Erholungswochen danach. Die letzten zwei Tage gehen von den Beinen, der Tag danach ist Erholung. |
+| **B — Nebenwettkampf** | Wichtig, aber nicht *das* Rennen | Läuft im laufenden Block mit: 3 lockere Tage davor, 2 danach, Woche auf 80 % Volumen. Kein eigener Zyklus. |
+| **C — Testrennen** | Formtest, harte Einheit mit Startnummer | Kein Taper. Es **ersetzt** die harte Einheit der Woche, danach ein lockerer Tag. |
+
+Gibt es kein A-Rennen, wird das letzte automatisch dazu erklärt — mit Hinweis. Liegen zwei
+A-Rennen zu dicht beieinander, sagt die App, dass der zweite Zyklus fast nur aus Taper und
+Erholung besteht.
+
+### Was du danach siehst
+
+Oben rechts steht, wie viele Tage bis zum **nächsten Hauptrennen** bleiben.
+
+- **Das Jahr** als durchgehender Balken pro Makrozyklus: jeder Block breitengetreu, der aktuelle
+  hervorgehoben und unterstrichen, die Rennen des Zyklus mit Datum darunter. Das ist der Blickfang —
+  alles Weitere auf der Seite erklärt ihn.
+- **Kalender**: die nächsten vier Monate, Tage in der Farbe ihres Blocks, Rennen auf ihrem echten
+  Datum (Buchstabe = Priorität, weißer Punkt = Hauptrennen). „Show all … weeks" klappt das ganze
+  Jahr auf.
+- **Blockliste** statt Kartenwand: eine Zeile je Block mit Farbleiste, Wochen, Volumen und
+  Deload-Wochen; antippen zeigt Schlüsseleinheiten, Zeitraum und die adressierten Schwachstellen.
+- **„How this year was planned"**: die Entscheidungen des Planers im Klartext — dieselbe Darstellung
+  wie „Why your plan changed" in der Wochenansicht, weil es dasselbe auf einer anderen Flughöhe ist.
+- **Der Renn-Editor** steht darunter, nicht darüber: Sobald eine Saison existiert, ist das Jahr die
+  Hauptsache und das Formular das Werkzeug. Ohne Saison ist es umgekehrt.
+
+### Schwachstellen
+
+Ein Freitextfeld („Sled Push, Laktattoleranz, Wall Balls"). Jede Schwachstelle wird dem Block
+zugeordnet, in den sie gehört — Kraft in die Basis, Laktattoleranz in den Build, Renndurchführung in
+den spezifischen Block. Zusätzlich zielt **jede zweite Woche** die Variantenwahl auf deine
+schwächste Station.
+
+### Vom Kalender zum Wochenplan
+
+**„Build the training plan for the next main race"** erzeugt den detaillierten 4–20-Wochen-Plan aus
+dem Kalender: nächstes Hauptrennen als Ziel, alle Rennen dazwischen als echte Renntage im Plan. Der
+Kalender überlebt auch einen Rebase.
+
+---
+
+## 8. `/strength` — eigenes Kraftprogramm
+
+Gedacht für alle, die ihr Krafttraining bereits in Excel führen.
+
+**Import per Einfügen.** Bereich in Excel markieren, kopieren, ins Feld einfügen — die Zwischenablage
+enthält tabulatorgetrennten Text, und genau den liest der Parser. Erkannt werden Wiederholungs-
+bereiche („6 - 8"), Supersatz-Markierungen und Körpergewichts-Zeilen ohne Last.
+
+**Vorschau vor dem Speichern.** Du siehst, was der Parser verstanden hat, und kannst korrigieren,
+bevor irgendetwas gespeichert wird.
+
+**Sätze protokollieren.** Auf der Kraft-Einheit in `/plan` steht pro Satz ein Eingabefeld für
+Wiederholungen und Gewicht. Leer gelassen heißt „wie programmiert".
+
+**Progression als Vorschlag.** Nach einem geloggten Training schlägt die App die nächste Last vor
+(doppelte Progression: erst Wiederholungen ans obere Ende, dann Gewicht rauf). Der Vorschlag
+**überschreibt nichts** — du bestätigst ihn oder ignorierst ihn.
+
+---
+
+## 9. `/benchmarks` — Tests eintragen
+
+Eine Liste standardisierter Tests (z. B. 1 km Zeit, Wall Balls in 2 min). Ergebnis eintragen,
+speichern — die Zielzeit-Prognose wird sofort neu gerechnet und der Verlauf auf `/progress`
+fortgeschrieben. Der Plan setzt Benchmark-Wochen automatisch: Woche 1, Ende des Build-Blocks und
+Beginn des Tapers.
+
+---
+
+## 10. `/progress` — Auswertungen
+
+| Element | Was es zeigt |
+|---|---|
+| **Estimated finish** | Aktuelle Zielzeit-Prognose |
+| **ACWR now** | Belastungsverhältnis akut/chronisch |
+| **Avg. weekly compliance** | Geloggte gegen geplante Einheiten |
+| **Sessions logged** | Gesamtzahl |
+| **Weekly compliance** | Balken pro Woche |
+| **Effort: planned vs. felt** | RPE-Ziel als Linie gegen dein geloggtes RPE |
+| **Training load ratio** | ACWR über die Zeit, mit den Schwellen 0,8 / 1,3 / 1,5 |
+| **Finish-time estimate over time** | Jede Neuberechnung der Prognose |
+| **Benchmarks** | Ein Verlauf pro Test |
+
+Die ACWR-Kurve wird Tag für Tag mit **derselben** Funktion nachgerechnet, die auch die adaptive
+Schicht benutzt — Diagramm und Engine können nicht auseinanderlaufen.
+
+---
+
+## 11. Verbindungen: Strava, Garmin, Telegram
+
+**Strava / Garmin.** Einmal verbinden; danach werden Läufe automatisch der passenden geplanten
+Einheit zugeordnet und geloggt. Die tatsächlich gelaufene Pace fließt direkt in die
+Pace-Kalibrierung. Neue Aktivitäten kommen per Webhook an — kein Polling, keine manuelle Eingabe.
+
+**Telegram.** Abends kommt ein Check-in mit vier Knöpfen (dieselben wie in der App). Antippen loggt
+die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-Mail.
+
+---
+
+## 12. Automatische Abläufe im Hintergrund
+
+| Wann | Was passiert |
+|---|---|
+| Täglich abends | Check-in an alle mit einer heute noch offenen Einheit (Telegram, sonst E-Mail) |
+| Nächtlich | Makro-Guardrails: ACWR-Prüfung, Auto-Deload, Rebase, Reha-Übergänge |
+| Sonntagabend | Wochenrückblick: Compliance, Belastung, was nächste Woche ansteht |
+
+Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht von außen auslösen.
+
+---
+
+## 13. Bezahlung und was frei ist
+
+**Woche 1 ist dauerhaft kostenlos** — vollständig, mit allen Blöcken, Gewichten und Paces. Ab Woche 2
+ist der Plan gesperrt, bis der Rennzyklus freigeschaltet ist (einmalig oder als Abo).
+
+Die Sperre ist keine Anzeigefrage: gesperrte Wochen werden **gar nicht erst an den Browser
+ausgeliefert**. Ein Rebase behält eine bestehende Freischaltung — ein bezahlter Rennzyklus bleibt
+bezahlt.
+
+---
+
+## 14. `/demo` — ausprobieren ohne Konto
+
+Ein kompletter Durchlauf mit Beispieldaten: Plan erzeugen, eine Einheit loggen, die Feedback-Karte
+und den Anpassungs-Feed sehen. Dieselbe Engine wie in der echten App, nur mit einer
+Beispiel-Bibliothek statt der Datenbank — geeignet, um Varianten, Doppeltage und die adaptive
+Schicht zu zeigen.
+
+---
+
+## 15. Betreiber-Oberflächen
+
+Nicht verlinkt, per `robots.txt` ausgeschlossen, durch das Betreiber-Secret geschützt.
+
+### `/admin/knowledge` — eigenes Wissen einspeisen
+
+Drei Wege, neues Trainingswissen in die App zu bringen:
+
+1. **PDF** — Studie, Trainingsplan, Fachartikel. Wird gelesen und in Vorschläge zerlegt.
+2. **AI-Zusammenfassung / Notizen** — bereits von einer KI analysierter Text lässt sich direkt
+   einfügen, ohne Umweg über ein PDF.
+3. **Fertige Vorschläge** im JSON-Format der App — nützlich, wenn die Analyse schon woanders
+   stattgefunden hat und nur noch eingespielt werden soll.
+
+Daraus entstehen **Vorschläge**, nie sofortige Änderungen: neue Bibliotheksblöcke oder geänderte
+Kalibrierungskonstanten. Jeder Vorschlag wird einzeln angenommen oder verworfen. Erst mit der
+Annahme ändert sich etwas am Plan.
+
+> **Warum dieser Umweg:** Trainingsprinzipien sind frei, veröffentlichte Programme sind es nicht.
+> Die Pipeline extrahiert Prinzipien und Parameter — sie gibt niemals die Einheiten einer Quelle im
+> Wortlaut wieder. Die Prüfung durch einen Menschen ist der Punkt, an dem das sichergestellt wird.
+
+Ein „Brief" fasst zusammen, was aktuell aus eigenen Quellen im System steckt.
+
+### `/api/admin/kpis`
+
+Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
+
+---
+
+## 16. Begriffe
+
+| Begriff | Bedeutung |
+|---|---|
+| **Phase** | Base, Build, Peak oder Taper — die vier Abschnitte eines Rennzyklus. |
+| **Block** | Ein Baustein einer Einheit: Warm-up, Hauptteil, Finisher. |
+| **Makrozyklus** | Ein kompletter Rennzyklus innerhalb der Saison. |
+| **Deload** | Entlastungswoche. Im Jahresplan −35 %, innerhalb des Wochenplans −40 % — die beiden Ebenen führen ihre eigene Zahl, absichtlich. |
+| **ACWR** | Verhältnis der Belastung der letzten 7 zu den letzten 28 Tagen. |
+| **RPE** | Subjektives Anstrengungsempfinden, 1–10. |
+| **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. |
+| **Polarisiert** | 75–85 % der Laufdistanz locker, der Rest wirklich hart. Gemessen an der **Distanz je Zone**, nicht an der Zahl der Einheiten. |
+| **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. |
+| **Rebase** | Neuberechnung des Plans ab heute statt nachträglicher Änderung. |
+| **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 11 Stations-, 5 Kraftformen). |
+
+---
+
+## 17. Änderungsprotokoll
+
+Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie beschrieben ist.
+
+| Änderung | Abschnitt |
+|---|---|
+| `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |
+| `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |
+| Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
+| Rennkalender mit Haupt-/Nebenrennen wirkt bis in die einzelnen Trainingstage; Kalenderansicht auf `/season`; Plan direkt aus dem Kalender bauen | [7](#7-season--rennkalender-und-jahresplanung) |
+| Trainingsstruktur nachgeschärft: max. zwei harte Tage, eine Simulation pro Zyklus, Plyometrie und Griffkraft als Finisher, Frequenzberatung nach Level | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
+| 11 Stationsvarianten nach Phase | [16](#16-begriffe) |
+| 14 Varianten der vier Kernlaufeinheiten, rotierend, jede zweite Woche auf die Schwachstelle | [4](#4-plan--die-trainingswoche) |
+| Laufvolumen selbst steuern: Peak-km pro Zyklus und Läufe pro Woche | [4](#4-plan--die-trainingswoche) |
+| Laufarchitektur: HF-Zonen, Paces, polarisierte Fenster, Eröffnungspuffer nach der Station | [4](#4-plan--die-trainingswoche), [16](#16-begriffe) |
+| Eigenes Kraftprogramm aus Excel importieren, Sätze protokollieren, Progression als Vorschlag | [8](#8-strength--eigenes-kraftprogramm) |
+| Quick-Log-Knöpfe umbenannt: „Felt harder / Felt easier" beschreiben, wie es *war* | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
+| Doppeltage (AM/PM) | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
+| AI-Zusammenfassungen statt PDFs einspeisbar | [15](#15-betreiber-oberflächen) |
+| Jahresperiodisierung mit Makrozyklen, Deloads und Mehrrennen-Logik | [7](#7-season--rennkalender-und-jahresplanung) |
+| Wissenspipeline für eigene PDFs (Vorschläge mit Freigabe) | [15](#15-betreiber-oberflächen) |
+| Einzelne Tage zurücksetzen — Undo nimmt auch die Kalibrierung zurück | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

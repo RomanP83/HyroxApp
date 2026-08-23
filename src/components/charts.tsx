@@ -101,15 +101,15 @@ function XLabels({ labels, scale }: { labels: string[]; scale: Scale }) {
 /** Empty state (#3): never a bare "no data" — say what fills it + one action. */
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line py-8 text-center">
-      <svg viewBox="0 0 24 24" width={28} height={28} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="text-muted" aria-hidden="true">
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-edge py-8 text-center">
+      <svg viewBox="0 0 24 24" width={28} height={28} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="text-ash" aria-hidden="true">
         <path d="M3 3v18h18" />
         <path d="M7 14l4-4 3 3 5-6" strokeDasharray="2 3" />
       </svg>
-      <p className="max-w-xs text-sm text-muted">
+      <p className="max-w-xs text-sm text-ash">
         This chart fills up as you train — every logged session adds a point.
       </p>
-      <a href="/plan" className="text-sm font-semibold text-accent hover:underline">
+      <a href="/plan" className="text-sm font-semibold text-flame hover:underline">
         Log today&apos;s session →
       </a>
     </div>
@@ -118,7 +118,7 @@ function EmptyState() {
 
 function DataTable({ rows, cols }: { rows: (string | number)[][]; cols: string[] }) {
   return (
-    <details className="mt-2 text-xs text-muted">
+    <details className="mt-2 text-xs text-ash">
       <summary className="cursor-pointer">Data table</summary>
       <table className="mt-1 w-full text-left">
         <thead>
@@ -171,7 +171,7 @@ export function LineChart({
   return (
     <div>
       {legend && (
-        <div className="mb-1 flex gap-4 text-xs text-muted">
+        <div className="mb-1 flex gap-4 text-xs text-ash">
           <span>
             <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: VIZ.series1 }} />
             {legend[0]}

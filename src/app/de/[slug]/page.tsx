@@ -84,7 +84,7 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
       />
 
       <header className="flex items-center justify-between">
-        <Link href="/de" className="text-sm text-muted hover:text-ink">
+        <Link href="/de" className="text-sm text-ash hover:text-chalk">
           ← Übersicht
         </Link>
         <Link href="/onboarding" className="btn-primary">
@@ -96,7 +96,7 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
         <h1 className="max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">
           Hyrox Trainingsplan {weeks} Wochen: so ist er richtig aufgebaut
         </h1>
-        <p className="max-w-2xl text-lg text-muted">
+        <p className="max-w-2xl text-lg text-ash">
           {weeks} Wochen bis zum Rennen sind kein Grund für einen Random-WOD-Feed. Ein Plan, der
           trägt, hat eine sichtbare Phasenstruktur, konkrete Lasten je Division — und passt sich
           an, wenn dein Leben dazwischenkommt.
@@ -105,7 +105,7 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
 
       <section className="space-y-4">
         <h2 className="text-2xl font-bold">Die Phasen bei {weeks} Wochen Vorlauf</h2>
-        <p className="max-w-2xl text-muted">
+        <p className="max-w-2xl text-ash">
           So teilt unsere Engine {weeks} Wochen auf — rückwärts vom Renntag geplant, mit Deload
           in jeder 4. Base-/Build-Woche und Benchmarks in Woche 1, am Build-Ende und zum
           Taper-Start:
@@ -113,7 +113,7 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
         <div className="card overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-line text-muted">
+              <tr className="border-b border-edge text-ash">
                 <th className="py-2 pr-4">Phase</th>
                 <th className="py-2 pr-4">Wochen</th>
                 <th className="py-2">Fokus</th>
@@ -121,16 +121,16 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
             </thead>
             <tbody>
               {split.map((p) => (
-                <tr key={p.phase_type} className="border-b border-line/50 last:border-0">
+                <tr key={p.phase_type} className="border-b border-edge/50 last:border-0">
                   <td className="py-2 pr-4 font-semibold capitalize">{p.phase_type}</td>
                   <td className="py-2 pr-4">{p.weeks}</td>
-                  <td className="py-2 text-muted">{PHASE_LABEL[p.phase_type]}</td>
+                  <td className="py-2 text-ash">{PHASE_LABEL[p.phase_type]}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-ash">
           Der Taper ist nie verhandelbar — auch bei kurzen Zyklen bleibt die letzte Woche zum
           Frischwerden reserviert.
         </p>
@@ -138,7 +138,7 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
 
       <section className="space-y-3">
         <h2 className="text-2xl font-bold">Warum ein statischer PDF-Plan nicht reicht</h2>
-        <p className="max-w-2xl text-muted">
+        <p className="max-w-2xl text-ash">
           Jeder Plan kollidiert irgendwann mit der Realität: eine verpasste Woche, ein Infekt,
           eine Einheit, die viel härter war als gedacht. Ein statisches PDF kann darauf nicht
           reagieren — unsere Engine rekalibriert nach jeder gelogten Einheit Stations-Tiers,
@@ -153,7 +153,7 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
           {faq.map((f) => (
             <div key={f.q} className="card">
               <h3 className="mb-1 font-semibold">{f.q}</h3>
-              <p className="text-sm text-muted">{f.a}</p>
+              <p className="text-sm text-ash">{f.a}</p>
             </div>
           ))}
         </div>
@@ -162,7 +162,7 @@ export default function SeoPage({ params }: { params: { slug: string } }) {
       <section className="card flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">Dein {weeks}-Wochen-Plan, auf dich zugeschnitten</h2>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-ash">
             Renndatum, Division, 5-km-Zeit, Trainingstage — daraus entsteht dein Plan. Woche 1
             ist gratis einsehbar.
           </p>

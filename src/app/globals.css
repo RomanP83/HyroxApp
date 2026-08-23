@@ -2,40 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   Depth strategy: SURFACE SHIFTS + hairline edges. No drop shadows.
+   On a near-black ground a shadow is invisible and a border is everything, so
+   elevation is carried by a few percent of lightness and a 1px rgba edge that
+   you feel rather than see. One strategy, held everywhere.
+   ========================================================================= */
+
 :root {
   color-scheme: dark;
 }
 
 body {
-  @apply bg-base text-ink antialiased;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  @apply bg-floor text-chalk antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+/* Headings balance; body text loses its orphans. */
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+/* A number that changes must not move the layout under it. */
+.tnum, table, time { font-variant-numeric: tabular-nums; }
+
 @layer components {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-xl border border-line bg-surface p-5;
+    @apply rounded-panel border border-edge bg-lane p-4;
   }
-  /* Motion with purpose: every button visibly reacts to press (scale) and
-     hover (color) — the moments-between-features feedback. */
+  /* A panel that carries the page's one focal element. */
+  .card-focal {
+    @apply card border-edge-strong bg-rack;
+  }
+
+  /* ── Controls ─────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-[0.97];
+    @apply inline-flex items-center justify-center gap-2 rounded-control px-3.5 py-2 text-base font-semibold;
+    @apply transition-[background-color,border-color,color,transform] duration-150 ease-out;
+    @apply active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-flame/70 focus-visible:ring-offset-2 focus-visible:ring-offset-floor;
+    min-height: 40px; /* hit area — never smaller than a thumb */
   }
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-orange-600;
+    @apply btn bg-flame text-floor hover:bg-[#ff6c38];
   }
   .btn-ghost {
-    @apply btn border border-line bg-surface2 text-ink hover:border-accent;
+    @apply btn border border-edge bg-lane text-bone hover:border-edge-strong hover:text-chalk;
   }
-  /* Chip select — bigger tap targets than dropdowns, friendlier onboarding. */
+  /* A destructive or state-changing action that should not look inviting. */
+  .btn-quiet {
+    @apply btn text-ash hover:bg-rack hover:text-chalk;
+  }
+
   .chip {
-    @apply inline-flex cursor-pointer items-center justify-center rounded-lg border border-line bg-surface2 px-4 py-2.5 text-sm font-medium text-muted transition-all duration-150 hover:border-accent/60 active:scale-[0.97];
+    @apply inline-flex cursor-pointer items-center justify-center rounded-control border border-edge bg-lane px-3 py-2 text-base font-medium text-bone;
+    @apply transition-[background-color,border-color,color,transform] duration-150 ease-out;
+    @apply hover:border-edge-strong hover:text-chalk active:scale-[0.97];
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-flame/70;
+    @apply disabled:pointer-events-none disabled:opacity-40;
+    min-height: 40px;
   }
   .chip-active {
-    @apply border-accent bg-accent/15 text-ink;
+    @apply border-flame/70 bg-flame/10 text-chalk;
   }
-  /* Perceived speed: skeleton shimmer for streamed pages. */
+
+  /* Inputs are sunk INTO the surface — a well, not a raised block. */
+  .input {
+    @apply w-full rounded-control border border-edge bg-well px-3 py-2 text-base text-chalk;
+    @apply transition-colors duration-150 ease-out placeholder:text-smoke;
+    @apply focus:border-flame/60 focus:outline-none focus:ring-2 focus:ring-flame/25;
+  }
+  .label {
+    @apply mb-1 block text-micro font-semibold uppercase tracking-wider text-ash;
+  }
+
+  /* ── Markers ──────────────────────────────────────────────────────────── */
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full border border-edge px-2.5 py-1 text-micro font-semibold uppercase tracking-wider text-ash;
+  }
+
   .skeleton {
-    @apply rounded-lg bg-surface2;
+    @apply rounded-control bg-rack;
     background-image: linear-gradient(
       90deg,
       transparent 0,
@@ -45,18 +92,18 @@ body {
     background-size: 400px 100%;
     animation: shimmer 1.4s linear infinite;
   }
-  .pill {
-    @apply inline-flex items-center rounded-full border border-line px-3 py-1 text-xs font-medium text-muted;
-  }
-  .input {
-    @apply w-full rounded-lg border border-line bg-surface2 px-3 py-2 text-ink outline-none focus:border-accent;
-  }
-  .label {
-    @apply mb-1 block text-sm font-medium text-muted;
+
+  /* ── The signature: an effort rail. ───────────────────────────────────────
+     Every session carries a 3px bar in the colour of what it demands. Read
+     down the list and the week's shape is visible before a single word:
+     two flame bars is a hard week, a wall of green is a base block. */
+  .rail {
+    @apply w-[3px] shrink-0 rounded-full;
+    background: currentColor;
   }
 }
 
-/* Respect users who prefer no motion — animation is an enhancement. */
+/* Movement is an enhancement; colour and opacity are not. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
+import { frequencyAdvice, initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
 import { fmtClock, PHASE_COLORS, titleCase } from "@/lib/format";
 import { CheckIcon, SpinnerIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
@@ -33,6 +33,8 @@ export default function Onboarding() {
   const [division, setDivision] = useState<Division>("open");
   const [level, setLevel] = useState<Level>("intermediate");
   const [days, setDays] = useState(4);
+  const [doubles, setDoubles] = useState(0);
+  const [kmPeak, setKmPeak] = useState("");
   const [equipment, setEquipment] = useState<Equipment>("full_gym");
   const [fiveKMin, setFiveKMin] = useState(22);
   const [fiveKSec, setFiveKSec] = useState(30);
@@ -71,6 +73,8 @@ export default function Onboarding() {
       five_k_seconds: fiveKMin * 60 + fiveKSec,
       station_estimates: {},
       training_days_per_week: days,
+      doubles_per_week: doubles,
+      weekly_km_peak: kmPeak ? Number(kmPeak) : null,
       equipment_access: equipment,
     };
     return {
@@ -78,7 +82,7 @@ export default function Onboarding() {
       split: splitPhases(weeks),
       predicted: initialAthleteState(profile).predicted_race_time_sec,
     };
-  }, [raceDate, division, level, days, equipment, fiveKMin, fiveKSec]);
+  }, [raceDate, division, level, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
 
   async function sendMagicLink() {
     setError(null);
@@ -103,6 +107,8 @@ export default function Onboarding() {
           experience_level: level,
           five_k_seconds: fiveKMin * 60 + fiveKSec,
           training_days_per_week: days,
+          doubles_per_week: doubles,
+          weekly_km_peak: kmPeak ? Number(kmPeak) : null,
           equipment_access: equipment,
           race_date: raceDate,
           race_id: raceId,
@@ -129,19 +135,19 @@ export default function Onboarding() {
   if (!signedIn) {
     return (
       <main className="mx-auto max-w-md space-y-4 pt-16 animate-fade-up">
-        <Link href="/" className="text-sm text-muted hover:text-ink">
+        <Link href="/" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <h1 className="text-2xl font-bold">Create your account</h1>
-        <p className="text-muted">
+        <p className="text-ash">
           We&apos;ll email you a sign-in link — no password to remember, nothing to forget.
         </p>
         {sent ? (
-          <div className="card flex items-center gap-3 text-ok animate-pop-in">
+          <div className="card flex items-center gap-3 text-go animate-pop-in">
             <CheckIcon size={20} />
             <div>
               <div className="font-semibold">Link is on its way!</div>
-              <div className="text-sm text-muted">Check your inbox and tap it to continue.</div>
+              <div className="text-sm text-ash">Check your inbox and tap it to continue.</div>
             </div>
           </div>
         ) : (
@@ -158,10 +164,10 @@ export default function Onboarding() {
             </button>
           </div>
         )}
-        {error && <p className="text-danger text-sm">{error}</p>}
-        <p className="pt-4 text-sm text-muted">
+        {error && <p className="text-stop text-sm">{error}</p>}
+        <p className="pt-4 text-sm text-ash">
           Just exploring?{" "}
-          <Link href="/demo" className="text-accent hover:underline">
+          <Link href="/demo" className="text-flame hover:underline">
             Try the no-signup demo →
           </Link>
         </p>
@@ -172,15 +178,15 @@ export default function Onboarding() {
   return (
     <main className="mx-auto max-w-xl space-y-6 pt-8">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-muted hover:text-ink">
+        <Link href="/" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <span className="pill">{step === 1 ? "Step 1 of 2 · About you" : "Step 2 of 2 · Your race"}</span>
       </div>
       {/* progress that moves — a small "something is happening" moment */}
-      <div className="h-1 w-full overflow-hidden rounded-full bg-surface2">
+      <div className="h-1 w-full overflow-hidden rounded-full bg-rack">
         <div
-          className="h-full rounded-full bg-accent transition-all duration-500"
+          className="h-full rounded-full bg-flame transition-all duration-500"
           style={{ width: step === 1 ? "50%" : "100%" }}
         />
       </div>
@@ -189,7 +195,7 @@ export default function Onboarding() {
         <div className="space-y-5 animate-fade-up" key="step1">
           <div>
             <h1 className="text-2xl font-bold">Tell us about you</h1>
-            <p className="text-muted">
+            <p className="text-ash">
               Four quick taps and one honest 5K time — that&apos;s all the engine needs to make
               your plan measurably yours.
             </p>
@@ -228,6 +234,43 @@ export default function Onboarding() {
             onChange={(v) => setDays(Number(v))}
           />
           <ChipGroup
+            label="Double days (a second, lighter session)"
+            options={[
+              ["0", "None"],
+              ["1", "1 / week"],
+              ["2", "2 / week"],
+              ["3", "3 / week"],
+            ]}
+            value={String(doubles)}
+            onChange={(v) => setDoubles(Number(v))}
+          />
+          {(() => {
+            // Level and frequency belong together — the app advises, it never
+            // blocks: the athlete knows their own history.
+            const advice = frequencyAdvice(level, days, doubles);
+            return (
+              <p className={`text-xs ${advice.verdict === "ok" ? "text-ash" : "text-amber"}`}>
+                {advice.note}
+              </p>
+            );
+          })()}
+          <div>
+            <label className="label">Peak running volume (km/week, optional)</label>
+            <input
+              className="input"
+              type="number"
+              min="15"
+              max="150"
+              value={kmPeak}
+              placeholder="leave empty and the engine decides"
+              onChange={(e) => setKmPeak(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-ash">
+              The hardest week of the cycle. Every other week is derived from it — you can change it
+              any time on your plan.
+            </p>
+          </div>
+          <ChipGroup
             label="Where do you train?"
             options={[
               ["full_gym", "Full gym"],
@@ -247,14 +290,14 @@ export default function Onboarding() {
                 value={fiveKMin}
                 onChange={(e) => setFiveKMin(Number(e.target.value))}
               />
-              <span className="text-muted">min</span>
+              <span className="text-ash">min</span>
               <input
                 className="input"
                 type="number"
                 value={fiveKSec}
                 onChange={(e) => setFiveKSec(Number(e.target.value))}
               />
-              <span className="text-muted">sec</span>
+              <span className="text-ash">sec</span>
             </div>
           </div>
 
@@ -268,7 +311,7 @@ export default function Onboarding() {
         <div className="space-y-5 animate-fade-up" key="step2">
           <div>
             <h1 className="text-2xl font-bold">When&apos;s your race?</h1>
-            <p className="text-muted">
+            <p className="text-ash">
               Everything is planned backward from this date — and the taper is never negotiable.
             </p>
           </div>
@@ -328,7 +371,7 @@ export default function Onboarding() {
                   />
                 ))}
               </div>
-              <div className="flex flex-wrap gap-3 text-xs text-muted">
+              <div className="flex flex-wrap gap-3 text-xs text-ash">
                 {preview.split.map((p) => (
                   <span key={p.phase_type} className="flex items-center gap-1">
                     <span
@@ -340,16 +383,16 @@ export default function Onboarding() {
                 ))}
               </div>
               {preview.predicted != null && (
-                <p className="mt-3 text-sm text-muted">
+                <p className="mt-3 text-sm text-ash">
                   First finish-time estimate:{" "}
-                  <b className="text-ink">{fmtClock(preview.predicted)}</b> — it sharpens with
+                  <b className="text-chalk">{fmtClock(preview.predicted)}</b> — it sharpens with
                   every session you log.
                 </p>
               )}
             </div>
           )}
 
-          {error && <p className="text-danger text-sm">{error}</p>}
+          {error && <p className="text-stop text-sm">{error}</p>}
           <div className="flex gap-2">
             <button className="btn-ghost" onClick={() => setStep(1)} disabled={submitting}>
               ← Back

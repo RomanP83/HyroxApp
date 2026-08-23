@@ -14,7 +14,7 @@ export const ENGINE_VERSION = "v1.2";
 // Taper is never negotiable (PP4).
 export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]> = {
   16: [6, 6, 3, 1],
-  12: [4, 5, 2, 1],
+  12: [4, 4, 3, 1],
   10: [3, 4, 2, 1],
   8: [2, 3, 2, 1],
 };
@@ -22,16 +22,39 @@ export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]>
 // ── Session-slot priority per phase (highest priority first) ─────────────────
 // training_days_per_week decides how many slots survive; lowest-priority drops
 // first, and a 5th day adds run_easy.
+// Running is 50-60% of a Hyrox, so the run sessions lead each phase's order.
+// Base is deliberately free of compromised running: pure running economy first,
+// no sled/lunge load on the tendons yet (see COMPROMISED_PER_WEEK).
 export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
-  base: ["run_easy", "strength", "station_work", "compromised_run", "run_intervals", "mobility"],
-  build: ["compromised_run", "strength", "station_work", "run_intervals", "run_easy", "mobility"],
-  peak: ["full_sim", "compromised_run", "station_work", "run_intervals", "strength", "run_easy"],
-  taper: ["run_intervals", "compromised_run", "station_work", "run_easy", "mobility", "strength"],
+  base: ["long_run", "strength", "run_intervals", "run_easy", "station_work", "mobility"],
+  // Station work sits ahead of the recovery run in build and peak: a Hyrox
+  // build block without a dedicated station session is not a Hyrox plan, and
+  // the recovery run is the slot a double day gives back (pmTypeFor() puts an
+  // easy run after a station or strength morning). An athlete at five days and
+  // no doubles will see the week's polarised share flagged — that trade-off is
+  // reported, not hidden.
+  build: ["compromised_run", "run_intervals", "long_run", "strength", "station_work", "run_easy"],
+  // No full_sim here on purpose: a complete race simulation costs 2-3 days of
+  // recovery, so the plan places exactly ONE per cycle (generate.ts) instead of
+  // one every peak week. The peak weeks run station-interval work instead.
+  peak: ["compromised_run", "run_intervals", "long_run", "station_work", "strength", "run_easy"],
+  // Race week keeps a light strength primer: speed off the floor, nothing
+  // emptied. Dropping strength entirely is how athletes arrive flat.
+  taper: ["run_intervals", "compromised_run", "run_easy", "strength", "station_work", "long_run"],
 };
 
+/**
+ * Hard days a week may hold — threshold/interval work, compromised running,
+ * a simulation or a benchmark. Two is the ceiling: everything above it eats
+ * the aerobic base that carries 50-60% of the race.
+ */
+export const MAX_HARD_SESSIONS_PER_WEEK = 2;
+
 // Compromised-running frequency ramps base -> peak (§5 Schritt 2).
+// Base is 0 on purpose: the base block builds running economy without the
+// orthopaedic load of sleds and lunges; compromised work starts in the build.
 export const COMPROMISED_PER_WEEK: Record<PhaseType, number> = {
-  base: 0.5, // every 2 weeks
+  base: 0,
   build: 1,
   peak: 2,
   taper: 1,
@@ -111,6 +134,73 @@ export const DEFAULT_TUNING: EngineTuning = {
   rpe_high_14d: RPE_HIGH_14D,
   inactive_rebase_days: INACTIVE_REBASE_DAYS,
 };
+
+// ── Season periodisation (annual macro layer, above the 4-20 week plan) ─────
+// The numbers a head coach would argue about, in one place. Everything the
+// season planner does is derived from these — no magic numbers in season.ts.
+export const SEASON_TUNING = {
+  /** Post-race recovery, by the priority of the race just finished. */
+  recovery_weeks: { A: 3, B: 2, C: 2 },
+  /** Taper length for an A race: the long form needs a long enough cycle. */
+  taper_weeks_long: 2,
+  taper_weeks_short: 1,
+  taper_long_cycle_min_weeks: 12,
+  /** Race-specific block (compromised running, pacing sims, bricks). */
+  race_specific_min_weeks: 3,
+  /** Once a cycle can carry it, the block gets the full coached minimum. */
+  race_specific_full_min_weeks: 6,
+  race_specific_full_from_weeks: 12,
+  race_specific_max_weeks: 8,
+  race_specific_share: 0.45,
+  /** Build block (VO2max, lactate tolerance, threshold, EMOMs). */
+  build_min_weeks: 3,
+  build_max_weeks: 10,
+  build_share: 0.6,
+  /** Below this, an inter-race gap becomes one re-build bridge, not a cycle. */
+  bridge_max_weeks: 4,
+  /** Deload every Nth TRAINING week of a cycle, at this volume. */
+  deload_every_n_weeks: 4,
+  deload_volume_multiplier: 0.65, // -35%
+  /** Planning horizon when the calendar runs out of races. */
+  default_horizon_weeks: 52,
+  /**
+   * What a race that does NOT anchor a macrocycle does to the training weeks
+   * around it. An A race gets a real cycle (taper block + recovery block); a
+   * B or C race rides inside the block it falls in, and only bends the days
+   * immediately around it.
+   *
+   *   B — a race that matters, but not THE race: a short taper (the hard
+   *       sessions in the days before come out), then two easy days.
+   *   C — a tune-up: no taper at all. The race IS the week's hard session,
+   *       which is why only the day before is eased off.
+   */
+  secondary_race: {
+    B: {
+      easy_days_before: 3,
+      recovery_days_after: 2,
+      week_volume_multiplier: 0.8,
+      label: "Secondary race",
+    },
+    C: {
+      easy_days_before: 1,
+      recovery_days_after: 1,
+      week_volume_multiplier: 0.95,
+      label: "Tune-up race",
+    },
+  },
+  /** Planned minutes for a race day in the plan (a Hyrox, warm-up included). */
+  race_day_minutes: 90,
+  /** Volume relative to the athlete's normal week, per block kind. */
+  volume: {
+    post_race_recovery: 0.55,
+    base: 1.0,
+    build: 1.1,
+    race_specific: 1.0,
+    bridge: 0.9,
+    taper: 0.6, // -40%
+    open_base: 0.85,
+  },
+} as const;
 
 // ── Default pace zones derived from a 5k time (fallback if unknown) ──────────
 export const DEFAULT_5K_SECONDS = 1500; // 25:00

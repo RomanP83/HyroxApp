@@ -33,8 +33,8 @@ function profile(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
 }
 
 describe("macro phase split", () => {
-  it("matches the tabulated 12-week split exactly", () => {
-    expect(splitPhases(12).map((p) => p.weeks)).toEqual([4, 5, 2, 1]);
+  it("matches the tabulated 12-week split exactly (4 base / 4 build / 3 peak / 1 taper)", () => {
+    expect(splitPhases(12).map((p) => p.weeks)).toEqual([4, 4, 3, 1]);
   });
 
   it("always preserves a taper (PP4) and sums to weeks for 8..16", () => {

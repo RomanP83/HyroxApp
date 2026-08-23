@@ -10,12 +10,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generatePlan, type AthleteProfile } from "@/lib/engine";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
+import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
-
-function weeksUntil(raceDate: string): number {
-  const ms = new Date(raceDate).getTime() - Date.now();
-  return Math.max(2, Math.min(20, Math.ceil(ms / (7 * 86_400_000))));
-}
 
 export async function rebasePlan(
   admin: SupabaseClient,
@@ -39,11 +35,26 @@ export async function rebasePlan(
   const state = stateFromRow(stateRow as AthleteStateRow);
   const library = await loadLibrary(admin);
 
+  // A rebase must not lose the race calendar: the B and C races the athlete
+  // entered are part of the plan, not decoration on the season page.
+  const today = new Date().toISOString().slice(0, 10);
+  const raceDate = String(plan.race_date).slice(0, 10);
+  const calendar = await loadSeasonRaces(admin, plan.profile_id);
+  const races = racesForPlan(
+    calendar.some((r) => r.date === raceDate)
+      ? calendar
+      : [...calendar, { date: raceDate, type: "Race day", priority: "A" as const, is_anchor: true }],
+    today,
+    raceDate,
+  );
+
   const generated = generatePlan({
     profile,
     state,
     library,
-    weeksToRace: weeksUntil(plan.race_date),
+    weeksToRace: planWeeksTo(raceDate, today, 2),
+    startDate: today,
+    races,
   });
 
   const newPlanId = await persistPlan(

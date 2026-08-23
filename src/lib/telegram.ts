@@ -28,16 +28,22 @@ export async function tgAnswerCallback(callbackId: string, text?: string): Promi
   });
 }
 
-/** The 4-button quick-log keyboard for one session (§2 Must-Have). */
+/**
+ * The 4-button quick-log keyboard for one session (§2 Must-Have).
+ * "Felt harder / Felt easier" report how the session went against its target —
+ * they are not a request for more or less (plan §3: "Härter/Leichter als
+ * gedacht"). Reported harder → the engine eases off; easier twice in a row →
+ * it steps you up.
+ */
 export function quickLogKeyboard(sessionId: string) {
   return {
     inline_keyboard: [
       [
         { text: "✅ As planned", callback_data: `log:${sessionId}:planned` },
-        { text: "🔥 Harder", callback_data: `log:${sessionId}:harder` },
+        { text: "🔥 Felt harder", callback_data: `log:${sessionId}:harder` },
       ],
       [
-        { text: "🪶 Easier", callback_data: `log:${sessionId}:easier` },
+        { text: "🪶 Felt easier", callback_data: `log:${sessionId}:easier` },
         { text: "⏭️ Skip", callback_data: `log:${sessionId}:skip` },
       ],
     ],

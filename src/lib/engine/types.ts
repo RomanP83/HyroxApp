@@ -10,6 +10,7 @@ export type EquipmentAccess = "full_gym" | "home_minimal" | "hybrid";
 export type PhaseType = "base" | "build" | "peak" | "taper";
 
 export type SessionType =
+  | "long_run"
   | "run_easy"
   | "run_intervals"
   | "compromised_run"
@@ -18,6 +19,7 @@ export type SessionType =
   | "full_sim"
   | "mobility"
   | "benchmark"
+  | "race_day"
   | "rest";
 
 export type Station =
@@ -56,6 +58,8 @@ export interface PaceZones {
 
 export type StationTiers = Record<string, number>; // station -> tier 1..3
 
+export type DaySlot = "am" | "pm";
+
 export interface AthleteProfile {
   id: string;
   division: Division;
@@ -63,6 +67,14 @@ export interface AthleteProfile {
   five_k_seconds: number | null;
   station_estimates: Record<string, number>;
   training_days_per_week: number; // 3..6
+  /** How many days per week may carry a second (PM) session. 0..3. */
+  doubles_per_week?: number;
+  /** Highest weekly running volume of the cycle; the phase curve does the rest. */
+  weekly_km_peak?: number | null;
+  /** How many sessions a week should be runs. Unset = the phase decides. */
+  runs_per_week?: number | null;
+  /** Stated weaknesses ("Sled Push", "Laktattoleranz") — steer session choice. */
+  weaknesses?: string[] | null;
   equipment_access: EquipmentAccess;
 }
 
@@ -108,12 +120,24 @@ export interface RenderedBlock {
     pace_sec_km?: number;
     /** Multiplier on the block's template loads (strength calibration, A6). */
     strength_modifier?: number;
+    /** Which shape of the core session this is, and why (runVariants.ts). */
+    variant_name?: string;
+    variant_why?: string;
+    variant_fallback?: string;
+    /** True when the variant was chosen to attack a weakness, not by rotation. */
+    variant_targeted?: boolean;
+    /** Compromised running: pace for the first metres out of a station. */
+    opening_pace_sec_km?: number;
+    opening_distance_m?: number;
+    stabilise_distance_m?: number;
     note?: string;
   };
 }
 
 export interface GeneratedSession {
   day_hint: number; // 1..7
+  /** Which half of the day; "pm" is the second session of a double day. */
+  day_slot: DaySlot;
   session_type: SessionType;
   title: string;
   planned_duration_min: number;
@@ -126,6 +150,8 @@ export interface GeneratedWeek {
   week_number: number; // 1-based, plan-global
   is_deload: boolean;
   is_benchmark_week: boolean;
+  /** Races from the calendar that fall in this week, if any. */
+  races?: { date: string; type: string; priority: "A" | "B" | "C"; day_hint: number }[];
   weekly_goal: string;
   target_sessions: number;
   sessions: GeneratedSession[];
@@ -152,4 +178,16 @@ export interface GenerateInput {
   state: AthleteState;
   library: WorkoutBlock[];
   weeksToRace: number;
+  /**
+   * Any date inside plan week 1 (normally today). Only needed when races are
+   * passed: it anchors the plan grid so a calendar date can be resolved to a
+   * plan day.
+   */
+  startDate?: string;
+  /**
+   * The athlete's race calendar. The main (A) race is the one the plan is
+   * built towards; B and C races ride inside it and bend the days around
+   * them (see raceCalendar.ts).
+   */
+  races?: { date: string; type: string; priority: "A" | "B" | "C" }[];
 }

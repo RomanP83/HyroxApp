@@ -135,7 +135,9 @@ Zugeklappt: Titel, Typ, Dauer, RPE-Ziel. Bei Laufeinheiten zusätzlich direkt si
 
 Aufgeklappt: alle Blöcke — Warm-up, Hauptteil, Finisher — mit Sätzen, Wiederholungen, Gewichten
 oder Distanzen, gerendert auf deine Division und deinen aktuellen Stand. Kraft-Einheiten zeigen
-zusätzlich ein Eingabefeld pro Satz.
+dort zusätzlich dein importiertes Programm mit einem Eingabefeld pro Satz; **zugeklappt** steht
+stattdessen nur eine Zeile (Programmname, Übungszahl, „tap to log sets") — ein Tap darauf öffnet
+die Karte.
 
 Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 
@@ -295,8 +297,10 @@ bereiche („6 - 8"), Supersatz-Markierungen und Körpergewichts-Zeilen ohne Las
 **Vorschau vor dem Speichern.** Du siehst, was der Parser verstanden hat, und kannst korrigieren,
 bevor irgendetwas gespeichert wird.
 
-**Sätze protokollieren.** Auf der Kraft-Einheit in `/plan` steht pro Satz ein Eingabefeld für
-Wiederholungen und Gewicht. Leer gelassen heißt „wie programmiert".
+**Sätze protokollieren.** Auf der **aufgeklappten** Kraft-Einheit in `/plan` steht pro Satz ein
+Eingabefeld für Wiederholungen und Gewicht; zugeklappt zeigt die Karte nur eine Programmzeile.
+Leer gelassen heißt „wie programmiert" — auch wer ohne Aufklappen „As planned" tippt, loggt das
+Programm wie geschrieben.
 
 **Progression als Vorschlag.** Nach einem geloggten Training schlägt die App die nächste Last vor
 (doppelte Progression: erst Wiederholungen ans obere Ende, dann Gewicht rauf). Der Vorschlag
@@ -429,6 +433,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [8](#8-strength--eigenes-kraftprogramm) |
 | Einheitliche Rückkehr zur Wochenansicht: gemeinsame Kopfzeile auf allen eingeloggten Seiten (Logo → `/plan`), Rückweg auch auf der Betreiberseite | [2](#2-seitenübersicht) |
 | `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |
 | `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |

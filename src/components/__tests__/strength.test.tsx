@@ -41,15 +41,33 @@ const SESSION: GeneratedSession = {
 };
 
 describe("SessionCard with a personal strength day", () => {
+  // The sheet lives inside the opened card; collapsed, the programme is one
+  // summary line so a closed card is never a page of inputs.
   const html = renderToStaticMarkup(
     <SessionCard
       session={SESSION}
       onLog={() => undefined}
+      defaultOpen
       strength={{ templateName: "Tag A: Oberkörper", exercises: EXERCISES }}
     />,
   );
 
-  it("names the day and lists every exercise", () => {
+  it("collapses the imported programme with the card", () => {
+    const closed = renderToStaticMarkup(
+      <SessionCard
+        session={SESSION}
+        onLog={() => undefined}
+        strength={{ templateName: "Tag A: Oberkörper", exercises: EXERCISES }}
+      />,
+    );
+    // One line, not the sheet: the name, the count, and how to get in.
+    expect(closed).toContain("Tag A: Oberkörper");
+    expect(closed).toContain(`${EXERCISES.length} exercises`);
+    expect(closed).toContain("tap to log sets");
+    expect(closed).not.toContain("set 1 reps");
+  });
+
+  it("names the day and lists every exercise once opened", () => {
     expect(html).toContain("Tag A: Oberkörper");
     for (const e of EXERCISES) expect(html).toContain(e.name);
   });

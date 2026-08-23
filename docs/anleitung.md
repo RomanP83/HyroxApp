@@ -96,6 +96,13 @@ einer einzigen Transaktion gespeichert (`persist_plan`), damit kein halber Plan 
 
 Die Hauptseite. Links die Einheiten der Woche, rechts die Kontextkarten.
 
+### Was oben steht
+
+Kopfzeile: die Navigation zeigt, auf welcher Seite du bist, und rechts steht der **Countdown** —
+nicht das Renndatum, sondern wie viele Tage bleiben. Darunter der **Zyklus-Streifen**: eine Linie
+pro Woche in der Farbe ihrer Phase, die aktuelle Woche hervorgehoben, ein Bernsteinpunkt über jeder
+Deload- und Benchmark-Woche. Anklicken springt in die Woche.
+
 ### Die Wochenansicht
 
 - **Wochenziel** in einem Satz: warum diese Woche so aussieht (Phase, Deload, Benchmark — oder das
@@ -107,6 +114,14 @@ Die Hauptseite. Links die Einheiten der Woche, rechts die Kontextkarten.
   Doppeltag holt die Kilometer zurück).
 
 ### Eine Einheitenkarte
+
+Links an jeder Einheit sitzt eine **Intensitäts-Leiste** in der Farbe dessen, was der Tag verlangt:
+orange = hart, grün = aerob, bernstein = Kraft und Stationen, grau = Erholung. Die Wochenform ist
+damit sichtbar, bevor ein Wort gelesen ist — zwei orange Leisten heißen: harte Woche.
+
+**Die Einheit von heute** ist hervorgehoben und trägt als einzige einen gefüllten Knopf. Alle
+anderen Einheiten haben dieselben vier Knöpfe, nur ruhiger — sonst gäbe es sechs Blickfänge, also
+keinen.
 
 Zugeklappt: Titel, Typ, Dauer, RPE-Ziel. Bei Laufeinheiten zusätzlich direkt sichtbar:
 
@@ -124,13 +139,11 @@ Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 
 | Karte | Funktion |
 |---|---|
-| **Pace-Zonen · ACWR** | Deine aktuellen Zonen und das Belastungsverhältnis. |
+| **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter deine Pace-Zonen und der ACWR. Die eine Zahl, für die das ganze System existiert. |
+| **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
 | **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
-| **Laufvolumen** | Peak-km und Läufe/Woche ändern — löst einen Rebase aus (siehe unten). |
-| **Auto-Log** | Strava/Garmin verbinden. |
-| **Telegram** | Abendlicher Check-in mit vier Knöpfen. |
-| **Verletzt?** | Schaltet den Plan in den Reha-Modus. |
-| **Coach-Feedback** | Erscheint nach dem Loggen (siehe Abschnitt 6). |
+| **Setup & tools** *(zugeklappt)* | Strava/Garmin verbinden, Telegram, Verletzung melden, Laufvolumen ändern. Einmal-Aufgaben, die keinen Dauerplatz brauchen — antippen zum Aufklappen. |
+| **Coach-Feedback** | Erscheint nach dem Loggen als Overlay (siehe Abschnitt 6). |
 
 ---
 
@@ -157,8 +170,9 @@ diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
 
 ### Verschieben
 
-Unter jeder Einheit steht **„Doesn't fit today? · Move"**. Ein Tap öffnet die Wochentage — Mo bis So
-als Reihe. Der Tag, auf dem die Einheit schon liegt, ist markiert und nicht anklickbar; jeder andere
+**Move** sitzt im aufgeklappten Zustand der Einheit — eine Zeile „Verschieben" unter jeder
+zugeklappten Karte wäre Mobiliar in einer Liste, die man nach dem heutigen Training überfliegt.
+Karte antippen, dann **Move**: ein Tap öffnet die Wochentage — Mo bis So als Reihe. Der Tag, auf dem die Einheit schon liegt, ist markiert und nicht anklickbar; jeder andere
 verschiebt sie dorthin.
 
 **Ein belegter Tag ist kein Fehler, sondern ein Tausch.** Liegt auf dem Zieltag schon eine Einheit,
@@ -402,6 +416,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |
 | Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Rennkalender mit Haupt-/Nebenrennen wirkt bis in die einzelnen Trainingstage; Kalenderansicht auf `/season`; Plan direkt aus dem Kalender bauen | [7](#7-season--rennkalender-und-jahresplanung) |
 | Trainingsstruktur nachgeschärft: max. zwei harte Tage, eine Simulation pro Zyklus, Plyometrie und Griffkraft als Finisher, Frequenzberatung nach Level | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |

@@ -23,7 +23,7 @@ export default async function SeasonPage() {
       <main className="mx-auto max-w-md space-y-4 pt-20 text-center animate-fade-up">
         <div className="text-4xl">🗓️</div>
         <h1 className="text-2xl font-bold">First the profile, then the year</h1>
-        <p className="text-muted">
+        <p className="text-ash">
           The season is planned around your training days and your weaknesses — two minutes of
           onboarding and it can be built.
         </p>

@@ -217,9 +217,9 @@ export default function KnowledgeAdminPage() {
       <main className="mx-auto max-w-sm space-y-4 pt-24">
         <div className="card space-y-3">
           <div className="flex items-center gap-2 font-semibold">
-            <LockIcon size={18} className="text-accent" /> Operator access
+            <LockIcon size={18} className="text-flame" /> Operator access
           </div>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-ash">
             Enter the CRON_SECRET. It stays in this tab only.
           </p>
           <input
@@ -248,7 +248,7 @@ export default function KnowledgeAdminPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Knowledge pipeline</h1>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-ash">
             PDFs become reviewed library blocks and calibration constants — never raw context at
             generation time.
           </p>
@@ -292,7 +292,7 @@ export default function KnowledgeAdminPage() {
           <div>
             <label className="label">PDF</label>
             <input className="input" type="file" name="pdf" accept="application/pdf" />
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-ash">
               The model reads the file itself and cites the page each proposal comes from.
             </p>
           </div>
@@ -306,7 +306,7 @@ export default function KnowledgeAdminPage() {
               name="text"
               placeholder="Paste what your AI (or your coach) wrote about the study, the method, the training approach…"
             />
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-ash">
               Same extractor as a PDF, minus the pages: it structures the text into blocks,
               calibration constants and principles — and treats second-hand claims with lower
               confidence.
@@ -327,7 +327,7 @@ export default function KnowledgeAdminPage() {
                 <SparkIcon size={16} />
                 Copy the brief for your AI
               </button>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-ash">
                 Nothing is generated here — the payload is validated and filed. No model, no tokens.
               </p>
             </div>
@@ -355,7 +355,7 @@ export default function KnowledgeAdminPage() {
           )}
         </div>
 
-        <p className="text-xs text-muted">
+        <p className="text-xs text-ash">
           A third-party programme stays <b>research only</b>: it can never become a library block —
           principles are free, concrete plans are not. The rule holds on all three paths.
         </p>
@@ -369,25 +369,25 @@ export default function KnowledgeAdminPage() {
       <div className="card space-y-3">
         <div className="text-sm font-semibold">Documents ({docs.length})</div>
         {docs.length === 0 ? (
-          <p className="text-xs text-muted">Nothing yet — the first PDF starts the library.</p>
+          <p className="text-xs text-ash">Nothing yet — the first PDF starts the library.</p>
         ) : (
           <ul className="space-y-2 text-sm">
             {docs.map((d) => (
               <li
                 key={d.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface2 p-3"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-rack p-3"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{d.title}</span>
                     <span className="pill">{SOURCE_LABEL[d.source_type] ?? d.source_type}</span>
                     <span className="pill">{LICENSE_LABEL[d.license]}</span>
-                    {d.status === "failed" && <span className="pill text-warn">failed</span>}
+                    {d.status === "failed" && <span className="pill text-amber">failed</span>}
                     {d.proposals.pending > 0 && (
-                      <span className="pill text-accent2">{d.proposals.pending} pending</span>
+                      <span className="pill text-amber">{d.proposals.pending} pending</span>
                     )}
                   </div>
-                  <div className="mt-1 line-clamp-2 text-xs text-muted">
+                  <div className="mt-1 line-clamp-2 text-xs text-ash">
                     {d.error ?? d.summary ?? "—"}
                   </div>
                 </div>
@@ -418,17 +418,17 @@ export default function KnowledgeAdminPage() {
         </div>
 
         {proposals.length === 0 ? (
-          <div className="card text-xs text-muted">Nothing in this state.</div>
+          <div className="card text-xs text-ash">Nothing in this state.</div>
         ) : (
           proposals.map((p) => (
             <div key={p.id} className="card space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="pill text-accent2">{p.kind}</span>
+                    <span className="pill text-amber">{p.kind}</span>
                     <span className="font-semibold">{p.summary}</span>
                   </div>
-                  <div className="mt-1 text-xs text-muted">
+                  <div className="mt-1 text-xs text-ash">
                     {p.knowledge_documents?.title}
                     {p.page != null && ` · page ${p.page}`}
                     {p.confidence != null && ` · confidence ${(p.confidence * 100).toFixed(0)}%`}
@@ -458,13 +458,13 @@ export default function KnowledgeAdminPage() {
                 )}
               </div>
 
-              {p.rationale && <p className="text-sm text-muted">{p.rationale}</p>}
+              {p.rationale && <p className="text-sm text-ash">{p.rationale}</p>}
               {p.quote && (
-                <blockquote className="border-l-2 border-accent/60 pl-3 text-sm italic text-muted">
+                <blockquote className="border-l-2 border-flame/60 pl-3 text-sm italic text-ash">
                   “{p.quote}”
                 </blockquote>
               )}
-              {p.reviewer_note && <p className="text-xs text-warn">{p.reviewer_note}</p>}
+              {p.reviewer_note && <p className="text-xs text-amber">{p.reviewer_note}</p>}
 
               <PayloadView proposal={p} />
             </div>
@@ -474,10 +474,10 @@ export default function KnowledgeAdminPage() {
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg"
+          className="fixed bottom-4 left-1/2 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-edge bg-lane px-4 py-2 text-sm shadow-lg"
           onClick={() => setToast(null)}
         >
-          <SparkIcon size={14} className="shrink-0 text-accent2" />
+          <SparkIcon size={14} className="shrink-0 text-amber" />
           {toast}
         </div>
       )}
@@ -491,9 +491,9 @@ function PayloadView({ proposal }: { proposal: ProposalRow }) {
   if (proposal.kind === "tuning") {
     const before = proposal.applied_before?.value;
     return (
-      <div className="rounded-lg border border-line bg-surface2 p-3 font-mono text-xs">
+      <div className="rounded-lg border border-edge bg-rack p-3 font-mono text-xs">
         {String(p.key)}: {before != null ? `${before} → ` : ""}
-        <span className="text-accent2">{String(p.value)}</span>
+        <span className="text-amber">{String(p.value)}</span>
       </div>
     );
   }
@@ -502,7 +502,7 @@ function PayloadView({ proposal }: { proposal: ProposalRow }) {
   }
   const content = Array.isArray(p.content) ? p.content : [];
   return (
-    <div className="rounded-lg border border-line bg-surface2 p-3 text-xs">
+    <div className="rounded-lg border border-edge bg-rack p-3 text-xs">
       <div className="mb-2 flex flex-wrap gap-2">
         <span className="pill">{String(p.slug)}</span>
         <span className="pill">{String(p.block_type)}</span>
@@ -510,7 +510,7 @@ function PayloadView({ proposal }: { proposal: ProposalRow }) {
         <span className="pill">tier {String(p.difficulty_tier)}</span>
         <span className="pill">{String(p.equipment_variant)}</span>
         {(p.session_types ?? []).map((s: string) => (
-          <span key={s} className="pill text-accent2">
+          <span key={s} className="pill text-amber">
             {s}
           </span>
         ))}

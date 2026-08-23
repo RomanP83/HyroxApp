@@ -165,7 +165,7 @@ export function SeasonClient(props: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Your season</h1>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-ash">
             The year above the week view: macrocycles per race, mesocycles inside them, planned
             backwards from every A race.
           </p>
@@ -220,7 +220,7 @@ export function SeasonClient(props: Props) {
               >
                 ✕
               </button>
-              <p className="text-xs text-muted sm:col-span-4">{PRIORITY_INFO[race.priority].effect}</p>
+              <p className="text-xs text-ash sm:col-span-4">{PRIORITY_INFO[race.priority].effect}</p>
             </div>
           ))}
         </div>
@@ -236,14 +236,14 @@ export function SeasonClient(props: Props) {
             placeholder="Sled Push, Laktattoleranz, Wall Balls"
             onChange={(e) => setWeaknessText(e.target.value)}
           />
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-1 text-xs text-ash">
             Each one is routed to the block where it belongs — strength work into base, lactate
             tolerance into build, race execution into the race-specific block.
           </p>
         </div>
 
         {mainRaceHint && (
-          <p className="rounded border border-line bg-surface2 p-2 text-xs text-muted">{mainRaceHint}</p>
+          <p className="rounded border border-edge bg-rack p-2 text-xs text-ash">{mainRaceHint}</p>
         )}
 
         <div className="flex flex-wrap items-center gap-3">
@@ -258,14 +258,14 @@ export function SeasonClient(props: Props) {
             </button>
           )}
         </div>
-        <p className="text-xs text-muted">
+        <p className="text-xs text-ash">
           One main race is what a year is planned around. Add as many secondary races as you like —
           they are trained through, not tapered for.
         </p>
       </div>
 
       {!season ? (
-        <div className="card text-sm text-muted">
+        <div className="card text-sm text-ash">
           No season yet — add your races above and the engine plans the year backwards from them.
         </div>
       ) : (
@@ -276,7 +276,7 @@ export function SeasonClient(props: Props) {
               <div className="text-sm font-semibold">
                 {fmtDate(season.start_date)} → {fmtDate(season.end_date)}
               </div>
-              <div className="text-xs text-muted">
+              <div className="text-xs text-ash">
                 {season.total_weeks} weeks · {season.races.length} race(s) ·{" "}
                 {season.blocks.reduce((n, b) => n + b.deload_weeks.length, 0)} deload weeks
               </div>
@@ -286,11 +286,11 @@ export function SeasonClient(props: Props) {
               <div key={m.sort} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium">{m.label}</span>
-                  <span className="text-muted">
+                  <span className="text-ash">
                     week {m.blocks[0].start_week}–{m.blocks[m.blocks.length - 1].end_week}
                   </span>
                 </div>
-                <div className="flex h-9 overflow-hidden rounded-lg border border-line">
+                <div className="flex h-9 overflow-hidden rounded-lg border border-edge">
                   {m.blocks.map((b) => (
                     <div
                       key={b.sort_order}
@@ -312,7 +312,7 @@ export function SeasonClient(props: Props) {
                   ))}
                 </div>
                 {/* Race markers under the bar */}
-                <div className="flex flex-wrap gap-2 text-[10px] text-muted">
+                <div className="flex flex-wrap gap-2 text-[10px] text-ash">
                   {season.races
                     .filter(
                       (r) =>
@@ -321,7 +321,7 @@ export function SeasonClient(props: Props) {
                     )
                     .map((r) => (
                       <span key={`${r.race_date}-${r.race_type}`} className="pill">
-                        <TargetIcon size={12} className={r.is_anchor ? "text-accent" : "text-muted"} />
+                        <TargetIcon size={12} className={r.is_anchor ? "text-flame" : "text-ash"} />
                         <span className="ml-1">
                           {r.priority} · {r.race_type} · {fmtDate(r.race_date)} (w{r.week_number})
                         </span>
@@ -331,7 +331,7 @@ export function SeasonClient(props: Props) {
               </div>
             ))}
 
-            <div className="flex flex-wrap gap-3 border-t border-line pt-3 text-[10px] text-muted">
+            <div className="flex flex-wrap gap-3 border-t border-edge pt-3 text-[10px] text-ash">
               {Object.entries(SEASON_BLOCK_COLORS).map(([kind, color]) => (
                 <span key={kind} className="flex items-center gap-1">
                   <span className="h-2 w-4 rounded" style={{ background: color }} />
@@ -345,7 +345,7 @@ export function SeasonClient(props: Props) {
           <div className="card space-y-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="text-sm font-semibold">Calendar</div>
-              <div className="text-xs text-muted">
+              <div className="text-xs text-ash">
                 Click a day to add a race there · a filled day is a race (letter = priority, dot = main race)
               </div>
             </div>
@@ -363,7 +363,7 @@ export function SeasonClient(props: Props) {
                 )
               }
             />
-            <p className="text-xs text-muted">
+            <p className="text-xs text-ash">
               A day you add here becomes a secondary race — change it to a main race above if the
               year should be planned around it, then rebuild.
             </p>
@@ -377,7 +377,7 @@ export function SeasonClient(props: Props) {
                 {m.blocks.map((b) => (
                   <div
                     key={b.sort_order}
-                    className={`card space-y-2 ${isCurrent(b, props.currentWeek) ? "border-accent" : ""}`}
+                    className={`card space-y-2 ${isCurrent(b, props.currentWeek) ? "border-flame" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -386,19 +386,19 @@ export function SeasonClient(props: Props) {
                           style={{ background: SEASON_BLOCK_COLORS[b.kind] ?? "#4b5563" }}
                         />
                         <span className="font-semibold">{titleCase(b.kind)}</span>
-                        {isCurrent(b, props.currentWeek) && <span className="pill text-accent">now</span>}
+                        {isCurrent(b, props.currentWeek) && <span className="pill text-flame">now</span>}
                       </div>
-                      <span className="text-xs text-muted">
+                      <span className="text-xs text-ash">
                         w{b.start_week}–{b.end_week} · {b.weeks}w
                       </span>
                     </div>
-                    <div className="text-xs text-muted">
+                    <div className="text-xs text-ash">
                       {fmtDate(b.start_date)} → {fmtDate(b.end_date)} · volume{" "}
                       {Math.round(b.volume_multiplier * 100)}%
                       {b.deload_weeks.length > 0 && ` · deload w${b.deload_weeks.join(", w")}`}
                     </div>
                     <p className="text-sm">{b.focus}</p>
-                    <ul className="space-y-1 text-xs text-muted">
+                    <ul className="space-y-1 text-xs text-ash">
                       {b.key_sessions.map((s) => (
                         <li key={s}>• {s}</li>
                       ))}
@@ -406,7 +406,7 @@ export function SeasonClient(props: Props) {
                     {b.weakness_targets.length > 0 && (
                       <div className="flex flex-wrap gap-1 pt-1">
                         {b.weakness_targets.map((w) => (
-                          <span key={w} className="pill text-accent2">
+                          <span key={w} className="pill text-amber">
                             {w}
                           </span>
                         ))}
@@ -422,11 +422,11 @@ export function SeasonClient(props: Props) {
           {season.notes.length > 0 && (
             <div className="card">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                <SparkIcon size={16} className="text-accent2" /> How this year was planned
+                <SparkIcon size={16} className="text-amber" /> How this year was planned
               </div>
               <ul className="space-y-2 text-xs">
                 {season.notes.map((n, i) => (
-                  <li key={i} className="rounded border border-line bg-surface2 p-2">
+                  <li key={i} className="rounded border border-edge bg-rack p-2">
                     {n}
                   </li>
                 ))}
@@ -434,12 +434,12 @@ export function SeasonClient(props: Props) {
             </div>
           )}
 
-          <div className="card text-xs text-muted">
+          <div className="card text-xs text-ash">
             The week view builds the detailed sessions for the race cycle you are in
             {props.activePlanRaceDate
               ? ` (currently ${fmtDate(props.activePlanRaceDate)}).`
               : " — no weekly plan is active yet."}{" "}
-            The year plan above is the map; <Link href="/plan" className="text-accent underline">this
+            The year plan above is the map; <Link href="/plan" className="text-flame underline">this
             week</Link> is the terrain.
           </div>
         </>
@@ -447,10 +447,10 @@ export function SeasonClient(props: Props) {
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg"
+          className="fixed bottom-4 left-1/2 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-edge bg-lane px-4 py-2 text-sm shadow-lg"
           onClick={() => setToast(null)}
         >
-          <SparkIcon size={14} className="shrink-0 text-accent2" />
+          <SparkIcon size={14} className="shrink-0 text-amber" />
           {toast}
         </div>
       )}

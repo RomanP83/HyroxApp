@@ -22,7 +22,7 @@ export default async function StrengthPage() {
       <main className="mx-auto max-w-md space-y-4 pt-20 text-center animate-fade-up">
         <div className="text-4xl">🏋️</div>
         <h1 className="text-2xl font-bold">First the profile</h1>
-        <p className="text-muted">
+        <p className="text-ash">
           Your strength days hang off your athlete profile — two minutes of onboarding and you can
           paste them in.
         </p>

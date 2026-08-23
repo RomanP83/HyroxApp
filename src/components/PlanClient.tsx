@@ -6,7 +6,14 @@ import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
 import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthSetInput } from "./SessionCard";
 import { FeedbackCard } from "./FeedbackCard";
-import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
+import {
+  DEMAND_COLORS,
+  DEMAND_LABELS,
+  fmtClock,
+  fmtPace,
+  PHASE_COLORS,
+  titleCase,
+} from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
 import type { FrequencyAdvice, PhaseType, VolumeAssessment, WeeklyRunSummary } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
@@ -83,6 +90,16 @@ interface Props {
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
 
+const NAV = [
+  { href: "/plan", label: "This week" },
+  { href: "/season", label: "Season" },
+  { href: "/strength", label: "Strength" },
+  { href: "/progress", label: "Progress" },
+  { href: "/benchmarks", label: "Benchmarks" },
+];
+
+const DAY_INITIALS = ["", "M", "T", "W", "T", "F", "S", "S"];
+
 export function PlanClient(props: Props) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
@@ -93,6 +110,22 @@ export function PlanClient(props: Props) {
   const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped" | "planned">>({});
   const [resetting, setResetting] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  // Today is a client fact: resolving it during render would make the server
+  // and the browser disagree about which day to highlight.
+  const [today, setToday] = useState<{ weekday: number; daysToRace: number } | null>(null);
+
+  useEffect(() => {
+    const now = new Date();
+    const weekday = now.getDay() === 0 ? 7 : now.getDay(); // Monday = 1
+    const race = new Date(`${props.raceDate.slice(0, 10)}T00:00:00Z`).getTime();
+    const midnight = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    setToday({
+      weekday,
+      daysToRace: Math.max(0, Math.round((race - midnight) / 86_400_000)),
+    });
+  }, [props.raceDate]);
+
+  const daysToRace = today?.daysToRace ?? null;
   const [savingVolume, setSavingVolume] = useState(false);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
@@ -304,40 +337,51 @@ export function PlanClient(props: Props) {
 
   return (
     <main className="space-y-6">
-      <div className="flex items-center justify-between">
-        <span className="text-lg font-bold">
-          Hyrox<span className="text-accent">·</span>Hub
-        </span>
-        <div className="flex items-center gap-2 text-sm">
-          <Link href="/season" className="btn-ghost">
-            <CalendarIcon size={16} />
-            Season
-          </Link>
-          <Link href="/strength" className="btn-ghost">
-            <DumbbellIcon size={16} />
-            Strength
-          </Link>
-          <Link href="/progress" className="btn-ghost">
-            <ChartIcon size={16} />
-            Progress
-          </Link>
-          <Link href="/benchmarks" className="btn-ghost">
-            <TargetIcon size={16} />
-            Benchmarks
-          </Link>
-          <span className="pill">Race {new Date(props.raceDate).toLocaleDateString()}</span>
+      {/* ── Where you are, and how long you have ──────────────────────────── */}
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-edge pb-4">
+        <div className="flex items-baseline gap-6">
+          <span className="text-h3 font-bold tracking-tight">
+            Hyrox<span className="text-flame">·</span>Hub
+          </span>
+          <nav className="flex items-center gap-1">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`whitespace-nowrap rounded-control px-2.5 py-1.5 text-base font-medium transition-colors duration-150 ease-out ${
+                  item.href === "/plan"
+                    ? "bg-rack text-chalk"
+                    : "text-ash hover:bg-rack/60 hover:text-bone"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* The countdown, not the date: this plan exists because of one day. */}
+          <div className="text-right leading-none">
+            <div className="text-micro font-semibold uppercase tracking-widest text-ash">
+              Race day
+            </div>
+            <div className="mt-1 font-mono text-lead font-bold tabular-nums text-chalk">
+              {daysToRace == null ? "—" : `${daysToRace}d`}
+            </div>
+          </div>
           {!props.paid && (
             <button className="btn-primary" onClick={() => unlock()}>
               Unlock full plan
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {props.planStatus === "rehab" && (
-        <div className="card border-warn/50 bg-surface2 flex flex-wrap items-center justify-between gap-3 animate-fade-up">
-          <div className="flex items-start gap-3 text-sm">
-            <MedicalIcon size={18} className="mt-0.5 shrink-0 text-warn" />
+        <div className="card border-amber/50 bg-rack flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+          <div className="flex items-start gap-3 text-base">
+            <MedicalIcon size={18} className="mt-0.5 shrink-0 text-amber" />
             <span>
               <b>Rehab mode.</b> Stick to mobility and low-impact work — no plan stop, no lost
               progress. When you&apos;re ready, the plan rebuilds from that day.
@@ -350,9 +394,9 @@ export function PlanClient(props: Props) {
       )}
 
       {!props.paid && (
-        <div className="card border-accent/40 bg-surface2 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <div className="card border-flame/40 bg-rack flex flex-wrap items-center justify-between gap-2 text-base">
           <span className="flex items-start gap-3">
-            <LockIcon size={18} className="mt-0.5 shrink-0 text-accent" />
+            <LockIcon size={18} className="mt-0.5 shrink-0 text-flame" />
             <span>
               <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every
               week’s sessions, weights and paces — one-time price, for your race.
@@ -366,77 +410,130 @@ export function PlanClient(props: Props) {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          {/* Phase bar */}
-          <div className="flex gap-1">
-            {props.weeks.map((w) => {
-              const ph = phaseOf(w.week_number);
-              const active = w.week_number === props.currentWeek.week_number;
-              return (
-                <Link
-                  key={w.week_number}
-                  href={`/plan?week=${w.week_number}`}
-                  title={`Week ${w.week_number} · ${ph?.phase_type}`}
-                  className={`h-8 flex-1 rounded ${active ? "ring-2 ring-white" : ""}`}
-                  style={{
-                    background: PHASE_COLORS[ph?.phase_type ?? "base"],
-                    opacity: active ? 1 : 0.55,
-                  }}
-                />
-              );
-            })}
+      <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+        <div className="space-y-5">
+          {/* ── The cycle, demoted to a strip: context, not the task. ─────── */}
+          <div>
+            <div className="flex gap-[3px]">
+              {props.weeks.map((w) => {
+                const ph = phaseOf(w.week_number);
+                const active = w.week_number === props.currentWeek.week_number;
+                const marked = w.is_deload || w.is_benchmark_week;
+                return (
+                  <Link
+                    key={w.week_number}
+                    href={`/plan?week=${w.week_number}`}
+                    aria-label={`Week ${w.week_number}`}
+                    title={`Week ${w.week_number} · ${titleCase(ph?.phase_type ?? "")}${
+                      w.is_deload ? " · deload" : ""
+                    }${w.is_benchmark_week ? " · benchmark" : ""}`}
+                    className="group relative flex-1 py-2"
+                  >
+                    <span
+                      className={`block rounded-full transition-all duration-150 ease-out ${
+                        active ? "h-2" : "h-1 group-hover:h-1.5"
+                      }`}
+                      style={{
+                        background: PHASE_COLORS[ph?.phase_type ?? "base"],
+                        opacity: active ? 1 : 0.35,
+                      }}
+                    />
+                    {marked && (
+                      <span className="absolute left-1/2 top-0.5 h-1 w-1 -translate-x-1/2 rounded-full bg-amber" />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="flex justify-between font-mono text-micro text-baseoke">
+              <span>W1</span>
+              <span>RACE</span>
+            </div>
           </div>
 
-          <div className="card">
-            <div className="flex items-center gap-2">
-              <span className="pill" style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}>
+          {/* ── Why this week: the promise the product is built on, at size. ── */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span
+                className="font-mono text-micro font-bold uppercase tracking-widest"
+                style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}
+              >
                 {titleCase(currentPhase?.phase_type ?? "")}
               </span>
-              <span className="font-semibold">Week {props.currentWeek.week_number}</span>
-              {props.currentWeek.is_deload && <span className="pill text-accent2">deload</span>}
-              {props.currentWeek.is_benchmark_week && <span className="pill text-accent2">benchmark</span>}
+              <h1 className="text-h2 font-bold tracking-tight">
+                Week <span className="font-mono tabular-nums">{props.currentWeek.week_number}</span>
+              </h1>
+              {props.currentWeek.is_deload && <span className="pill text-amber">deload</span>}
+              {props.currentWeek.is_benchmark_week && (
+                <span className="pill text-amber">benchmark</span>
+              )}
             </div>
-            <p className="mt-3 text-sm text-muted">{props.currentWeek.weekly_goal}</p>
+            <p className="mt-2 max-w-[62ch] text-lead leading-relaxed text-bone">
+              {props.currentWeek.weekly_goal}
+            </p>
 
             {props.runSummary && props.runSummary.runs > 0 && (
-              <div className="mt-3 border-t border-line pt-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-                  <span className="font-semibold">Running this week</span>
-                  <span className="text-muted">
-                    {props.runSummary.total_km} km · {props.runSummary.runs} runs
+              <div className="mt-4 max-w-md">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                    Running
+                  </span>
+                  <span className="font-mono text-meta tabular-nums text-bone">
+                    {props.runSummary.total_km} km · {props.runSummary.runs} runs ·{" "}
+                    {Math.round(props.runSummary.easy_share * 100)}% aerobic
                   </span>
                 </div>
                 {/* Aerobic vs. hard kilometres — the 80/20 rule, measured. */}
-                <div className="mt-2 flex h-2 overflow-hidden rounded-full">
+                <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-well">
                   <div
-                    className="bg-ok"
+                    className="bg-go"
                     style={{ width: `${Math.round(props.runSummary.easy_share * 100)}%` }}
                     title={`${props.runSummary.easy_km} km aerobic`}
                   />
                   <div
-                    className="bg-accent"
+                    className="bg-flame"
                     style={{ width: `${100 - Math.round(props.runSummary.easy_share * 100)}%` }}
                     title={`${props.runSummary.hard_km} km hard`}
                   />
                 </div>
                 <p
-                  className={`mt-2 text-xs ${
+                  className={`mt-2 text-meta ${
                     props.runSummary.volume === "on_target" &&
                     props.runSummary.polarisation === "on_target"
-                      ? "text-muted"
-                      : "text-warn"
+                      ? "text-ash"
+                      : "text-amber"
                   }`}
                 >
-                  {props.runSummary.note}
+                  {props.runSummary.note.replace(/^[\d.]+ runs · [\d.]+ km · \d+% aerobic\. /, "")}
                 </p>
               </div>
             )}
           </div>
 
+          {/* ── The week. One card leads: the one you are standing in. ────── */}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                {props.sessions.length} sessions
+              </span>
+              <span className="flex items-center gap-3 text-micro text-baseoke">
+                {(["hard", "aerobic", "load"] as const).map((d) => (
+                  <span key={d} className="flex items-center gap-1.5">
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: DEMAND_COLORS[d] }}
+                    />
+                    {DEMAND_LABELS[d]}
+                  </span>
+                ))}
+              </span>
+            </div>
+          </div>
+
           {props.sessions.map((cs) => (
             <SessionCard
               key={cs.id}
+              focal={today?.weekday === cs.session.day_hint && cs.status === "planned"}
               session={cs.session}
               status={optimistic[cs.id] ?? cs.status}
               locked={props.locked}
@@ -460,32 +557,60 @@ export function PlanClient(props: Props) {
         </div>
 
         <aside className="space-y-4">
+          {/* The one number the whole system exists to move. It reads like the
+              clock it will be measured against, not like a metric tile. */}
+          <div className="card-focal">
+            <div className="text-micro font-semibold uppercase tracking-widest text-ash">
+              Estimated finish
+            </div>
+            <div className="mt-1.5 font-mono text-clock font-bold tabular-nums text-chalk">
+              {fmtClock(props.state?.predicted_race_time_sec)}
+            </div>
+            {props.state && (
+              <dl className="mt-4 space-y-1.5 border-t border-edge pt-3">
+                <Row k="Easy pace" v={fmtPace(props.state.pace_zones?.easy_sec_km)} />
+                <Row k="Race pace" v={fmtPace(props.state.pace_zones?.race_sec_km)} />
+                <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
+              </dl>
+            )}
+            <p className="mt-3 text-micro text-baseoke">Recalibrates every time you log.</p>
           <div className="card">
-            <div className="text-sm text-muted">Estimated finish</div>
-            <div className="text-3xl font-bold">{fmtClock(props.state?.predicted_race_time_sec)}</div>
-            <div className="text-xs text-muted">estimate · calibrates as you log</div>
+            <div className="mb-2.5 flex items-center gap-2">
+              <SparkIcon size={15} className="text-amber" />
+              <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                Why your plan changed
+              </span>
+            </div>
+            {props.adjustments.length === 0 ? (
+              <p className="text-meta leading-relaxed text-ash">
+                Nothing needed adjusting yet. Every change the engine makes gets explained here, in
+                plain words.
+              </p>
+            ) : (
+              <ul className="space-y-2.5">
+                {props.adjustments.map((r, i) => (
+                  <li
+                    key={i}
+                    className="animate-fade-up border-l-2 border-amber/40 pl-3 text-meta leading-relaxed text-bone"
+                  >
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
-          {props.state && (
-            <div className="card">
-              <div className="mb-2 text-sm font-semibold">Pace zones · ACWR</div>
-              <div className="space-y-1 text-xs">
-                <Row k="Easy" v={fmtPace(props.state.pace_zones?.easy_sec_km)} />
-                <Row k="Race" v={fmtPace(props.state.pace_zones?.race_sec_km)} />
-                <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
-              </div>
-            </div>
-          )}
+          </div>
 
           {(() => {
             const phase = currentPhase?.phase_type as PhaseType | undefined;
             const tip = phase ? PHASE_NUTRITION[phase] : undefined;
             return tip ? (
               <div className="card">
-                <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                  <LeafIcon size={16} className="text-ok" /> {tip.headline}
+                <div className="mb-1 flex items-center gap-2 text-base font-semibold">
+                  <LeafIcon size={16} className="text-go" /> {tip.headline}
                 </div>
-                <ul className="space-y-1 text-xs text-muted">
+                <ul className="space-y-1 text-meta text-ash">
                   {tip.points.map((pt) => (
                     <li key={pt}>• {pt}</li>
                   ))}
@@ -494,12 +619,22 @@ export function PlanClient(props: Props) {
             ) : null;
           })()}
 
+          {/* Setup is a one-time job. It does not deserve permanent residence
+              next to the thing you open this page for. */}
+          <details className="group rounded-panel border border-edge bg-lane/60 open:bg-lane">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-panel px-4 py-3 text-micro font-semibold uppercase tracking-widest text-ash transition-colors duration-150 hover:text-bone">
+              Setup &amp; tools
+              <span className="text-baseoke transition-transform duration-200 group-open:rotate-90">
+                ▸
+              </span>
+            </summary>
+            <div className="space-y-3 border-t border-edge p-3">
           {(props.stravaConnectUrl || props.garminConnectUrl) && (
             <div className="card">
-              <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                <RunIcon size={16} className="text-accent2" /> Auto-log your runs
+              <div className="mb-1 flex items-center gap-2 text-base font-semibold">
+                <RunIcon size={16} className="text-amber" /> Auto-log your runs
               </div>
-              <p className="mb-3 text-xs text-muted">
+              <p className="mb-3 text-meta text-ash">
                 Run paces flow straight into the pace calibration — no manual entry.
               </p>
               <div className="space-y-2">
@@ -519,10 +654,10 @@ export function PlanClient(props: Props) {
 
           {props.telegramLink && (
             <div className="card">
-              <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                <SendIcon size={16} className="text-accent2" /> One-tap logging via Telegram
+              <div className="mb-1 flex items-center gap-2 text-base font-semibold">
+                <SendIcon size={16} className="text-amber" /> One-tap logging via Telegram
               </div>
-              <p className="mb-3 text-xs text-muted">
+              <p className="mb-3 text-meta text-ash">
                 Get an evening check-in with 4 buttons — log the session without opening the app.
               </p>
               <a
@@ -538,8 +673,8 @@ export function PlanClient(props: Props) {
 
           {props.planStatus !== "rehab" && (
             <div className="card">
-              <div className="mb-1 text-sm font-semibold">Injured?</div>
-              <p className="mb-3 text-xs text-muted">
+              <div className="mb-1 text-base font-semibold">Injured?</div>
+              <p className="mb-3 text-meta text-ash">
                 Switch to low-impact rehab mode — the plan pauses gracefully and rebuilds from the
                 day you&apos;re back.
               </p>
@@ -551,16 +686,16 @@ export function PlanClient(props: Props) {
           )}
 
           <div className="card space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <RunIcon size={16} className="text-accent2" /> Running volume
+            <div className="flex items-center gap-2 text-base font-semibold">
+              <RunIcon size={16} className="text-amber" /> Running volume
             </div>
-            <p className="text-xs text-muted">
+            <p className="text-meta text-ash">
               Set the <b>peak week</b> of the cycle — every other week is derived from it. An
               average would hide the hardest week, which is the one that decides whether the build
               holds.
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs">
+              <label className="text-meta">
                 <span className="label">Peak km / week</span>
                 <input
                   className="input"
@@ -573,7 +708,7 @@ export function PlanClient(props: Props) {
                   onChange={(e) => setKmPeak(e.target.value)}
                 />
               </label>
-              <label className="text-xs">
+              <label className="text-meta">
                 <span className="label">Runs / week</span>
                 <input
                   className="input"
@@ -589,8 +724,8 @@ export function PlanClient(props: Props) {
             </div>
             {props.volume.frequency && (
               <p
-                className={`text-xs ${
-                  props.volume.frequency.verdict === "ok" ? "text-muted" : "text-warn"
+                className={`text-meta ${
+                  props.volume.frequency.verdict === "ok" ? "text-ash" : "text-amber"
                 }`}
               >
                 {props.volume.frequency.note}
@@ -599,8 +734,8 @@ export function PlanClient(props: Props) {
             {/* The corrective: what the last four logged weeks actually support. */}
             {props.volume.assessment && (
               <p
-                className={`text-xs ${
-                  props.volume.assessment.verdict === "steep" ? "text-warn" : "text-muted"
+                className={`text-meta ${
+                  props.volume.assessment.verdict === "steep" ? "text-amber" : "text-ash"
                 }`}
               >
                 {props.volume.assessment.note}
@@ -619,35 +754,13 @@ export function PlanClient(props: Props) {
               {savingVolume ? <SpinnerIcon size={16} /> : <RunIcon size={16} />}
               Rebuild the remaining weeks
             </button>
-            <p className="text-[11px] text-muted">
+            <p className="text-micro text-baseoke">
               Up to {props.volume.max_runs} runs with {props.volume.max_runs + 1} training days —
               one session a week stays strength or station work.
             </p>
           </div>
-
-          <div className="card">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-              <SparkIcon size={16} className="text-accent2" /> Why your plan changed
             </div>
-            {props.adjustments.length === 0 ? (
-              <div className="text-xs text-muted">
-                You&apos;re all caught up — nothing needed adjusting yet. Every change the engine
-                makes will be explained here, in plain words.
-              </div>
-            ) : (
-              <ul className="space-y-2 text-xs">
-                {props.adjustments.map((r, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 rounded border border-line bg-surface2 p-2 animate-fade-up"
-                  >
-                    <SparkIcon size={14} className="mt-0.5 shrink-0 text-accent2" />
-                    <span>{r}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          </details>
         </aside>
       </div>
 
@@ -657,7 +770,7 @@ export function PlanClient(props: Props) {
           onClick={() => setFeedback(null)}
         >
           <div className="w-full max-w-lg animate-pop-in" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-center text-sm font-semibold text-muted">
+            <div className="mb-2 text-center text-base font-semibold text-ash">
               Training feedback
             </div>
             <FeedbackCard feedback={feedback} onClose={() => setFeedback(null)} />
@@ -667,10 +780,10 @@ export function PlanClient(props: Props) {
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg animate-fade-up"
+          className="fixed bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-edge bg-lane px-4 py-2 text-base shadow-lg animate-fade-up"
           onClick={() => setToast(null)}
         >
-          <SparkIcon size={14} className="shrink-0 text-accent2" />
+          <SparkIcon size={14} className="shrink-0 text-amber" />
           {toast}
         </div>
       )}
@@ -680,9 +793,9 @@ export function PlanClient(props: Props) {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-muted">{k}</span>
-      <span className="font-mono">{v}</span>
+    <div className="flex items-baseline justify-between gap-3 text-meta">
+      <dt className="text-ash">{k}</dt>
+      <dd className="font-mono tabular-nums text-bone">{v}</dd>
     </div>
   );
 }

@@ -41,17 +41,17 @@ export function BlockView({ block }: { block: RenderedBlock }) {
   const division = block.load_adjustments.division;
   const items = (block.content as ContentItem[]) ?? [];
   return (
-    <div className="rounded-lg border border-line bg-surface2 p-3">
+    <div className="rounded-lg border border-edge bg-rack p-3">
       <div className="mb-2 flex items-center gap-2 text-xs">
         <span className="pill">{titleCase(block.block_type)}</span>
         {block.station && block.station !== "general" && (
           <span className="pill">{titleCase(block.station)}</span>
         )}
         {block.load_adjustments.station_tier != null && (
-          <span className="pill text-accent2">tier {block.load_adjustments.station_tier}</span>
+          <span className="pill text-amber">tier {block.load_adjustments.station_tier}</span>
         )}
         {block.load_adjustments.pace_sec_km != null && (
-          <span className="pill text-accent2">{fmtPace(block.load_adjustments.pace_sec_km)}</span>
+          <span className="pill text-amber">{fmtPace(block.load_adjustments.pace_sec_km)}</span>
         )}
         {block.load_adjustments.opening_pace_sec_km != null && (
           <span className="pill">
@@ -59,7 +59,7 @@ export function BlockView({ block }: { block: RenderedBlock }) {
           </span>
         )}
         {block.load_adjustments.strength_modifier != null && (
-          <span className="pill text-accent2">
+          <span className="pill text-amber">
             load ×{block.load_adjustments.strength_modifier.toFixed(2)}
           </span>
         )}
@@ -67,7 +67,7 @@ export function BlockView({ block }: { block: RenderedBlock }) {
       {block.load_adjustments.opening_pace_sec_km != null && (
         // Never sprint out of a station into Zone 5 — the opening metres are
         // for rhythm and breathing.
-        <p className="mb-2 text-xs text-muted">
+        <p className="mb-2 text-xs text-ash">
           First {block.load_adjustments.opening_distance_m} m at{" "}
           {fmtPace(block.load_adjustments.opening_pace_sec_km)}, then settle onto{" "}
           {fmtPace(block.load_adjustments.pace_sec_km)}. The first{" "}
@@ -83,7 +83,7 @@ export function BlockView({ block }: { block: RenderedBlock }) {
             <li key={i} className="flex flex-wrap items-baseline gap-x-2">
               <span className="font-medium">{it.exercise}</span>
               {it.superset_group && <span className="pill">SS {it.superset_group}</span>}
-              <span className="text-muted">
+              <span className="text-ash">
                 {it.sets ? `${it.sets}×` : ""}
                 {reps}
                 {it.distance_m ? `${reps ? " · " : ""}${it.distance_m} m` : ""}

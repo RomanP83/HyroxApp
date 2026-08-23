@@ -135,19 +135,19 @@ export default function Onboarding() {
   if (!signedIn) {
     return (
       <main className="mx-auto max-w-md space-y-4 pt-16 animate-fade-up">
-        <Link href="/" className="text-sm text-muted hover:text-ink">
+        <Link href="/" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <h1 className="text-2xl font-bold">Create your account</h1>
-        <p className="text-muted">
+        <p className="text-ash">
           We&apos;ll email you a sign-in link — no password to remember, nothing to forget.
         </p>
         {sent ? (
-          <div className="card flex items-center gap-3 text-ok animate-pop-in">
+          <div className="card flex items-center gap-3 text-go animate-pop-in">
             <CheckIcon size={20} />
             <div>
               <div className="font-semibold">Link is on its way!</div>
-              <div className="text-sm text-muted">Check your inbox and tap it to continue.</div>
+              <div className="text-sm text-ash">Check your inbox and tap it to continue.</div>
             </div>
           </div>
         ) : (
@@ -164,10 +164,10 @@ export default function Onboarding() {
             </button>
           </div>
         )}
-        {error && <p className="text-danger text-sm">{error}</p>}
-        <p className="pt-4 text-sm text-muted">
+        {error && <p className="text-stop text-sm">{error}</p>}
+        <p className="pt-4 text-sm text-ash">
           Just exploring?{" "}
-          <Link href="/demo" className="text-accent hover:underline">
+          <Link href="/demo" className="text-flame hover:underline">
             Try the no-signup demo →
           </Link>
         </p>
@@ -178,15 +178,15 @@ export default function Onboarding() {
   return (
     <main className="mx-auto max-w-xl space-y-6 pt-8">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-muted hover:text-ink">
+        <Link href="/" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <span className="pill">{step === 1 ? "Step 1 of 2 · About you" : "Step 2 of 2 · Your race"}</span>
       </div>
       {/* progress that moves — a small "something is happening" moment */}
-      <div className="h-1 w-full overflow-hidden rounded-full bg-surface2">
+      <div className="h-1 w-full overflow-hidden rounded-full bg-rack">
         <div
-          className="h-full rounded-full bg-accent transition-all duration-500"
+          className="h-full rounded-full bg-flame transition-all duration-500"
           style={{ width: step === 1 ? "50%" : "100%" }}
         />
       </div>
@@ -195,7 +195,7 @@ export default function Onboarding() {
         <div className="space-y-5 animate-fade-up" key="step1">
           <div>
             <h1 className="text-2xl font-bold">Tell us about you</h1>
-            <p className="text-muted">
+            <p className="text-ash">
               Four quick taps and one honest 5K time — that&apos;s all the engine needs to make
               your plan measurably yours.
             </p>
@@ -249,7 +249,7 @@ export default function Onboarding() {
             // blocks: the athlete knows their own history.
             const advice = frequencyAdvice(level, days, doubles);
             return (
-              <p className={`text-xs ${advice.verdict === "ok" ? "text-muted" : "text-warn"}`}>
+              <p className={`text-xs ${advice.verdict === "ok" ? "text-ash" : "text-amber"}`}>
                 {advice.note}
               </p>
             );
@@ -265,7 +265,7 @@ export default function Onboarding() {
               placeholder="leave empty and the engine decides"
               onChange={(e) => setKmPeak(e.target.value)}
             />
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-ash">
               The hardest week of the cycle. Every other week is derived from it — you can change it
               any time on your plan.
             </p>
@@ -290,14 +290,14 @@ export default function Onboarding() {
                 value={fiveKMin}
                 onChange={(e) => setFiveKMin(Number(e.target.value))}
               />
-              <span className="text-muted">min</span>
+              <span className="text-ash">min</span>
               <input
                 className="input"
                 type="number"
                 value={fiveKSec}
                 onChange={(e) => setFiveKSec(Number(e.target.value))}
               />
-              <span className="text-muted">sec</span>
+              <span className="text-ash">sec</span>
             </div>
           </div>
 
@@ -311,7 +311,7 @@ export default function Onboarding() {
         <div className="space-y-5 animate-fade-up" key="step2">
           <div>
             <h1 className="text-2xl font-bold">When&apos;s your race?</h1>
-            <p className="text-muted">
+            <p className="text-ash">
               Everything is planned backward from this date — and the taper is never negotiable.
             </p>
           </div>
@@ -371,7 +371,7 @@ export default function Onboarding() {
                   />
                 ))}
               </div>
-              <div className="flex flex-wrap gap-3 text-xs text-muted">
+              <div className="flex flex-wrap gap-3 text-xs text-ash">
                 {preview.split.map((p) => (
                   <span key={p.phase_type} className="flex items-center gap-1">
                     <span
@@ -383,16 +383,16 @@ export default function Onboarding() {
                 ))}
               </div>
               {preview.predicted != null && (
-                <p className="mt-3 text-sm text-muted">
+                <p className="mt-3 text-sm text-ash">
                   First finish-time estimate:{" "}
-                  <b className="text-ink">{fmtClock(preview.predicted)}</b> — it sharpens with
+                  <b className="text-chalk">{fmtClock(preview.predicted)}</b> — it sharpens with
                   every session you log.
                 </p>
               )}
             </div>
           )}
 
-          {error && <p className="text-danger text-sm">{error}</p>}
+          {error && <p className="text-stop text-sm">{error}</p>}
           <div className="flex gap-2">
             <button className="btn-ghost" onClick={() => setStep(1)} disabled={submitting}>
               ← Back

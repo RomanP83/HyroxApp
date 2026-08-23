@@ -303,14 +303,14 @@ export default function DemoPage() {
   return (
     <main className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-muted hover:text-ink">
+        <Link href="/" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <span className="pill">Live engine · runs entirely in your browser</span>
       </div>
 
       <h1 className="text-2xl font-bold">Generate a real plan, then watch it adapt</h1>
-      <p className="text-muted">
+      <p className="text-ash">
         This is the actual periodization engine. Set your profile, generate, then log sessions as{" "}
         <b>Felt harder</b> or <b>Felt easier</b> — the station tiers, paces and finish-time estimate
         recalibrate and future weeks re-render live.
@@ -420,8 +420,8 @@ export default function DemoPage() {
                     {titleCase(phase?.phase_type ?? "")}
                   </span>
                   <span className="font-semibold">Week {week.week_number}</span>
-                  {week.is_deload && <span className="pill text-accent2">deload</span>}
-                  {week.is_benchmark_week && <span className="pill text-accent2">benchmark</span>}
+                  {week.is_deload && <span className="pill text-amber">deload</span>}
+                  {week.is_benchmark_week && <span className="pill text-amber">benchmark</span>}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -443,25 +443,25 @@ export default function DemoPage() {
                 </div>
               </div>
               {/* Why this week — PP1 */}
-              <p className="mt-3 text-sm text-muted">{week.weekly_goal}</p>
+              <p className="mt-3 text-sm text-ash">{week.weekly_goal}</p>
               {(() => {
                 // Running is 50-60% of the race — show what the week adds up to.
                 const summary = weeklyRunSummary(week.sessions, state.pace_zones, phase?.phase_type);
                 if (!summary.runs) return null;
                 const easyPct = Math.round(summary.easy_share * 100);
                 return (
-                  <div className="mt-3 border-t border-line pt-3">
+                  <div className="mt-3 border-t border-edge pt-3">
                     <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
                       <span className="font-semibold">Running this week</span>
-                      <span className="text-muted">
+                      <span className="text-ash">
                         {summary.total_km} km · {summary.runs} runs · {easyPct}% aerobic
                       </span>
                     </div>
                     <div className="mt-2 flex h-2 overflow-hidden rounded-full">
-                      <div className="bg-ok" style={{ width: `${easyPct}%` }} />
-                      <div className="bg-accent" style={{ width: `${100 - easyPct}%` }} />
+                      <div className="bg-go" style={{ width: `${easyPct}%` }} />
+                      <div className="bg-flame" style={{ width: `${100 - easyPct}%` }} />
                     </div>
-                    <p className="mt-2 text-xs text-muted">{summary.note}</p>
+                    <p className="mt-2 text-xs text-ash">{summary.note}</p>
                   </div>
                 );
               })()}
@@ -488,9 +488,9 @@ export default function DemoPage() {
           {/* Live state column */}
           <aside className="space-y-4">
             <div className="card">
-              <div className="text-sm text-muted">Estimated finish</div>
+              <div className="text-sm text-ash">Estimated finish</div>
               <div className="text-3xl font-bold">{fmtClock(state.predicted_race_time_sec)}</div>
-              <div className="text-xs text-muted">estimate · calibrates as you log</div>
+              <div className="text-xs text-ash">estimate · calibrates as you log</div>
             </div>
 
             <div className="card">
@@ -498,8 +498,8 @@ export default function DemoPage() {
               <div className="grid grid-cols-2 gap-1 text-xs">
                 {STATIONS.map((st) => (
                   <div key={st} className="flex justify-between">
-                    <span className="text-muted">{titleCase(st)}</span>
-                    <span className="font-mono text-accent2">T{state.station_tiers[st]}</span>
+                    <span className="text-ash">{titleCase(st)}</span>
+                    <span className="font-mono text-amber">T{state.station_tiers[st]}</span>
                   </div>
                 ))}
               </div>
@@ -518,18 +518,18 @@ export default function DemoPage() {
 
             <div className="card">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                <SparkIcon size={16} className="text-accent2" /> Adaptation log
+                <SparkIcon size={16} className="text-amber" /> Adaptation log
               </div>
               {feed.length === 0 ? (
-                <div className="text-xs text-muted">
+                <div className="text-xs text-ash">
                   All quiet so far — log a session as “Felt harder” or “Felt easier” (how it went, not
                   what you want next) and watch the engine respond. Every change is explained.
                 </div>
               ) : (
                 <ul className="space-y-2 text-xs">
                   {feed.slice(0, 8).map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 rounded border border-line bg-surface2 p-2 animate-fade-up">
-                      <SparkIcon size={14} className="mt-0.5 shrink-0 text-accent2" />
+                    <li key={i} className="flex items-start gap-2 rounded border border-edge bg-rack p-2 animate-fade-up">
+                      <SparkIcon size={14} className="mt-0.5 shrink-0 text-amber" />
                       <span>{r}</span>
                     </li>
                   ))}
@@ -546,7 +546,7 @@ export default function DemoPage() {
           onClick={() => setFeedback(null)}
         >
           <div className="w-full max-w-lg animate-pop-in" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-center text-sm font-semibold text-muted">
+            <div className="mb-2 text-center text-sm font-semibold text-ash">
               Training feedback
             </div>
             <FeedbackCard feedback={feedback} onClose={() => setFeedback(null)} />
@@ -560,7 +560,7 @@ export default function DemoPage() {
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-muted">{k}</span>
+      <span className="text-ash">{k}</span>
       <span className="font-mono">{v}</span>
     </div>
   );

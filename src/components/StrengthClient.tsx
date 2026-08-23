@@ -141,7 +141,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Your strength days</h1>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-ash">
             Your exercises, your kilos, your rep ranges — imported from the sheet you already keep.
             The plan uses them for every strength session.
           </p>
@@ -154,23 +154,23 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
 
       {/* ── Open progression suggestions ───────────────────────────────── */}
       {openSuggestions.length > 0 && (
-        <div className="card space-y-3 border-accent/50">
+        <div className="card space-y-3 border-flame/50">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <SparkIcon size={16} className="text-accent2" /> Ready to go up
+            <SparkIcon size={16} className="text-amber" /> Ready to go up
           </div>
           {openSuggestions.map(({ template, exercise }) => (
             <div
               key={exercise.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface2 p-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-rack p-3"
             >
               <div className="min-w-0">
                 <div className="text-sm font-medium">
                   {exercise.name}{" "}
-                  <span className="font-mono text-accent2">
+                  <span className="font-mono text-amber">
                     {load(exercise)} → {exercise.suggested_load_kg} kg
                   </span>
                 </div>
-                <div className="text-xs text-muted">
+                <div className="text-xs text-ash">
                   {template.name} · {exercise.suggested_reason}
                 </div>
               </div>
@@ -200,7 +200,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
       {/* ── Import ─────────────────────────────────────────────────────── */}
       <div className="card space-y-3">
         <div className="text-sm font-semibold">Import a day from Excel</div>
-        <p className="text-xs text-muted">
+        <p className="text-xs text-ash">
           Select the rows in your sheet, copy, paste here. Tabs, semicolons and commas all work —
           rep ranges (&quot;6 - 8&quot;), supersets and bodyweight rows are read as they are.
         </p>
@@ -235,7 +235,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
         </div>
 
         {preview && (
-          <div className="space-y-2 rounded-lg border border-line bg-surface2 p-3">
+          <div className="space-y-2 rounded-lg border border-edge bg-rack p-3">
             <div className="text-xs font-semibold">
               {preview.exercises.length} exercises — check before saving
             </div>
@@ -243,7 +243,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
               {preview.exercises.map((e) => (
                 <li key={e.position} className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-medium">{e.name}</span>
-                  <span className="text-muted">
+                  <span className="text-ash">
                     {e.sets}× {reps(e)} · {load(e)}
                     {e.superset_group ? ` · superset ${e.superset_group}` : ""}
                     {e.last_set_reps.length ? ` · last: ${e.last_set_reps.join(", ")}` : ""}
@@ -252,7 +252,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
               ))}
             </ul>
             {preview.warnings.length > 0 && (
-              <ul className="space-y-1 border-t border-line pt-2 text-[11px] text-warn">
+              <ul className="space-y-1 border-t border-edge pt-2 text-[11px] text-amber">
                 {preview.warnings.map((w, i) => (
                   <li key={i}>• {w}</li>
                 ))}
@@ -264,7 +264,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
 
       {/* ── The days themselves ────────────────────────────────────────── */}
       {templates.length === 0 ? (
-        <div className="card text-sm text-muted">
+        <div className="card text-sm text-ash">
           No strength day yet — paste one above and every strength session in your plan will use it.
         </div>
       ) : (
@@ -274,7 +274,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
               <div className="flex items-center gap-2">
                 <span className="pill">{String.fromCharCode(65 + i)}</span>
                 <span className="font-semibold">{t.name}</span>
-                <span className="text-xs text-muted">{t.strength_exercises.length} exercises</span>
+                <span className="text-xs text-ash">{t.strength_exercises.length} exercises</span>
               </div>
               <button className="btn-ghost" disabled={busy === t.id} onClick={() => void remove(t.id, t.name)}>
                 <SkipIcon size={16} />
@@ -287,12 +287,12 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
                 .map((e) => (
                   <li
                     key={e.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface2 p-2"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-rack p-2"
                   >
                     <span className="flex items-baseline gap-2">
                       <span className="font-medium">{e.name}</span>
                       {e.superset_group && <span className="pill">SS {e.superset_group}</span>}
-                      <span className="text-xs text-muted">
+                      <span className="text-xs text-ash">
                         {e.sets}× {reps(e)}
                       </span>
                     </span>
@@ -312,7 +312,7 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
                           void patch(e.id, "set_load", next);
                         }}
                       />
-                      <span className="text-xs text-muted">kg</span>
+                      <span className="text-xs text-ash">kg</span>
                     </span>
                   </li>
                 ))}
@@ -323,10 +323,10 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg"
+          className="fixed bottom-4 left-1/2 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-edge bg-lane px-4 py-2 text-sm shadow-lg"
           onClick={() => setToast(null)}
         >
-          <SparkIcon size={14} className="shrink-0 text-accent2" />
+          <SparkIcon size={14} className="shrink-0 text-amber" />
           {toast}
         </div>
       )}

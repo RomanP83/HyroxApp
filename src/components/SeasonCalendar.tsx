@@ -88,11 +88,11 @@ export function SeasonCalendar(props: Props) {
         ];
 
         return (
-          <div key={`${year}-${month}`} className="rounded-lg border border-line p-2">
+          <div key={`${year}-${month}`} className="rounded-lg border border-edge p-2">
             <div className="mb-1 px-1 text-xs font-semibold">
               {first.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}
             </div>
-            <div className="grid grid-cols-7 gap-[2px] text-center text-[9px] text-muted">
+            <div className="grid grid-cols-7 gap-[2px] text-center text-[9px] text-ash">
               {WEEKDAYS.map((w) => (
                 <div key={w}>{w}</div>
               ))}
@@ -120,7 +120,7 @@ export function SeasonCalendar(props: Props) {
                     aria-label={label}
                     onClick={props.onPickDate ? () => props.onPickDate?.(day) : undefined}
                     className={`relative flex h-6 items-center justify-center rounded text-[10px] tabular-nums transition ${
-                      props.onPickDate ? "hover:ring-1 hover:ring-accent" : ""
+                      props.onPickDate ? "hover:ring-1 hover:ring-flame" : ""
                     } ${isToday ? "font-bold ring-1 ring-white/70" : ""}`}
                     style={{
                       background: race

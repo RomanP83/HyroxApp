@@ -3,9 +3,8 @@
 import { useState } from "react";
 import type { DaySlot, GeneratedSession } from "@/lib/engine";
 import { runSpec } from "@/lib/engine";
-import { fmtPace } from "@/lib/format";
+import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace } from "@/lib/format";
 import { BlockView } from "./BlockView";
-import { titleCase } from "@/lib/format";
 import {
   CheckIcon,
   FlameIcon,
@@ -81,6 +80,11 @@ interface Props {
    * the most common reason to move one at all.
    */
   occupied?: Set<string>;
+  /**
+   * The one session this page is about — today's. Exactly one card in a week
+   * should get it: a focal point that competes with six others is not one.
+   */
+  focal?: boolean;
 }
 
 /** The variant the engine chose for this week's core session, if any. */
@@ -123,6 +127,7 @@ export function SessionCard({
   onMove,
   moving,
   occupied,
+  focal,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -191,30 +196,53 @@ export function SessionCard({
     </button>
   );
 
+  const demand = demandOf(session.session_type);
+
   return (
-    <div className="card">
+    <div
+      data-session-card
+      data-session-title={session.title}
+      className={`group relative flex gap-3.5 rounded-panel border p-4 transition-colors duration-150 ease-out ${
+        focal
+          ? "border-edge-strong bg-rack"
+          : "border-transparent bg-lane/60 hover:border-edge hover:bg-lane"
+      } ${logged ? "opacity-70" : ""}`}
+    >
+      {/* The effort rail: what this day asks of you, before a word is read. */}
+      <span
+        className="rail self-stretch"
+        style={{ color: DEMAND_COLORS[demand] }}
+        aria-hidden="true"
+      />
+
+      <div className="min-w-0 flex-1">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-start justify-between gap-3 text-left"
       >
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="pill">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="font-mono text-micro font-bold uppercase tracking-widest text-ash">
               {DAY_LABELS[session.day_hint] ?? `D${session.day_hint}`}
               {showSlot && (
-                <span className="ml-1 font-bold text-accent2">
-                  {(session.day_slot ?? "am").toUpperCase()}
-                </span>
+                <span className="ml-1 text-amber">{(session.day_slot ?? "am").toUpperCase()}</span>
               )}
             </span>
-            <span className="font-semibold">{session.title}</span>
-            {status === "done" && <CheckIcon size={16} className="text-ok" />}
-            {status === "skipped" && <span className="text-xs text-muted">skipped</span>}
-            {status === "moved" && <span className="pill">moved</span>}
+            <span className="text-lead font-semibold leading-tight text-chalk">{session.title}</span>
+            {status === "done" && <CheckIcon size={16} className="shrink-0 text-go" />}
+            {status === "skipped" && <span className="text-meta text-smoke">skipped</span>}
+            {status === "moved" && <span className="text-meta text-ash">moved</span>}
           </div>
-          <div className="mt-1 text-xs text-muted">
-            {titleCase(session.session_type)} · {session.planned_duration_min} min · RPE target{" "}
-            {session.intensity_rpe_target}/10
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-meta text-ash">
+            <span style={{ color: DEMAND_COLORS[demand] }} className="font-semibold">
+              {DEMAND_LABELS[demand]}
+            </span>
+            <span className="text-smoke">·</span>
+            <span className="font-mono">{session.planned_duration_min} min</span>
+            <span className="text-smoke">·</span>
+            <span>
+              RPE target <span className="font-mono">{session.intensity_rpe_target}</span>/10
+            </span>
           </div>
           {(() => {
             // Running is 50-60% of the race: a run session says which zone it
@@ -224,15 +252,15 @@ export function SessionCard({
             const { pace, opening, openingDistance } = pacesOf(session);
             const variant = variantOf(session);
             return (
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta">
                 {/* Which shape of the core session this week gets. */}
                 {variant && (
-                  <span className="pill border-accent/60 text-ink">
+                  <span className="pill border-flame/60 text-chalk">
                     {variant.name}
-                    {variant.targeted && <span className="ml-1 text-accent">· your weak spot</span>}
+                    {variant.targeted && <span className="ml-1 text-flame">· your weak spot</span>}
                   </span>
                 )}
-                <span className="pill text-accent2">{spec.hr_zone}</span>
+                <span className="pill text-amber">{spec.hr_zone}</span>
                 {pace != null && <span className="pill">{fmtPace(pace)}</span>}
                 {/* Coming out of a station you run slower on purpose — that
                     belongs on the front of the card, not one tap deeper. */}
@@ -241,13 +269,13 @@ export function SessionCard({
                     first {openingDistance} m: {fmtPace(opening)}
                   </span>
                 )}
-                <span className="text-muted">{spec.distance_hint}</span>
+                <span className="text-ash">{spec.distance_hint}</span>
               </div>
             );
           })()}
         </div>
         <span
-          className={`text-muted transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+          className={`text-ash transition-transform duration-200 ${open ? "rotate-90" : ""}`}
         >
           ▸
         </span>
@@ -256,7 +284,7 @@ export function SessionCard({
       {open && !isRest && (
         <div className="mt-4 space-y-2 animate-fade-up">
           {locked ? (
-            <div className="flex items-start gap-3 rounded-lg border border-dashed border-line p-4 text-sm text-muted">
+            <div className="flex items-start gap-3 rounded-lg border border-dashed border-edge p-4 text-sm text-ash">
               <LockIcon size={18} className="mt-0.5 shrink-0" />
               <span>
                 This week is part of your full race cycle. Unlock it to see every block, weight
@@ -266,9 +294,9 @@ export function SessionCard({
           ) : (
             <>
               {session.session_type === "race_day" && (
-                <div className="rounded-lg border border-dashed border-line p-4 text-sm">
+                <div className="rounded-lg border border-dashed border-edge p-4 text-sm">
                   <div className="font-semibold">Race day.</div>
-                  <p className="mt-1 text-muted">
+                  <p className="mt-1 text-ash">
                     No prescription here — the event is the session. Warm up the way you always do,
                     hold your opening pace out of the first station, and log it afterwards so the
                     plan can recalibrate on it.
@@ -283,10 +311,10 @@ export function SessionCard({
                 const variant = variantOf(session);
                 if (!spec) return null;
                 return (
-                  <div className="space-y-1 px-1 text-xs text-muted">
+                  <div className="space-y-1 px-1 text-meta text-ash">
                     {variant?.why && (
                       <p>
-                        <b className="text-ink">{variant.name}:</b> {variant.why}
+                        <b className="text-chalk">{variant.name}:</b> {variant.why}
                       </p>
                     )}
                     <p>
@@ -303,16 +331,16 @@ export function SessionCard({
 
       {strength && onLog && !isRest && (status === "planned" || status === "moved") && (
         <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-meta">
             <span className="font-semibold">{strength.templateName}</span>
-            <span className="text-muted">reps · kg per set</span>
+            <span className="text-ash">reps · kg per set</span>
           </div>
           {strength.exercises.map((exercise) => (
-            <div key={exercise.id} className="rounded-lg border border-line bg-surface2 p-2">
+            <div key={exercise.id} className="rounded-lg border border-edge bg-rack p-2">
               <div className="mb-1 flex flex-wrap items-baseline gap-2 text-sm">
                 <span className="font-medium">{exercise.name}</span>
                 {exercise.superset_group && <span className="pill">SS {exercise.superset_group}</span>}
-                <span className="text-xs text-muted">
+                <span className="text-meta text-ash">
                   {exercise.sets}×{" "}
                   {exercise.rep_min === exercise.rep_max
                     ? exercise.rep_min ?? "—"
@@ -323,9 +351,9 @@ export function SessionCard({
               <div className="flex flex-wrap gap-2">
                 {Array.from({ length: exercise.sets }, (_, i) => i + 1).map((setNumber) => (
                   <span key={setNumber} className="flex items-center gap-1">
-                    <span className="text-[10px] text-muted">S{setNumber}</span>
+                    <span className="text-[10px] text-ash">S{setNumber}</span>
                     <input
-                      className="input w-14 px-2 py-1 text-right font-mono text-xs"
+                      className="input w-14 px-2 py-1 text-right font-mono text-meta"
                       type="number"
                       min="0"
                       inputMode="numeric"
@@ -342,7 +370,7 @@ export function SessionCard({
                       }
                     />
                     <input
-                      className="input w-16 px-2 py-1 text-right font-mono text-xs"
+                      className="input w-16 px-2 py-1 text-right font-mono text-meta"
                       type="number"
                       min="0"
                       step="0.5"
@@ -364,7 +392,7 @@ export function SessionCard({
               </div>
             </div>
           ))}
-          <p className="text-[11px] text-muted">
+          <p className="text-micro text-smoke">
             Leave a field empty and it logs as programmed. Clear every set at the top of the range
             and the plan offers you the next weight — it never changes it on its own.
           </p>
@@ -376,7 +404,7 @@ export function SessionCard({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <LogButton
               action="planned"
-              primary
+              primary={focal}
               icon={<CheckIcon size={16} />}
               label="As planned"
               hint="It matched the target — the plan holds its course."
@@ -400,21 +428,26 @@ export function SessionCard({
               hint="Not done. The plan bends — no make-up pile-up."
             />
           </div>
-          {/* The labels alone read as a wish; they are a report. */}
-          <p className="mt-2 text-[11px] text-muted">
-            How it went, not what you want next — the engine reads these as your effort against the
-            target.
-          </p>
+          {/* The labels alone read as a wish; they are a report. Said once, on
+              the session in focus — repeated under all six it is just noise
+              (every button carries the same explanation as a tooltip). */}
+          {focal && (
+            <p className="mt-2 text-micro text-smoke">
+              How it went, not what you want next — the engine reads these as your effort against
+              the target.
+            </p>
+          )}
         </div>
       )}
 
-      {/* Life happens: put the session on a day that actually works. */}
-      {onMove && !isRest && (
-        <div className="mt-4 border-t border-line pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-muted">Doesn&apos;t fit today?</span>
+      {/* Life happens: put the session on a day that actually works. Inside the
+          opened card, not under every collapsed one — six rows of "Move" in a
+          list you scan for today's session is furniture, not a feature. */}
+      {onMove && !isRest && open && (
+        <div className="mt-3 border-t border-edge pt-3">
+          <div className="flex items-center justify-end gap-3">
             <button
-              className="btn-ghost"
+              className="btn-quiet"
               onClick={() => {
                 haptic("tap");
                 setMoveOpen((v) => !v);
@@ -432,7 +465,7 @@ export function SessionCard({
             <div className="mt-3 space-y-2 animate-fade-up">
               {showSlot && (
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-muted">Half of the day:</span>
+                  <span className="text-micro text-smoke">Half of the day:</span>
                   {(["am", "pm"] as const).map((half) => (
                     <button
                       key={half}
@@ -469,7 +502,7 @@ export function SessionCard({
                         onMove(day, targetSlot);
                       }}
                     >
-                      <span className={taken ? "text-accent2" : undefined}>
+                      <span className={taken ? "text-amber" : undefined}>
                         {DAY_LABELS[day].slice(0, 2)}
                       </span>
                     </button>
@@ -477,7 +510,7 @@ export function SessionCard({
                 })}
               </div>
 
-              <p className="text-[11px] text-muted">
+              <p className="text-micro text-smoke">
                 A day that already has a session swaps with this one — nothing is dropped, and the
                 week keeps its shape.
               </p>
@@ -488,8 +521,8 @@ export function SessionCard({
 
       {/* Wrong tap? Take the day back — log and calibration are rolled back. */}
       {onReset && !isRest && logged && (
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
-          <span className="text-xs text-muted">
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-edge pt-3">
+          <span className="text-meta text-ash">
             {status === "skipped" ? "Skipped by mistake?" : "Logged by mistake?"}
           </span>
           <button
@@ -503,6 +536,7 @@ export function SessionCard({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }

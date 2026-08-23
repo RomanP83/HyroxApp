@@ -90,24 +90,24 @@ export function BenchmarksClient({
   return (
     <main className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/plan" className="text-sm text-muted hover:text-ink">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Back to plan
         </Link>
         <span className="pill">Benchmark protocol · start / mid / pre-race</span>
       </div>
 
       <h1 className="text-2xl font-bold">Benchmarks</h1>
-      <p className="max-w-2xl text-muted">
+      <p className="max-w-2xl text-ash">
         Re-testing 1–2 key efforts makes progress provable — and every result recalibrates your
         pace zones and finish-time estimate on real numbers, not guesses.
       </p>
 
       <div className="card flex items-center justify-between">
         <div>
-          <div className="text-sm text-muted">Estimated finish</div>
+          <div className="text-sm text-ash">Estimated finish</div>
           <div className="text-3xl font-bold">{fmtClock(predicted)}</div>
         </div>
-        <div className="max-w-[220px] text-right text-xs text-muted">
+        <div className="max-w-[220px] text-right text-xs text-ash">
           Updates the moment you save a benchmark below.
         </div>
       </div>
@@ -122,12 +122,12 @@ export function BenchmarksClient({
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">{def.name}</h3>
                   {latest && (
-                    <span className="pill text-accent2">
+                    <span className="pill text-amber">
                       last: {fmtValue(latest.value, def.metric_type)}
                     </span>
                   )}
                 </div>
-                {def.protocol && <p className="mt-1 text-xs text-muted">{def.protocol}</p>}
+                {def.protocol && <p className="mt-1 text-xs text-ash">{def.protocol}</p>}
               </div>
               <div className="flex gap-2">
                 <input
@@ -145,7 +145,7 @@ export function BenchmarksClient({
                 </button>
               </div>
               {history.length > 1 && (
-                <div className="text-xs text-muted">
+                <div className="text-xs text-ash">
                   {history.slice(0, 3).map((h) => (
                     <span key={h.recorded_at} className="mr-3">
                       {fmtValue(h.value, def.metric_type)} · {h.phase_context}
@@ -160,10 +160,10 @@ export function BenchmarksClient({
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-lg border border-line bg-surface px-4 py-2 text-sm shadow-lg animate-fade-up"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-lg border border-edge bg-lane px-4 py-2 text-sm shadow-lg animate-fade-up"
           onClick={() => setToast(null)}
         >
-          <span className="flex items-center gap-2"><TargetIcon size={14} className="shrink-0 text-accent2" />{toast}</span>
+          <span className="flex items-center gap-2"><TargetIcon size={14} className="shrink-0 text-amber" />{toast}</span>
         </div>
       )}
     </main>

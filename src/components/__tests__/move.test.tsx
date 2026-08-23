@@ -17,16 +17,31 @@ const session: GeneratedSession = {
 const render = (props: Parameters<typeof SessionCard>[0]) =>
   renderToStaticMarkup(<SessionCard {...props} />);
 
-describe("moving a session to another day", () => {
-  it("offers the control whenever the caller can handle a move", () => {
-    const html = render({ session, onLog: () => undefined, onMove: () => undefined });
-    expect(html).toContain("Doesn&#x27;t fit today?");
-    expect(html).toContain("Move this session to another day of the week");
+describe("the session card", () => {
+  it("marks what the day demands, in colour and in words", () => {
+    const html = render({ session, onLog: () => undefined });
+    expect(html).toContain("Hard");
+    expect(html).toContain("#ff5a1f"); // the effort rail
+    const aerobic = render({
+      session: { ...session, session_type: "long_run", title: "Long Run" },
+      onLog: () => undefined,
+    });
+    expect(aerobic).toContain("Aerobic");
+    expect(aerobic).toContain("#35b88a");
   });
 
-  it("stays out of the way when moving is not on offer — a locked week", () => {
-    const html = render({ session, locked: true });
-    expect(html).not.toContain("Doesn&#x27;t fit today?");
+  it("spends the accent on one card only — the session you are standing in", () => {
+    // Six filled buttons in a week is six focal points, which is none.
+    expect(render({ session, onLog: () => undefined, focal: true })).toContain("btn-primary");
+    expect(render({ session, onLog: () => undefined })).not.toContain("btn-primary");
+  });
+
+  it("keeps the move control out of the collapsed row", () => {
+    // It lives inside the opened card: a "Move" under every collapsed session
+    // is furniture in a list you scan for today. e2e/demo.spec.ts drives the
+    // opened state in a browser.
+    const html = render({ session, onLog: () => undefined, onMove: () => undefined });
+    expect(html).not.toContain("Move this session to another day of the week");
   });
 
   it("never offers to move a rest day", () => {
@@ -34,9 +49,6 @@ describe("moving a session to another day", () => {
       session: { ...session, session_type: "rest", title: "Rest" },
       onMove: () => undefined,
     });
-    expect(html).not.toContain("Doesn&#x27;t fit today?");
+    expect(html).not.toContain("Move this session to another day of the week");
   });
-
-  // The day grid and the swap wording only exist once the panel is open, which
-  // static markup cannot reach — e2e/demo.spec.ts drives that in a browser.
 });

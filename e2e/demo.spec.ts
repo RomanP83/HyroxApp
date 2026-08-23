@@ -85,25 +85,30 @@ test("demo: a session moves to another day, and a taken day swaps", async ({ pag
   await page.goto("/demo");
   await page.click("text=Generate my plan");
 
-  const cards = page.locator(".card").filter({ hasText: "RPE target" });
+  const cards = page.locator("[data-session-card]");
   const first = cards.first();
-  const firstTitle = (await first.locator("span.font-semibold").first().innerText()).trim();
+  const firstTitle = (await first.getAttribute("data-session-title"))!;
 
   // Move it to a day the week has nothing on. Week 1 of a 4-day plan leaves
   // Sunday free, and a free day is a plain move — no swap message.
+  // The move control lives inside the opened card — the first button of a card
+  // is its disclosure toggle.
+  await first.locator("button").first().click();
   await first.getByRole("button", { name: "Move" }).click();
   await first.getByTitle("Move to Sun").click();
   await expect(page.getByText(/the week bends, the plan doesn't break/).first()).toBeVisible();
 
   // The card now sits on Sunday — and it is the last card of the week.
-  const moved = cards.filter({ hasText: firstTitle }).first();
+  const moved = page.locator(`[data-session-title="${firstTitle}"]`).first();
   await expect(moved.getByText("Sun", { exact: true })).toBeVisible();
   await expect(cards.last()).toContainText(firstTitle);
 
   // Moving onto an occupied day trades the two sessions instead of failing.
-  const target = cards.first();
-  const targetTitle = (await target.locator("span.font-semibold").first().innerText()).trim();
-  await moved.getByRole("button", { name: "Move" }).click();
+  const targetTitle = (await cards.first().getAttribute("data-session-title"))!;
+  // The card kept its open state through the move, so only toggle if needed.
+  const moveBtn = moved.getByRole("button", { name: "Move" });
+  if (!(await moveBtn.isVisible())) await moved.locator("button").first().click();
+  await moveBtn.click();
   await moved.getByTitle(/is taken — the two sessions swap days/).first().click();
   // Plain substring, not a regex: session titles carry brackets of their own.
   await expect(

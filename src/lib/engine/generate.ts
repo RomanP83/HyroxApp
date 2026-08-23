@@ -71,17 +71,34 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
   if (lastBuild) benchmarkWeeks.add(lastBuild.end_week);
   if (taper) benchmarkWeeks.add(taper.start_week);
 
+  // Deload weeks: every fourth week, right through the peak block — the
+  // recovery week is not a base-and-build luxury, and restricting it there is
+  // how a 12-week plan ended up with one deload and eight straight loading
+  // weeks after it. Two weeks are never a deload: a test week (you want to be
+  // fresh for it, not trimmed) and the simulation week (it is the load). When
+  // the fourth week is one of those the deload moves a week earlier and the
+  // cadence continues from there, so the gap stays 3-4 weeks rather than
+  // silently becoming 8. The taper needs none: it is the reduction.
+  const deloadLimit = taper ? taper.start_week - 2 : weeksToRace;
+  const deloadWeeks = new Set<number>();
+  for (let next = 4; next <= deloadLimit; ) {
+    let target = next;
+    while (target > 1 && (benchmarkWeeks.has(target) || target === fullSimWeek)) target--;
+    if (target > 1 && target <= deloadLimit) deloadWeeks.add(target);
+    next = target + 4;
+  }
+
   const phases: GeneratedPhase[] = phasePlans.map((pp) => {
     const weeks: GeneratedWeek[] = [];
     for (let w = pp.start_week; w <= pp.end_week; w++) {
       const weekInPhase = w - pp.start_week + 1;
       const isBenchmark = benchmarkWeeks.has(w);
-      // Deload: every 4th week within base/build, unless it's a benchmark week.
-      const isDeload =
-        !isBenchmark && (pp.phase_type === "base" || pp.phase_type === "build") && w % 4 === 0;
+      const isDeload = deloadWeeks.has(w);
 
       let slots = distributeSlots({
         phase: pp.phase_type,
+        level: profile.experience_level,
+        weeksInPhase: pp.end_week - pp.start_week + 1,
         trainingDays: profile.training_days_per_week,
         weekInPhase,
         isDeload,

@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import { STATIONS } from "./types";
 import { COMPROMISED_OPENING, compromisedOpeningPace, isRunSession, runSpec } from "./running";
-import { pickRunVariant, type VariantPick } from "./runVariants";
+import { ergOffloadVariant, pickRunVariant, type VariantPick } from "./runVariants";
 import { pickStationVariant } from "./stationVariants";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
@@ -280,11 +280,25 @@ export function fillSession(
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
     };
-    picked = isRunSession(slot.session_type)
-      ? pickRunVariant(query)
-      : slot.session_type === "strength"
-        ? pickStrengthVariant(query)
-        : pickStationVariant(query);
+    // Ergometer offloading, made real rather than mentioned. The PM session of
+    // a double day is the week's extra aerobic volume — exactly the kilometres
+    // that would otherwise be paid for in Achilles and shin loading — so it is
+    // the one that moves onto the erg or bike. It is also the only easy run in
+    // the week whose slot the athlete did not choose, which makes it the
+    // honest place to put the offload instead of overruling a chosen run.
+    const ergOffload =
+      slot.session_type === "run_easy" &&
+      slot.day_slot === "pm" &&
+      profile.equipment_access !== "home_minimal";
+
+    const offload = ergOffload ? ergOffloadVariant() : null;
+    picked = offload
+      ? { variant: offload, targeted: false, pool: 1 }
+      : isRunSession(slot.session_type)
+        ? pickRunVariant(query)
+        : slot.session_type === "strength"
+          ? pickStrengthVariant(query)
+          : pickStationVariant(query);
     // The demo library carries the slug as its id; the database has both.
     main = picked
       ? library.find((b) => (b.slug ?? b.id) === picked!.variant.slug)

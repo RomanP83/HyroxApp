@@ -133,17 +133,30 @@ describe("plan generation (5 reference profiles: 8/10/12/16 wks x levels)", () =
     expect(mains.every((b) => b.load_adjustments.division === "open")).toBe(true);
   });
 
-  it("places deloads only in base/build and never on benchmark weeks", () => {
-    const p = profile();
-    const state = initialAthleteState(p);
-    const plan = generatePlan({ profile: p, state, library, weeksToRace: 16 });
-    const weeks = plan.phases.flatMap((ph) =>
-      ph.weeks.map((w) => ({ phase: ph.phase_type, ...w })),
-    );
-    for (const w of weeks) {
-      if (w.is_deload) {
-        expect(["base", "build"]).toContain(w.phase);
+  it("deloads every 3-4 weeks, never on a test week and never in the taper", () => {
+    for (const weeksToRace of [12, 16]) {
+      const p = profile();
+      const state = initialAthleteState(p);
+      const plan = generatePlan({ profile: p, state, library, weeksToRace });
+      const weeks = plan.phases.flatMap((ph) =>
+        ph.weeks.map((w) => ({ phase: ph.phase_type, ...w })),
+      );
+      const deloads = weeks.filter((w) => w.is_deload);
+      expect(deloads.length, `${weeksToRace} weeks`).toBeGreaterThan(1);
+      for (const w of deloads) {
+        expect(w.phase, `deload in ${w.phase}`).not.toBe("taper");
         expect(w.is_benchmark_week).toBe(false);
+        expect(w.sessions.some((s) => s.session_type === "full_sim")).toBe(false);
+      }
+      // No stretch of loading weeks longer than the rule allows, counting a
+      // test week as the relief it is (it carries no doubles either).
+      const relief = weeks
+        .filter((w) => w.is_deload || w.is_benchmark_week)
+        .map((w) => w.week_number);
+      let previous = 0;
+      for (const week of relief) {
+        expect(week - previous, `${weeksToRace} weeks: gap before W${week}`).toBeLessThanOrEqual(4);
+        previous = week;
       }
     }
   });

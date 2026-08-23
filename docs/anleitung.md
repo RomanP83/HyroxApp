@@ -290,15 +290,43 @@ Woche, damit nichts davonläuft.
 | ACWR unter 0,8 | Sanfter Wiedereinstieg |
 | 7 Tage inaktiv | Plan wird ab heute neu aufgebaut |
 
-**Die Woche ist physiologisch sortiert.** Der Planer hält beim Verteilen der Tage zwei Regeln ein:
+**Die Mischung folgt einer Tabelle, nicht einer Reihenfolge.** Für jedes Level und jede Phase steht
+fest, welchen Anteil der geplanten Minuten Laufen, Kraft, Stationsarbeit und kompromittiertes Laufen
+bekommen — ein Beginner in der Basis 45/35/15/5, ein World-Class-Athlet im Peak 30/10/25/35. Die
+Woche wird gegen diese Anteile aufgeteilt, und der Rest wird über die Wochen einer Phase
+mitgenommen: So taucht ein 5-%-Anteil etwa jede vierte Woche wirklich auf, statt wegzurunden.
+Was die Phase nennt, kommt in ihr auch mindestens einmal vor.
+
+**Kompromittiertes Laufen gibt es ab der ersten Woche** — in der Basis als Kostprobe (5–10 %),
+im Peak als Hauptgericht (30–35 %). Umgekehrt sinkt der Kraftanteil von 20–35 % in der Basis auf
+10 % im Peak: Erhalt statt Aufbau.
+
+**Die Woche ist physiologisch sortiert.** Der Planer hält beim Verteilen der Tage drei Regeln ein:
 Zwischen zwei harten Ausdauertagen liegt immer ein Zone-2-Tag, ein Kraft-/Stationstag oder eine
-Kalenderlücke — nie zwei harte Tage direkt hintereinander. Und Krafttraining (das mit Plyometrie
-beginnt) liegt nie auf dem Tag unmittelbar nach einem harten Tag, weil das Nervensystem dafür
-24–48 h Frische braucht. Auf Doppeltagen kommt die anspruchsvollere Einheit zuerst (Kraft/Station
-am Morgen), die PM-Einheit ist immer leicht — der AM/PM-Abstand ist genau die Trennung, die der
-Interferenz-Effekt verlangt. In Basis und Build weist die Laufauswertung zudem darauf hin, dass
-20–40 % der lockeren Kilometer auf SkiErg, Ruderergometer oder Rad wandern können — gleicher
-Motor, schonender für die Achillessehne.
+Kalenderlücke. Krafttraining (das mit Plyometrie beginnt) liegt nie am Tag unmittelbar nach einem
+harten Tag — das Nervensystem braucht 24–48 h Frische. **Und umgekehrt**: ein harter Ausdauertag
+liegt nie direkt nach schwerem Krafttraining. Der Interferenz-Effekt kennt keine Richtung, mTOR-
+und AMPK-Signal stören sich in beiden Reihenfolgen.
+
+Der Planer *sucht* dabei eine Anordnung, die alle drei Regeln hält, statt sich von Tag zu Tag
+durchzuhangeln — sonst verbraucht er die eine Einheit, die zum Schluss gepasst hätte, zu früh.
+Nur wenn keine Anordnung regelkonform ist, wird gelockert, und dann steht der Preis als Hinweis da.
+
+**Doppeltage:** Die anspruchsvollere Einheit kommt zuerst (Kraft/Station am Morgen), die PM-Einheit
+ist immer leicht. Auf der PM-Karte steht der geforderte Abstand: **2–6 h nach der Morgeneinheit** —
+darunter trainierst du auf unerholter Ermüdung, darüber ist es ein zweiter Tag.
+
+**Ergometer-Entlastung.** Die PM-Einheit eines Doppeltags ist eine Cross-Training-Einheit: halb
+Laufen, halb SkiErg, Rudergerät oder Rad. Das ist genau das Zusatzvolumen, das sonst die
+Achillessehne bezahlt — gleicher Motor, ein Bruchteil des Aufpralls. Ohne Ergometer bekommst du
+sie nicht.
+
+**Deload alle 3–4 Wochen.** Jede vierte Woche wird auf 60 % Volumen getrimmt — quer durch alle
+Phasen, auch im Peak. Zwei Wochen sind nie Deload: eine Testwoche (dafür sollst du frisch sein) und
+die Woche mit der Rennsimulation (die *ist* die Belastung). Fällt der Rhythmus auf eine davon, rückt
+der Deload eine Woche nach vorne und der Takt läuft von dort weiter. Der Taper braucht keinen — er
+ist die Reduktion: das Wochenvolumen sinkt dort um 40–55 %, während die Intensität in kurzen
+Intervallen erhalten bleibt.
 
 **Rebase statt Flickwerk.** Wenn sich etwas Grundlegendes ändert — Verletzung, Pause, neues
 Laufvolumen — wird der Plan **ab heute neu gerechnet**, nicht rückwirkend verbogen. Vergangene
@@ -572,6 +600,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Trainingsmischung nach Level und Phase als Vorgabe (Anteile statt fester Reihenfolge); kompromittiertes Laufen ab der Basis; Deload alle 3–4 Wochen in allen Phasen; Taper senkt auch Kraft und Stationen; Interferenzregel in beide Richtungen; AM/PM-Abstand auf der Karte; Ergometer-Entlastung als echte Einheit | [4](#4-plan--die-trainingswoche), [6](#6-wie-sich-der-plan-anpasst) |
 | Abmelden auf `/settings` („Dieses Gerät"); nach der Anmeldung mit bestehendem Plan geht es direkt auf `/plan` statt ins Onboarding-Formular | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
 | Schwellen- und VO₂max-Intervalle: 86 level- und phasenspezifische Sessions, bewusst ohne Stationsvorbelastung | [4](#4-plan--die-trainingswoche) |
 | Stationsarbeit: 60 level- und phasenspezifische Sessions ohne einen einzigen Laufmeter; Rotation nutzt jetzt alle drei Sessions einer Phase | [4](#4-plan--die-trainingswoche) |

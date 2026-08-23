@@ -79,18 +79,29 @@ describe("the four core run sessions", () => {
 });
 
 describe("phase control", () => {
-  it("keeps compromised running out of the base block entirely", () => {
-    for (let w = 1; w <= 8; w++) {
-      for (let days = 3; days <= 6; days++) {
+  it("keeps compromised running to a taste of the base block, not a staple", () => {
+    // The base block owns running economy and maximal strength, so compromised
+    // work is 5-10% of it depending on level — present, and nowhere near the
+    // 25-35% it becomes by the peak. Measured over the block, because that is
+    // the unit the share is defined on.
+    for (const level of ["beginner", "advanced"] as const) {
+      let compromised = 0;
+      let total = 0;
+      for (let w = 1; w <= 4; w++) {
         const slots = distributeSlots({
           phase: "base",
-          trainingDays: days,
+          level,
+          trainingDays: 5,
           weekInPhase: w,
+          weeksInPhase: 4,
           isDeload: false,
           isBenchmark: false,
         });
-        expect(slots.some((s) => s.session_type === "compromised_run")).toBe(false);
+        compromised += slots.filter((s) => s.session_type === "compromised_run").length;
+        total += slots.length;
       }
+      expect(compromised, `${level} never sees a compromised run in base`).toBeGreaterThan(0);
+      expect(compromised / total, `${level} overdoes it`).toBeLessThan(0.2);
     }
   });
 
@@ -192,10 +203,19 @@ describe("generated plans", () => {
     }
   });
 
-  it("never schedules compromised running before the build phase", () => {
-    for (const { phase, week: w } of weeks) {
-      if (phase !== "base") continue;
-      expect(w.sessions.some((s) => s.session_type === "compromised_run")).toBe(false);
-    }
+  it("ramps compromised running from a taste in base to the bulk of the peak", () => {
+    const share = (want: string) => {
+      const rows = weeks.filter(({ phase }) => phase === want);
+      const sessions = rows.flatMap(({ week: w }) => w.sessions);
+      const min = sessions.reduce((n, s) => n + s.planned_duration_min, 0);
+      const compromised = sessions
+        .filter((s) => s.session_type === "compromised_run" || s.session_type === "full_sim")
+        .reduce((n, s) => n + s.planned_duration_min, 0);
+      return compromised / min;
+    };
+    expect(share("base")).toBeGreaterThan(0);
+    expect(share("base")).toBeLessThan(0.2);
+    expect(share("peak")).toBeGreaterThan(share("build"));
+    expect(share("build")).toBeGreaterThan(share("base"));
   });
 });

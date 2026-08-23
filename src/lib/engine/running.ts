@@ -86,7 +86,9 @@ export const RUN_SPECS: Record<RunSessionType, RunSpec> = {
   compromised_run: {
     hr_zone: "Zone 3-4 · 80-90% HRmax",
     pace_zone: "race_sec_km",
-    duration_by_phase: { base: 0, build: 55, peak: 60, taper: 45 },
+    // Base is the gentlest version, not an absence: the block owns running
+    // economy, so compromised work is a taste of it (5-10% of the block).
+    duration_by_phase: { base: 45, build: 55, peak: 60, taper: 45 },
     distance_hint: "45-75 min",
     running_fraction: 0.6,
     hard_fraction: 0.6,

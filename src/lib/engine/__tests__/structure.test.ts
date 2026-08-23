@@ -8,9 +8,12 @@ import {
   MAX_HARD_SESSIONS_PER_WEEK,
   POLARISATION_BY_PHASE,
   splitPhases,
+  TRAINING_MIX,
   weeklyRunSummary,
   type AthleteProfile,
+  type ExperienceLevel,
   type SessionType,
+  type TrainingMix,
 } from "../index";
 import { DEMO_LIBRARY } from "@/lib/demoLibrary";
 
@@ -331,5 +334,153 @@ describe("the frequency note reads as a sentence", () => {
       const note = frequencyAdvice(level, 9, 0).note; // 9 days: always "high"
       expect(note, level).toContain(expected);
     }
+  });
+});
+
+describe("the training mix", () => {
+  // The prescription is a share of planned minutes per level and phase
+  // (TRAINING_MIX). This is the test that says the plan actually follows it,
+  // rather than the priority list's first N entries — which is level-blind and
+  // was how a beginner got no station work in base and no strength in peak.
+  const SETUP: Record<ExperienceLevel, [days: number, doubles: number]> = {
+    beginner: [4, 0],
+    intermediate: [5, 0],
+    advanced: [5, 1],
+    elite: [6, 2],
+    world_class: [6, 3],
+  };
+
+  const CATEGORY: Record<string, keyof TrainingMix> = {
+    long_run: "run",
+    run_easy: "run",
+    run_intervals: "run",
+    strength: "strength",
+    station_work: "station",
+    compromised_run: "compromised",
+    full_sim: "compromised",
+  };
+
+  function sharesFor(level: ExperienceLevel) {
+    const [days, doubles] = SETUP[level];
+    const p = profile({ experience_level: level, training_days_per_week: days, doubles_per_week: doubles });
+    const state = initialAthleteState(p);
+    const generated = generatePlan({ profile: p, state, library: DEMO_LIBRARY, weeksToRace: 12 });
+    return generated.phases.map((ph) => {
+      const minutes: Record<string, number> = {};
+      let total = 0;
+      for (const w of ph.weeks) {
+        for (const s of w.sessions) {
+          const category = CATEGORY[s.session_type];
+          if (!category) continue;
+          minutes[category] = (minutes[category] ?? 0) + s.planned_duration_min;
+          total += s.planned_duration_min;
+        }
+      }
+      return { phase: ph.phase_type, minutes, total };
+    });
+  }
+
+  for (const level of Object.keys(SETUP) as ExperienceLevel[]) {
+    it(`follows the ${level} prescription through base, build and peak`, () => {
+      for (const { phase, minutes, total } of sharesFor(level)) {
+        // The taper is left out on purpose: one week of four to six sessions
+        // cannot hold four categories to the point, and a benchmark test takes
+        // one of those slots. What it must do is tested below.
+        if (phase === "taper") continue;
+        const want = TRAINING_MIX[level][phase];
+        for (const category of Object.keys(want) as (keyof TrainingMix)[]) {
+          const got = (minutes[category] ?? 0) / total;
+          expect(
+            Math.abs(got - want[category]),
+            `${level}/${phase}/${category}: ${Math.round(got * 100)}% against ${Math.round(want[category] * 100)}%`,
+          ).toBeLessThanOrEqual(0.12);
+        }
+      }
+    });
+  }
+
+  it("ramps compromised running and sheds strength as the race comes closer", () => {
+    for (const level of Object.keys(SETUP) as ExperienceLevel[]) {
+      const rows = sharesFor(level);
+      const share = (phase: string, category: keyof TrainingMix) => {
+        const row = rows.find((r) => r.phase === phase)!;
+        return (row.minutes[category] ?? 0) / row.total;
+      };
+      expect(share("peak", "compromised"), level).toBeGreaterThan(share("base", "compromised"));
+      expect(share("peak", "strength"), level).toBeLessThan(share("base", "strength"));
+    }
+  });
+
+  it("gives every level a taste of compromised running in the base block", () => {
+    // The base block owns running economy and maximal strength, so this is a
+    // taste and not a staple — but a block that never rehearses running out of
+    // a station at all leaves the whole adaptation to the build.
+    for (const level of Object.keys(SETUP) as ExperienceLevel[]) {
+      const base = sharesFor(level).find((r) => r.phase === "base")!;
+      expect(base.minutes.compromised ?? 0, `${level} has none`).toBeGreaterThan(0);
+      expect((base.minutes.compromised ?? 0) / base.total, `${level} overdoes it`).toBeLessThan(0.2);
+    }
+  });
+
+  it("cuts the taper by 40-60% of the peak week, intensity kept", () => {
+    for (const level of Object.keys(SETUP) as ExperienceLevel[]) {
+      const rows = sharesFor(level);
+      const perWeek = (phase: string) => {
+        const p = profile({ experience_level: level });
+        void p;
+        const row = rows.find((r) => r.phase === phase)!;
+        return row.total;
+      };
+      const peak = perWeek("peak") / 3;
+      const taper = perWeek("taper");
+      const cut = 1 - taper / peak;
+      expect(cut, `${level}: taper is ${Math.round(cut * 100)}% down`).toBeGreaterThan(0.4);
+      expect(cut, `${level}: taper is ${Math.round(cut * 100)}% down`).toBeLessThan(0.65);
+    }
+  });
+});
+
+describe("ergometer offloading", () => {
+  // 20-40% of easy endurance volume belongs on a SkiErg, rower or bike at high
+  // training loads: the aerobic work is the same and the Achilles pays none of
+  // it. The PM session of a double day is where it goes — it is the week's
+  // extra volume, and the only easy run whose slot the athlete did not pick.
+  it("puts the second session of a double day on the erg, not on the road", () => {
+    const { weeks } = plan({ training_days_per_week: 5, doubles_per_week: 2 }, 12);
+    const pmRuns = weeks
+      .flatMap(({ w }) => w.sessions)
+      .filter((s) => s.day_slot === "pm" && s.session_type === "run_easy");
+    expect(pmRuns.length).toBeGreaterThan(3);
+    for (const s of pmRuns) {
+      const main = s.blocks.find((b) => b.block_type === "main");
+      expect(main?.load_adjustments.variant_name, JSON.stringify(main?.slug)).toBe(
+        "Cross-Training Combo",
+      );
+    }
+  });
+
+  it("moves the easy volume and nothing else", () => {
+    // The offload buys back impact on the recovery kilometres. The long run,
+    // the quality session and the station work are the training — none of them
+    // is allowed to become an erg session by this route.
+    const { weeks } = plan({ training_days_per_week: 5, doubles_per_week: 2 }, 12);
+    const misplaced = weeks
+      .flatMap(({ w }) => w.sessions)
+      .filter((s) => s.session_type !== "run_easy")
+      .flatMap((s) => s.blocks)
+      .filter((b) => b.load_adjustments.variant_name === "Cross-Training Combo");
+    expect(misplaced).toHaveLength(0);
+  });
+
+  it("does not prescribe an erg to someone who has none", () => {
+    const { weeks } = plan(
+      { training_days_per_week: 5, doubles_per_week: 2, equipment_access: "home_minimal" },
+      12,
+    );
+    const pm = weeks
+      .flatMap(({ w }) => w.sessions)
+      .filter((s) => s.day_slot === "pm")
+      .flatMap((s) => s.blocks);
+    expect(pm.every((b) => b.load_adjustments.variant_name !== "Cross-Training Combo")).toBe(true);
   });
 });

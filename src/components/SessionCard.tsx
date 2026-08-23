@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { DaySlot, GeneratedSession } from "@/lib/engine";
-import { runSpec } from "@/lib/engine";
+import { DOUBLE_DAY_GAP_HOURS, runSpec } from "@/lib/engine";
 import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace } from "@/lib/format";
 import { BlockView } from "./BlockView";
 import {
@@ -236,6 +236,15 @@ export function SessionCard({
             {status === "skipped" && <span className="text-meta text-smoke">skipped</span>}
             {status === "moved" && <span className="text-meta text-ash">moved</span>}
           </div>
+          {showSlot && session.day_slot === "pm" && (
+            // The gap is the whole reason a double day works: closer than two
+            // hours and the second session is training on unrecovered fatigue
+            // rather than a second stimulus. It belongs on the card, where the
+            // athlete decides when to go, not in a document.
+            <div className="mt-1 text-meta text-amber">
+              {DOUBLE_DAY_GAP_HOURS.min}–{DOUBLE_DAY_GAP_HOURS.max} h after the morning session
+            </div>
+          )}
           <div className="mt-1 flex flex-wrap items-center gap-x-2 text-meta text-ash">
             <span style={{ color: DEMAND_COLORS[demand] }} className="font-semibold">
               {DEMAND_LABELS[demand]}

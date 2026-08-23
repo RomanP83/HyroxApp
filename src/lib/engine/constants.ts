@@ -5,7 +5,13 @@
 // action is audited in plan_adjustments). Keep them here, in one place.
 // ============================================================================
 
-import type { PhaseType, SessionType, PaceZones, StationTiers } from "./types";
+import type {
+  ExperienceLevel,
+  PhaseType,
+  SessionType,
+  PaceZones,
+  StationTiers,
+} from "./types";
 import { STATIONS } from "./types";
 
 export const ENGINE_VERSION = "v1.2";
@@ -22,11 +28,10 @@ export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]>
 };
 
 // ── Session-slot priority per phase (highest priority first) ─────────────────
-// training_days_per_week decides how many slots survive; lowest-priority drops
-// first, and a 5th day adds run_easy.
-// Running is 50-60% of a Hyrox, so the run sessions lead each phase's order.
-// Base is deliberately free of compromised running: pure running economy first,
-// no sled/lunge load on the tendons yet (see COMPROMISED_PER_WEEK).
+// This no longer decides WHAT a week trains — TRAINING_MIX does, per level as
+// well as per phase. What survives here is ORDER and precedence: who gives way
+// when a hard session has to be capped, and which run type the phase reaches
+// for next. Running leads every phase because a Hyrox is 50-60% a running race.
 export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
   base: ["long_run", "strength", "run_intervals", "run_easy", "station_work", "mobility"],
   // Station work sits ahead of the recovery run in build and peak: a Hyrox
@@ -45,22 +50,74 @@ export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
   taper: ["run_intervals", "compromised_run", "run_easy", "strength", "station_work", "long_run"],
 };
 
+// ── The training mix, by level and phase ────────────────────────────────────
+// Hyrox is 50-60% a running race, so aerobic running economy is the floor
+// everything else stands on. Across a macrocycle the emphasis then moves from
+// maximal strength and Zone-2 base towards race-specific compromised running
+// and lactate tolerance — the same athlete, a different problem each block.
+//
+// These are shares of PLANNED MINUTES, not session counts: an 80-minute long
+// run and a 50-minute station session are not one unit each. distributeSlots()
+// apportions the week's sessions against them (micro.ts), carrying the
+// remainder across the weeks of a phase, which is how a 5% share still shows
+// up roughly every fourth week instead of rounding away to never.
+//
+// Running here is all three run types together; the sub-order inside it is the
+// phase's own (long run first, then the quality session, then easy volume).
+
+export interface TrainingMix {
+  run: number;
+  strength: number;
+  station: number;
+  compromised: number;
+}
+
+export const TRAINING_MIX: Record<ExperienceLevel, Record<PhaseType, TrainingMix>> = {
+  beginner: {
+    base: { run: 0.45, strength: 0.35, station: 0.15, compromised: 0.05 },
+    build: { run: 0.4, strength: 0.25, station: 0.2, compromised: 0.15 },
+    peak: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    taper: { run: 0.5, strength: 0.1, station: 0.15, compromised: 0.25 },
+  },
+  intermediate: {
+    base: { run: 0.5, strength: 0.3, station: 0.15, compromised: 0.05 },
+    build: { run: 0.4, strength: 0.2, station: 0.2, compromised: 0.2 },
+    peak: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    taper: { run: 0.45, strength: 0.1, station: 0.2, compromised: 0.25 },
+  },
+  advanced: {
+    base: { run: 0.5, strength: 0.25, station: 0.15, compromised: 0.1 },
+    build: { run: 0.35, strength: 0.2, station: 0.2, compromised: 0.25 },
+    peak: { run: 0.3, strength: 0.1, station: 0.25, compromised: 0.35 },
+    taper: { run: 0.45, strength: 0.1, station: 0.2, compromised: 0.25 },
+  },
+  elite: {
+    base: { run: 0.55, strength: 0.2, station: 0.15, compromised: 0.1 },
+    build: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    peak: { run: 0.3, strength: 0.1, station: 0.25, compromised: 0.35 },
+    taper: { run: 0.45, strength: 0.1, station: 0.2, compromised: 0.25 },
+  },
+  world_class: {
+    base: { run: 0.55, strength: 0.2, station: 0.15, compromised: 0.1 },
+    build: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    peak: { run: 0.3, strength: 0.1, station: 0.25, compromised: 0.35 },
+    taper: { run: 0.45, strength: 0.05, station: 0.2, compromised: 0.3 },
+  },
+};
+
+/**
+ * Hours between the two sessions of a double day. Below two the second session
+ * is training on top of unrecovered fatigue rather than a second stimulus;
+ * beyond six it is simply a separate day's worth of load.
+ */
+export const DOUBLE_DAY_GAP_HOURS = { min: 2, max: 6 } as const;
+
 /**
  * Hard days a week may hold — threshold/interval work, compromised running,
  * a simulation or a benchmark. Two is the ceiling: everything above it eats
  * the aerobic base that carries 50-60% of the race.
  */
 export const MAX_HARD_SESSIONS_PER_WEEK = 2;
-
-// Compromised-running frequency ramps base -> peak (§5 Schritt 2).
-// Base is 0 on purpose: the base block builds running economy without the
-// orthopaedic load of sleds and lunges; compromised work starts in the build.
-export const COMPROMISED_PER_WEEK: Record<PhaseType, number> = {
-  base: 0,
-  build: 1,
-  peak: 2,
-  taper: 1,
-};
 
 export const PHASE_VOLUME_MULTIPLIER: Record<PhaseType, number> = {
   base: 1.0,

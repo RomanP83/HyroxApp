@@ -12,6 +12,7 @@ import {
   stationForWeek,
   type AthleteProfile,
   type AthleteState,
+  type DaySlot,
   type Division,
   type ExperienceLevel,
   type GeneratedPlan,
@@ -27,6 +28,8 @@ import { FeedbackCard } from "@/components/FeedbackCard";
 import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
 import { SparkIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
+
+const DEMO_DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** Everything a logged day touches — snapshotted so a single day can be undone. */
 interface DemoWorld {
@@ -205,6 +208,71 @@ export default function DemoPage() {
    * taken before it, then replay every day logged after it. Same contract as
    * the app's DELETE /api/sessions/[id]/log.
    */
+  /**
+   * Moving a session in the demo mirrors what the server does for a real plan
+   * (migration 0022): the target half of the day is either free, or the two
+   * sessions trade places. Nothing is dropped, and no day ends up with two
+   * sessions in the same half.
+   */
+  function onMove(weekNumber: number, session: GeneratedSession, day: number, slot: DaySlot) {
+    const from = { day: session.day_hint, slot: session.day_slot ?? "am" };
+    if (from.day === day && from.slot === slot) return;
+
+    // Who is already there decides whether this is a move or a swap. Read it
+    // from the current plan, not from inside the state updater — that one can
+    // run twice.
+    const week = plan?.phases
+      .flatMap((ph) => ph.weeks)
+      .find((w) => w.week_number === weekNumber);
+    const other =
+      week?.sessions.find(
+        (o) =>
+          o.sort_order !== session.sort_order &&
+          o.day_hint === day &&
+          (o.day_slot ?? "am") === slot,
+      ) ?? null;
+
+    setPlan((prev) =>
+      prev
+        ? {
+            ...prev,
+            phases: prev.phases.map((ph) => ({
+              ...ph,
+              weeks: ph.weeks.map((w) => {
+                if (w.week_number !== weekNumber) return w;
+                return {
+                  ...w,
+                  sessions: w.sessions
+                    .map((o) => {
+                      if (o.sort_order === session.sort_order) {
+                        return { ...o, day_hint: day, day_slot: slot };
+                      }
+                      if (other && o.sort_order === other.sort_order) {
+                        return { ...o, day_hint: from.day, day_slot: from.slot };
+                      }
+                      return o;
+                    })
+                    .sort(
+                      (a, b) =>
+                        a.day_hint - b.day_hint ||
+                        (a.day_slot === "am" ? 0 : 1) - (b.day_slot === "am" ? 0 : 1),
+                    ),
+                };
+              }),
+            })),
+          }
+        : prev,
+    );
+
+    haptic("confirm");
+    setFeed((f) => [
+      other
+        ? `Swapped "${session.title}" with "${other.title}" — the week bends, the plan doesn't break.`
+        : `Moved "${session.title}" to ${DEMO_DAY_LABELS[day]} — the week bends, the plan doesn't break.`,
+      ...f,
+    ]);
+  }
+
   function onReset(weekNumber: number, session: GeneratedSession) {
     if (!profile) return;
     const key = `${weekNumber}:${session.sort_order}`;
@@ -409,6 +477,10 @@ export default function DemoPage() {
                 status={statuses[`${week.week_number}:${s.sort_order}`] ?? "planned"}
                 onLog={(action) => onLog(week.week_number, s, action)}
                 onReset={() => onReset(week.week_number, s)}
+                onMove={(day, slot) => onMove(week.week_number, s, day, slot)}
+                occupied={
+                  new Set(week.sessions.map((o) => `${o.day_hint}-${o.day_slot ?? "am"}`))
+                }
               />
             ))}
           </div>

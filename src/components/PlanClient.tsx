@@ -92,6 +92,7 @@ export function PlanClient(props: Props) {
   // the server round-trip only confirms (or reverts on error).
   const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped" | "planned">>({});
   const [resetting, setResetting] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
   const [savingVolume, setSavingVolume] = useState(false);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
@@ -104,6 +105,11 @@ export function PlanClient(props: Props) {
       .filter((day, i, all) => all.indexOf(day) !== i),
   );
   const currentPhase = phaseOf(props.currentWeek.week_number);
+  // Which halves of the week are already occupied. The card only sees itself,
+  // so the page — which sees the whole week — hands it the map.
+  const occupied = new Set(
+    props.sessions.map((cs) => `${cs.session.day_hint}-${cs.session.day_slot ?? "am"}`),
+  );
 
   // B6: returning from Stripe — verify the checkout session server-side
   // instead of trusting a query flag, then clean the URL.
@@ -232,6 +238,31 @@ export function PlanClient(props: Props) {
       setToast("Couldn't reset that day. Give it another tap.");
     } finally {
       setResetting(null);
+    }
+  }
+
+  /**
+   * Move a session to another day of the week. A target that already holds a
+   * session is a swap, not an error — the server does both rows in one
+   * transaction, so the week can never end up with two sessions in one half.
+   */
+  async function move(sessionId: string, dayHint: number, daySlot: "am" | "pm") {
+    setMovingId(sessionId);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/move`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day_hint: dayHint, day_slot: daySlot }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "move failed");
+      haptic("confirm");
+      setToast(data.reason ?? "Moved.");
+      router.refresh();
+    } catch {
+      setToast("Couldn't move that session. Give it another tap.");
+    } finally {
+      setMovingId(null);
     }
   }
 
@@ -419,6 +450,11 @@ export function PlanClient(props: Props) {
               onReset={props.locked ? undefined : () => reset(cs.id)}
               resetting={resetting === cs.id}
               showSlot={doubleDays.has(cs.session.day_hint)}
+              onMove={
+                props.locked ? undefined : (day, slot) => void move(cs.id, day, slot)
+              }
+              moving={movingId === cs.id}
+              occupied={occupied}
             />
           ))}
         </div>

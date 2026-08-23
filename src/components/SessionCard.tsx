@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { GeneratedSession } from "@/lib/engine";
+import type { DaySlot, GeneratedSession } from "@/lib/engine";
 import { runSpec } from "@/lib/engine";
 import { fmtPace } from "@/lib/format";
 import { BlockView } from "./BlockView";
@@ -10,6 +10,7 @@ import {
   CheckIcon,
   FlameIcon,
   FeatherIcon,
+  MoveIcon,
   SkipIcon,
   LockIcon,
   SpinnerIcon,
@@ -66,6 +67,20 @@ interface Props {
    * which sees the whole week — decides.
    */
   showSlot?: boolean;
+  /**
+   * Move this session to another day (and half) of the same week. Life happens:
+   * the week bends, the plan does not break.
+   */
+  onMove?: (dayHint: number, daySlot: DaySlot) => void;
+  /** Move request in flight. */
+  moving?: boolean;
+  /**
+   * Which "<day>-<slot>" pairs of this week are already occupied — the caller
+   * sees the whole week, this card only sees itself. Occupied halves are
+   * offered as a SWAP rather than being disabled: two sessions trading days is
+   * the most common reason to move one at all.
+   */
+  occupied?: Set<string>;
 }
 
 /** The variant the engine chose for this week's core session, if any. */
@@ -105,8 +120,16 @@ export function SessionCard({
   resetting,
   showSlot,
   strength,
+  onMove,
+  moving,
+  occupied,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  // Which half of the day the picked day should land in. Defaults to the half
+  // the session already sits in, so a plain "Wednesday instead of Tuesday" is
+  // one tap.
+  const [targetSlot, setTargetSlot] = useState<DaySlot>(session.day_slot ?? "am");
   // Keyed "<exerciseId>:<setNumber>" — only what the athlete actually typed.
   const [entries, setEntries] = useState<Record<string, { reps?: number; load?: number }>>({});
   const isRest = session.session_type === "rest";
@@ -382,6 +405,84 @@ export function SessionCard({
             How it went, not what you want next — the engine reads these as your effort against the
             target.
           </p>
+        </div>
+      )}
+
+      {/* Life happens: put the session on a day that actually works. */}
+      {onMove && !isRest && (
+        <div className="mt-4 border-t border-line pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted">Doesn&apos;t fit today?</span>
+            <button
+              className="btn-ghost"
+              onClick={() => {
+                haptic("tap");
+                setMoveOpen((v) => !v);
+              }}
+              disabled={moving}
+              aria-expanded={moveOpen}
+              title="Move this session to another day of the week"
+            >
+              {moving ? <SpinnerIcon size={16} /> : <MoveIcon size={16} />}
+              Move
+            </button>
+          </div>
+
+          {moveOpen && (
+            <div className="mt-3 space-y-2 animate-fade-up">
+              {showSlot && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted">Half of the day:</span>
+                  {(["am", "pm"] as const).map((half) => (
+                    <button
+                      key={half}
+                      type="button"
+                      className={`chip ${targetSlot === half ? "chip-active" : ""}`}
+                      onClick={() => setTargetSlot(half)}
+                    >
+                      {half.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-7 gap-1">
+                {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+                  const here = day === session.day_hint && targetSlot === (session.day_slot ?? "am");
+                  const taken = occupied?.has(`${day}-${targetSlot}`) && !here;
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      className={`chip justify-center ${here ? "chip-active" : ""}`}
+                      disabled={moving || here}
+                      title={
+                        here
+                          ? "This is where it already is"
+                          : taken
+                            ? `${DAY_LABELS[day]} is taken — the two sessions swap days`
+                            : `Move to ${DAY_LABELS[day]}`
+                      }
+                      onClick={() => {
+                        haptic("confirm");
+                        setMoveOpen(false);
+                        onMove(day, targetSlot);
+                      }}
+                    >
+                      <span className={taken ? "text-accent2" : undefined}>
+                        {DAY_LABELS[day].slice(0, 2)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="text-[11px] text-muted">
+                A day that already has a session swaps with this one — nothing is dropped, and the
+                week keeps its shape.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

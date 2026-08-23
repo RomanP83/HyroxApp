@@ -81,6 +81,36 @@ test("demo: double days mark the AM and PM halves of a day", async ({ page }) =>
   await expect(page.getByText("PM", { exact: true })).toHaveCount(0);
 });
 
+test("demo: a session moves to another day, and a taken day swaps", async ({ page }) => {
+  await page.goto("/demo");
+  await page.click("text=Generate my plan");
+
+  const cards = page.locator(".card").filter({ hasText: "RPE target" });
+  const first = cards.first();
+  const firstTitle = (await first.locator("span.font-semibold").first().innerText()).trim();
+
+  // Move it to a day the week has nothing on. Week 1 of a 4-day plan leaves
+  // Sunday free, and a free day is a plain move — no swap message.
+  await first.getByRole("button", { name: "Move" }).click();
+  await first.getByTitle("Move to Sun").click();
+  await expect(page.getByText(/the week bends, the plan doesn't break/).first()).toBeVisible();
+
+  // The card now sits on Sunday — and it is the last card of the week.
+  const moved = cards.filter({ hasText: firstTitle }).first();
+  await expect(moved.getByText("Sun", { exact: true })).toBeVisible();
+  await expect(cards.last()).toContainText(firstTitle);
+
+  // Moving onto an occupied day trades the two sessions instead of failing.
+  const target = cards.first();
+  const targetTitle = (await target.locator("span.font-semibold").first().innerText()).trim();
+  await moved.getByRole("button", { name: "Move" }).click();
+  await moved.getByTitle(/is taken — the two sessions swap days/).first().click();
+  // Plain substring, not a regex: session titles carry brackets of their own.
+  await expect(
+    page.getByText(`Swapped "${firstTitle}" with "${targetTitle}"`).first(),
+  ).toBeVisible();
+});
+
 test("the strength page is behind the profile gate", async ({ page }) => {
   await page.goto("/strength");
   await expect(page).toHaveURL(/onboarding/);

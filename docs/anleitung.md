@@ -157,10 +157,29 @@ diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
 
 ### Verschieben
 
-Eine Einheit auf einen anderen Tag der Woche zu verlegen, ist serverseitig fertig
-(`POST /api/sessions/<id>/move`, Status wird zu „moved"), **hat aber noch keinen Knopf in der
-Oberfläche**. Bis dahin ist der pragmatische Weg: die Einheit an dem Tag machen, an dem es passt,
-und dort loggen — die Wochenbilanz zählt Einheiten, nicht Wochentage.
+Unter jeder Einheit steht **„Doesn't fit today? · Move"**. Ein Tap öffnet die Wochentage — Mo bis So
+als Reihe. Der Tag, auf dem die Einheit schon liegt, ist markiert und nicht anklickbar; jeder andere
+verschiebt sie dorthin.
+
+**Ein belegter Tag ist kein Fehler, sondern ein Tausch.** Liegt auf dem Zieltag schon eine Einheit,
+tauschen die beiden ihre Tage. Nichts fällt weg, und kein Tag bekommt zwei Einheiten in derselben
+Tageshälfte. Der Hinweis am Chip sagt das vorher an („Mittwoch ist belegt — die beiden Einheiten
+tauschen die Tage").
+
+**Doppeltage:** Trägt der Tag eine AM- *und* eine PM-Einheit, erscheint zusätzlich eine Umschaltung
+für die Tageshälfte. Ohne Doppeltag entfällt sie — dann ist Verschieben ein einziger Tap.
+
+Was dabei passiert:
+
+- Eine noch offene Einheit bekommt den Status **„moved"** und bleibt normal loggbar.
+- Eine **bereits geloggte** Einheit behält ihren Status: Verschieben wirft „erledigt" oder
+  „ausgelassen" nicht weg.
+- Der Tausch läuft in **einer** Transaktion. Ein Abbruch mittendrin kann die Woche nicht in einen
+  Zustand mit zwei Einheiten auf derselben Tageshälfte bringen.
+- Jede Verschiebung landet im Anpassungsprotokoll — inklusive der Einheit, mit der getauscht wurde.
+
+Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#14-demo--ausprobieren-ohne-konto)
+funktioniert es genauso, nur ohne Konto.
 
 ---
 
@@ -383,6 +402,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Rennkalender mit Haupt-/Nebenrennen wirkt bis in die einzelnen Trainingstage; Kalenderansicht auf `/season`; Plan direkt aus dem Kalender bauen | [7](#7-season--rennkalender-und-jahresplanung) |
 | Trainingsstruktur nachgeschärft: max. zwei harte Tage, eine Simulation pro Zyklus, Plyometrie und Griffkraft als Finisher, Frequenzberatung nach Level | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
 | 11 Stationsvarianten nach Phase | [16](#16-begriffe) |

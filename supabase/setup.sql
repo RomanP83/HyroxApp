@@ -1021,13 +1021,24 @@ alter table athlete_profiles
 -- Existing data first: the move API could already put two sessions on one day
 -- (nothing enforced otherwise). Give the second one the PM slot, ordered by the
 -- plan's own sequence, so the unique index below can be created on live data.
-update sessions s
-set day_slot = 'pm'
-from (
-  select id, row_number() over (partition by week_id, day_hint order by sort_order, id) as rn
-  from sessions
-) ranked
-where ranked.id = s.id and ranked.rn = 2;
+-- Guarded so this file stays re-runnable: once the uniqueness rule exists, the
+-- data is already in shape. Re-running it afterwards would rank by sort_order,
+-- which a later move (0022) deliberately does NOT swap — it could hand the AM
+-- session the PM slot and collide with the PM one that is already there.
+do $$
+begin
+  if not exists (select 1 from pg_class where relname = 'sessions_week_day_slot_uidx')
+     and not exists (select 1 from pg_constraint where conname = 'sessions_week_day_slot_uniq')
+  then
+    update sessions s
+    set day_slot = 'pm'
+    from (
+      select id, row_number() over (partition by week_id, day_hint order by sort_order, id) as rn
+      from sessions
+    ) ranked
+    where ranked.id = s.id and ranked.rn = 2;
+  end if;
+end $$;
 
 create unique index if not exists sessions_week_day_slot_uidx
   on sessions(week_id, day_hint, day_slot);

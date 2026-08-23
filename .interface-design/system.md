@@ -69,5 +69,20 @@ padding gets ~8px children.
 - **Numbers in mono, right-aligned, tabular** — `Row` in `PlanClient` is the pattern (`dt` label in
   `ash`, `dd` value in mono `bone`).
 - Buttons: 40px min height, `active:scale-[0.97]`, `cubic-bezier(0.23, 1, 0.32, 1)`, ≤150ms.
+- **One header, everywhere** — `AppHeader` owns the nav and the countdown. Each page passes what
+  it counts down to (`Race day` on `/plan`, `Next main race` on `/season`) and at most one action.
+  Navigation is not scaffolding around the product; it is the product's sense of place, and the
+  current page is always visible in it.
+- **A long list of same-shaped things becomes rows, not cards** — season blocks are `<details>` rows
+  with a colour rail, the current one on `rack` with `edge-strong`. Fourteen identical cards is the
+  sound of no one deciding.
+- **Engine explanations are a feed** — an amber left border, `bone` text, no box. Used for both
+  "Why your plan changed" and "How this year was planned", because they are the same thing at two
+  altitudes.
+- **A supporting view does not out-weigh what it supports** — the season calendar shows four months
+  from today, with a toggle for the whole year. Thirteen months of mostly empty grid buried the
+  timeline it exists to explain.
+- `smoke` is disabled and decoration only. Explanatory prose is `ash` at minimum — 11px type set in
+  the muted level is a legibility bug, not a hierarchy decision.
 - Test hooks are `data-*` attributes (`data-session-card`, `data-session-title`), never styling
   classes — a class is not a contract.

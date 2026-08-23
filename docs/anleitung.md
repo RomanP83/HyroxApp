@@ -250,11 +250,20 @@ Erholung besteht.
 
 ### Was du danach siehst
 
-- **Zeitstrahl** pro Makrozyklus, Blöcke breitengetreu, aktueller Block hervorgehoben
-- **Kalender** über die ganze Saison: Tage in der Farbe ihres Blocks, Rennen auf ihrem echten Datum
-  (Buchstabe = Priorität, weißer Punkt = Hauptrennen)
-- **Blockdetails**: Fokus, Schlüsseleinheiten, Volumen, Deload-Wochen, adressierte Schwachstellen
-- **„How this year was planned"**: die Entscheidungen des Planers im Klartext
+Oben rechts steht, wie viele Tage bis zum **nächsten Hauptrennen** bleiben.
+
+- **Das Jahr** als durchgehender Balken pro Makrozyklus: jeder Block breitengetreu, der aktuelle
+  hervorgehoben und unterstrichen, die Rennen des Zyklus mit Datum darunter. Das ist der Blickfang —
+  alles Weitere auf der Seite erklärt ihn.
+- **Kalender**: die nächsten vier Monate, Tage in der Farbe ihres Blocks, Rennen auf ihrem echten
+  Datum (Buchstabe = Priorität, weißer Punkt = Hauptrennen). „Show all … weeks" klappt das ganze
+  Jahr auf.
+- **Blockliste** statt Kartenwand: eine Zeile je Block mit Farbleiste, Wochen, Volumen und
+  Deload-Wochen; antippen zeigt Schlüsseleinheiten, Zeitraum und die adressierten Schwachstellen.
+- **„How this year was planned"**: die Entscheidungen des Planers im Klartext — dieselbe Darstellung
+  wie „Why your plan changed" in der Wochenansicht, weil es dasselbe auf einer anderen Flughöhe ist.
+- **Der Renn-Editor** steht darunter, nicht darüber: Sobald eine Saison existiert, ist das Jahr die
+  Hauptsache und das Formular das Werkzeug. Ohne Saison ist es umgekehrt.
 
 ### Schwachstellen
 
@@ -416,6 +425,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |
 | `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |
 | Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Rennkalender mit Haupt-/Nebenrennen wirkt bis in die einzelnen Trainingstage; Kalenderansicht auf `/season`; Plan direkt aus dem Kalender bauen | [7](#7-season--rennkalender-und-jahresplanung) |

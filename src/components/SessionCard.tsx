@@ -392,7 +392,7 @@ export function SessionCard({
               </div>
             </div>
           ))}
-          <p className="text-micro text-smoke">
+          <p className="text-micro text-ash">
             Leave a field empty and it logs as programmed. Clear every set at the top of the range
             and the plan offers you the next weight — it never changes it on its own.
           </p>
@@ -432,7 +432,7 @@ export function SessionCard({
               the session in focus — repeated under all six it is just noise
               (every button carries the same explanation as a tooltip). */}
           {focal && (
-            <p className="mt-2 text-micro text-smoke">
+            <p className="mt-2 text-micro text-ash">
               How it went, not what you want next — the engine reads these as your effort against
               the target.
             </p>
@@ -465,7 +465,7 @@ export function SessionCard({
             <div className="mt-3 space-y-2 animate-fade-up">
               {showSlot && (
                 <div className="flex items-center gap-2">
-                  <span className="text-micro text-smoke">Half of the day:</span>
+                  <span className="text-micro text-ash">Half of the day:</span>
                   {(["am", "pm"] as const).map((half) => (
                     <button
                       key={half}
@@ -510,7 +510,7 @@ export function SessionCard({
                 })}
               </div>
 
-              <p className="text-micro text-smoke">
+              <p className="text-micro text-ash">
                 A day that already has a session swaps with this one — nothing is dropped, and the
                 week keeps its shape.
               </p>

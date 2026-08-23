@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
+import { AppHeader } from "./AppHeader";
 import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthSetInput } from "./SessionCard";
 import { FeedbackCard } from "./FeedbackCard";
 import {
@@ -89,14 +90,6 @@ interface Props {
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
-
-const NAV = [
-  { href: "/plan", label: "This week" },
-  { href: "/season", label: "Season" },
-  { href: "/strength", label: "Strength" },
-  { href: "/progress", label: "Progress" },
-  { href: "/benchmarks", label: "Benchmarks" },
-];
 
 const DAY_INITIALS = ["", "M", "T", "W", "T", "F", "S", "S"];
 
@@ -337,46 +330,16 @@ export function PlanClient(props: Props) {
 
   return (
     <main className="space-y-6">
-      {/* ── Where you are, and how long you have ──────────────────────────── */}
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-edge pb-4">
-        <div className="flex items-baseline gap-6">
-          <span className="text-h3 font-bold tracking-tight">
-            Hyrox<span className="text-flame">·</span>Hub
-          </span>
-          <nav className="flex items-center gap-1">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`whitespace-nowrap rounded-control px-2.5 py-1.5 text-base font-medium transition-colors duration-150 ease-out ${
-                  item.href === "/plan"
-                    ? "bg-rack text-chalk"
-                    : "text-ash hover:bg-rack/60 hover:text-bone"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {/* The countdown, not the date: this plan exists because of one day. */}
-          <div className="text-right leading-none">
-            <div className="text-micro font-semibold uppercase tracking-widest text-ash">
-              Race day
-            </div>
-            <div className="mt-1 font-mono text-lead font-bold tabular-nums text-chalk">
-              {daysToRace == null ? "—" : `${daysToRace}d`}
-            </div>
-          </div>
-          {!props.paid && (
+      <AppHeader
+        countdown={{ label: "Race day", days: daysToRace }}
+        action={
+          !props.paid ? (
             <button className="btn-primary" onClick={() => unlock()}>
               Unlock full plan
             </button>
-          )}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       {props.planStatus === "rehab" && (
         <div className="card border-amber/50 bg-rack flex flex-wrap items-center justify-between gap-3 animate-fade-up">

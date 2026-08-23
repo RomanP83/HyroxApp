@@ -4,7 +4,10 @@ import { planSeason } from "@/lib/engine";
 import { SeasonClient, type SeasonData } from "../SeasonClient";
 
 // The year view is a client component; the router is not part of what we test.
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: () => undefined }),
+  usePathname: () => "/season",
+}));
 
 /** Same mapping the /season server page does, so engine and UI stay in step. */
 function toSeasonData(): SeasonData {
@@ -90,9 +93,10 @@ describe("SeasonClient", () => {
     const base = DATA.blocks.find((b) => b.kind === "base")!;
     expect(html).toContain(base.focus);
     expect(html).toContain(base.key_sessions[0]);
-    expect(html).toContain(`volume ${Math.round(base.volume_multiplier * 100)}%`);
+    // The block row states the numbers a coach argues with, in one line.
+    expect(html).toContain(`${Math.round(base.volume_multiplier * 100)}% vol`);
     expect(html).toContain("Sled Push");
-    expect(html).toContain("deload w");
+    expect(html).toContain("deload W");
   });
 
   it("explains the planner's decisions", () => {
@@ -113,6 +117,9 @@ describe("SeasonClient", () => {
       />,
     );
     expect(empty).toContain("Build my year plan");
-    expect(empty).toContain("No season yet");
+    // With nothing planned yet, the page leads with what a season IS — the
+    // editor is the only thing to do, so it is the only thing shown.
+    expect(empty).toContain("Your season");
+    expect(empty).toContain("plans backwards from each main");
   });
 });

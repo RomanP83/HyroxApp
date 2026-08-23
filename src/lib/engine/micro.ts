@@ -537,3 +537,49 @@ export function assessWeekPreferences(
   }
   return [...seen];
 }
+
+// ── Manual moves, replayed ──────────────────────────────────────────────────
+
+export interface DayOverride {
+  /** Monday of the calendar week, ISO date. */
+  week_start: string;
+  session_type: SessionType;
+  day_hint: number;
+  day_slot: DaySlot;
+}
+
+/**
+ * Put the sessions an athlete moved by hand back where they moved them.
+ *
+ * A generated week is a proposal; a week the athlete rearranged is a decision,
+ * and a rebase must not quietly undo a decision. Targets that are already
+ * taken swap, exactly as moving in the UI does — so replaying the two rows a
+ * swap wrote reproduces the swap, in either order.
+ */
+export function applyDayOverrides(slots: SessionSlot[], overrides: DayOverride[]): SessionSlot[] {
+  if (!overrides.length) return slots;
+  const out = [...slots];
+
+  for (const o of overrides) {
+    const index = out.findIndex((s) => s.session_type === o.session_type);
+    if (index < 0) continue; // the rebuilt week no longer contains that session
+    const current = out[index];
+    if (current.day_hint === o.day_hint && current.day_slot === o.day_slot) continue;
+
+    const occupant = out.findIndex(
+      (s, i) => i !== index && s.day_hint === o.day_hint && s.day_slot === o.day_slot,
+    );
+    if (occupant >= 0) {
+      out[occupant] = {
+        ...out[occupant],
+        day_hint: current.day_hint,
+        day_slot: current.day_slot,
+      };
+    }
+    out[index] = { ...current, day_hint: o.day_hint, day_slot: o.day_slot };
+  }
+
+  return out
+    .sort((a, b) => (a.day_hint === b.day_hint ? slotRank(a) - slotRank(b) : a.day_hint - b.day_hint))
+    .map((slot, i) => ({ ...slot, sort_order: i }));
+}

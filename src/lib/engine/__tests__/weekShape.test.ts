@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { assessWeekPreferences, layoutWeek } from "../micro";
+import { applyDayOverrides, assessWeekPreferences, layoutWeek } from "../micro";
 import type { SessionType } from "../types";
+import { weekStartOf } from "@/lib/dayOverrides";
 
 // A representative build week: two hard runs, the long run, strength, stations.
 const BUILD: SessionType[] = [
@@ -101,5 +102,83 @@ describe("no preferences", () => {
   it("ignores days outside 1-7 instead of trusting them", () => {
     const { days } = byDay(BUILD, { longRunDay: 0, strengthDays: [9, -1], restDays: [12] });
     expect(days.every((d) => d >= 1 && d <= 7)).toBe(true);
+  });
+});
+
+describe("manual moves survive a rebase", () => {
+  const week = "2026-08-24"; // a Monday
+
+  function slotsOf(types: SessionType[]) {
+    return types.map((t, i) => ({
+      session_type: t,
+      day_hint: i + 1,
+      day_slot: "am" as const,
+      intensity_rpe_target: 7,
+      planned_duration_min: 60,
+      sort_order: i,
+    }));
+  }
+
+  it("puts a moved session back on the day it was moved to", () => {
+    const out = applyDayOverrides(slotsOf(BUILD), [
+      { week_start: week, session_type: "long_run", day_hint: 7, day_slot: "am" },
+    ]);
+    expect(out.find((s) => s.session_type === "long_run")?.day_hint).toBe(7);
+  });
+
+  it("replays a swap from the two rows it wrote, in either order", () => {
+    const rows = [
+      { week_start: week, session_type: "long_run" as SessionType, day_hint: 1, day_slot: "am" as const },
+      { week_start: week, session_type: "compromised_run" as SessionType, day_hint: 3, day_slot: "am" as const },
+    ];
+    for (const order of [rows, [...rows].reverse()]) {
+      const out = applyDayOverrides(slotsOf(BUILD), order);
+      expect(out.find((s) => s.session_type === "long_run")?.day_hint).toBe(1);
+      expect(out.find((s) => s.session_type === "compromised_run")?.day_hint).toBe(3);
+      // No day ends up carrying two AM sessions.
+      const am = out.filter((s) => s.day_slot === "am").map((s) => s.day_hint);
+      expect(new Set(am).size).toBe(am.length);
+    }
+  });
+
+  it("swaps rather than stacks when the target day is taken", () => {
+    const out = applyDayOverrides(slotsOf(BUILD), [
+      { week_start: week, session_type: "station_work", day_hint: 1, day_slot: "am" },
+    ]);
+    expect(out.find((s) => s.session_type === "station_work")?.day_hint).toBe(1);
+    // Whatever was on day 1 took station_work's old day, nothing was dropped.
+    expect(out).toHaveLength(BUILD.length);
+    const days = out.map((s) => s.day_hint);
+    expect(new Set(days).size).toBe(days.length);
+  });
+
+  it("ignores an override for a session the rebuilt week no longer has", () => {
+    const out = applyDayOverrides(slotsOf(BUILD), [
+      { week_start: week, session_type: "full_sim", day_hint: 6, day_slot: "am" },
+    ]);
+    expect(out.map((s) => s.session_type)).toEqual(
+      expect.arrayContaining(BUILD),
+    );
+    expect(out).toHaveLength(BUILD.length);
+  });
+
+  it("leaves the week alone when there is nothing to replay", () => {
+    const before = slotsOf(BUILD);
+    expect(applyDayOverrides(before, [])).toEqual(before);
+  });
+});
+
+describe("weekStartOf", () => {
+  it("maps a plan week to the Monday it starts on", () => {
+    // Plan generated on a Thursday: week 1 is the week containing it.
+    expect(weekStartOf("2026-08-27T09:12:00Z", 1)).toBe("2026-08-24");
+    expect(weekStartOf("2026-08-27T09:12:00Z", 4)).toBe("2026-09-14");
+    // Generated on a Sunday — still that week's Monday, not the next one.
+    expect(weekStartOf("2026-08-30T22:00:00Z", 1)).toBe("2026-08-24");
+  });
+
+  it("is what makes an override survive renumbering", () => {
+    // A plan generated 3 weeks later: its week 1 is the old plan's week 4.
+    expect(weekStartOf("2026-08-27T09:12:00Z", 4)).toBe(weekStartOf("2026-09-17T08:00:00Z", 1));
   });
 });

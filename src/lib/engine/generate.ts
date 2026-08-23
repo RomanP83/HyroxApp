@@ -9,7 +9,7 @@ import type { GenerateInput, GeneratedPlan, GeneratedPhase, GeneratedWeek } from
 import { ENGINE_VERSION, DELOAD_VOLUME_MULTIPLIER } from "./constants";
 import { buildPhasePlan } from "./macro";
 import { scaleRunDurations, weeklyVolumeTarget } from "./running";
-import { distributeSlots } from "./micro";
+import { applyDayOverrides, distributeSlots } from "./micro";
 import {
   applyRacesToWeek,
   placeRaces,
@@ -40,6 +40,16 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
   // The race calendar, resolved onto the plan grid. Without a start date there
   // is nothing to resolve dates against, so the plan stays calendar-free —
   // which is exactly how it behaved before the calendar existed.
+  // Plan week W starts on monday(startDate) + (W-1)*7 — the same grid the race
+  // calendar uses, and the anchor a stored override is keyed against.
+  const weekMonday = (w: number): string | null => {
+    if (!input.startDate) return null;
+    const d = new Date(`${input.startDate.slice(0, 10)}T00:00:00.000Z`);
+    const dow = d.getUTCDay();
+    const monday = d.getTime() - (dow === 0 ? 6 : dow - 1) * 86_400_000;
+    return new Date(monday + (w - 1) * 7 * 86_400_000).toISOString().slice(0, 10);
+  };
+
   const placements: RaceDayPlacement[] =
     input.startDate && input.races?.length
       ? placeRaces({ startDate: input.startDate, weeksToRace, races: input.races })
@@ -98,6 +108,16 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
             isDeload,
             weekNumber: w,
           }) * raceVolumeMultiplier(w, placements),
+        );
+      }
+
+      // What the athlete moved by hand comes back first; the race calendar then
+      // bends the result, because a race day is a fact and a preference is not.
+      const monday = weekMonday(w);
+      if (monday && input.dayOverrides?.length) {
+        slots = applyDayOverrides(
+          slots,
+          input.dayOverrides.filter((o) => o.week_start.slice(0, 10) === monday),
         );
       }
 

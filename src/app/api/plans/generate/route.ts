@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
+import { loadDayOverrides } from "@/lib/dayOverrides";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { generatePlan, initialAthleteState, type AthleteProfile } from "@/lib/engine";
 
@@ -100,7 +101,16 @@ export async function POST(req: Request) {
     : [...calendar, { date: raceDate, type: named ?? "Race day", priority: "A" as const, is_anchor: true }];
   const races = racesForPlan(withTarget, today, raceDate);
   const library = await loadLibrary(supabase);
-  const plan = generatePlan({ profile, state, library, weeksToRace, startDate: today, races });
+  const dayOverrides = await loadDayOverrides(supabase, profile.id, today);
+  const plan = generatePlan({
+    profile,
+    state,
+    library,
+    weeksToRace,
+    startDate: today,
+    races,
+    dayOverrides,
+  });
   const planId = await persistPlan(
     supabase,
     { profileId: profile.id, raceDate: body.race_date, raceId: body.race_id ?? null },

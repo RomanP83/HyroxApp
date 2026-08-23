@@ -204,4 +204,16 @@ export interface GenerateInput {
    * them (see raceCalendar.ts).
    */
   races?: { date: string; type: string; priority: "A" | "B" | "C" }[];
+  /**
+   * Sessions the athlete moved by hand, keyed by the CALENDAR week they belong
+   * to. Needs `startDate` to resolve a plan week to its Monday. A generated
+   * week is a proposal; a rearranged week is a decision, and a rebase must not
+   * undo a decision (see applyDayOverrides).
+   */
+  dayOverrides?: {
+    week_start: string;
+    session_type: SessionType;
+    day_hint: number;
+    day_slot: DaySlot;
+  }[];
 }

@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generatePlan, type AthleteProfile } from "@/lib/engine";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
+import { loadDayOverrides } from "@/lib/dayOverrides";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 
 export async function rebasePlan(
@@ -48,6 +49,10 @@ export async function rebasePlan(
     raceDate,
   );
 
+  // The whole point of a rebase is to rebuild the weeks — but a week the
+  // athlete rearranged by hand is a decision, not a proposal, so it goes back.
+  const dayOverrides = await loadDayOverrides(admin, plan.profile_id, today);
+
   const generated = generatePlan({
     profile,
     state,
@@ -55,6 +60,7 @@ export async function rebasePlan(
     weeksToRace: planWeeksTo(raceDate, today, 2),
     startDate: today,
     races,
+    dayOverrides,
   });
 
   const newPlanId = await persistPlan(

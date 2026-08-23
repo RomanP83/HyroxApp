@@ -236,6 +236,16 @@ Was dabei passiert:
   Zustand mit zwei Einheiten auf derselben Tageshälfte bringen.
 - Jede Verschiebung landet im Anpassungsprotokoll — inklusive der Einheit, mit der getauscht wurde.
 
+**Eine Verschiebung überlebt einen Neuaufbau.** Wird der Plan neu gerechnet — Volumen geändert,
+Wochenform gespeichert, nach einer Verletzung, oder automatisch nach sieben inaktiven Tagen —
+kommt jede von Hand verschobene Einheit auf ihren Tag zurück. Die App merkt sich das an der
+**Kalenderwoche**, nicht an der Planwoche: Wochennummern verschieben sich beim Neuaufbau, Montage
+nicht. Ein Tausch wird als beide Hälften gemerkt, kommt also vollständig zurück.
+
+Zwei Grenzen, die du kennen solltest: Enthält die neu gebaute Woche die Einheit nicht mehr (etwa
+weil ein Deload sie gestrichen hat), verfällt die Verschiebung. Und ein **Renntag** hat Vorrang —
+er ist eine Tatsache im Kalender, deine Verschiebung eine Präferenz.
+
 Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#14-demo--ausprobieren-ohne-konto)
 funktioniert es genauso, nur ohne Konto.
 
@@ -481,6 +491,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Von Hand verschobene Einheiten überstehen einen Neuaufbau des Plans (gemerkt an der Kalenderwoche) | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Feste Wochentage für Long Run, Kraft und Ruhetage planweit definierbar; harte Pins mit Hinweis auf ihre Kosten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Fünf Leistungslevel (bis World Class, sub 60) mit Einheiten-Soll; Wochenplaner hält Abstandsregeln ein (keine zwei harten Tage in Folge, Kraft nie nach hartem Tag); 16 Wochen = 5/5/4/2; Erg-Hinweis; Kohlenhydrat-Periodisierung | [3](#3-onboarding--den-plan-erzeugen), [6](#6-wie-sich-der-plan-anpasst) |
 | Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [8](#8-strength--eigenes-kraftprogramm) |

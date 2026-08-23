@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SettingsClient, type SettingsProps } from "../SettingsClient";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: () => undefined }),
+  useRouter: () => ({ refresh: () => undefined, push: () => undefined }),
   usePathname: () => "/settings",
 }));
 
@@ -102,5 +102,18 @@ describe("the setup page", () => {
     expect(fresh).toContain("The shape of your week");
     expect(fresh).not.toContain("rebuild the remaining weeks");
     expect(fresh).toContain("It applies to your next plan.");
+  });
+});
+
+describe("signing out", () => {
+  const html = render();
+
+  it("offers a way out of the session, and says what it costs", () => {
+    expect(html).toContain("Sign out");
+    // The reassurance is the point: someone signing out on a shared laptop
+    // needs to know the plan is not what is being cleared.
+    expect(html).toContain("This device");
+    expect(html).toMatch(/plan and everything you have logged\s+stay where they are/);
+    expect(html).toMatch(/other\s+devices stay signed in/);
   });
 });

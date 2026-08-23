@@ -110,6 +110,14 @@ export const MedicalIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ExitIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+    <path d="M10 17l-5-5 5-5" />
+    <path d="M5 12h12" />
+  </Svg>
+);
+
 export const LeafIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M11 20A7 7 0 0 1 9.8 6.1C15 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z" />

@@ -42,9 +42,13 @@ test("demo: generate → log → feedback card → adaptation feed", async ({ pa
   await expect(page.locator("text=is back on the plan").first()).toBeVisible();
 });
 
-test("onboarding renders the signup gate", async ({ page }) => {
+test("onboarding renders the sign-in gate, and warns the link is device-bound", async ({ page }) => {
   await page.goto("/onboarding");
-  await expect(page.locator("text=Create your account")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  // PKCE keeps the code verifier in the browser that asked for the link, so a
+  // link requested on one device cannot sign in another. Saying so is the
+  // difference between signing in on a phone and giving up.
+  await expect(page.locator("text=on this device")).toBeVisible();
 });
 
 test("the knowledge admin is gated by the operator secret", async ({ page }) => {

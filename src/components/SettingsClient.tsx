@@ -13,6 +13,7 @@
 // ============================================================================
 import { useState } from "react";
 import { readApi } from "@/lib/apiResult";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import {
   assessWeekPreferences,
@@ -25,6 +26,7 @@ import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
   CheckIcon,
+  ExitIcon,
   MedicalIcon,
   RunIcon,
   SendIcon,
@@ -59,6 +61,19 @@ export interface SettingsProps {
 
 export function SettingsClient(props: SettingsProps) {
   const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function signOut() {
+    setSigningOut(true);
+    haptic("confirm");
+    await supabaseBrowser().auth.signOut();
+    // refresh() as well as push(): the session lives in a cookie the server
+    // components read, so the router cache has to be dropped or the next
+    // navigation still renders as the signed-in athlete.
+    router.push("/");
+    router.refresh();
+  }
+
   const [toast, setToast] = useState<string | null>(null);
   const [savingShape, setSavingShape] = useState(false);
   const [savingVolume, setSavingVolume] = useState(false);
@@ -387,6 +402,24 @@ export function SettingsClient(props: SettingsProps) {
             </button>
           </div>
         )}
+      </section>
+
+      {/* Signing out is not a breakage, and it is not global: it ends the
+          session in this browser only. Its own heading says so before the
+          copy has to. */}
+      <section className="space-y-3">
+        <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">This device</h2>
+        <div className="card flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-[52ch] text-meta leading-relaxed text-ash">
+            Signing out ends the session in this browser. Your plan and everything you have logged
+            stay where they are — sign back in with a link and it is all there, and your other
+            devices stay signed in.
+          </p>
+          <button className="btn-ghost" onClick={() => void signOut()} disabled={signingOut}>
+            {signingOut ? <SpinnerIcon size={16} /> : <ExitIcon size={16} />}
+            Sign out
+          </button>
+        </div>
       </section>
 
       {toast && (

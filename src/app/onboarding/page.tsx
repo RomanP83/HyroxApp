@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { readApi } from "@/lib/apiResult";
 import { frequencyAdvice, initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
 import { fmtClock, PHASE_COLORS, titleCase } from "@/lib/format";
 import { CheckIcon, SpinnerIcon } from "@/components/icons";
@@ -45,10 +46,42 @@ export default function Onboarding() {
   >([]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setSignedIn(!!data.user);
-      setReady(true);
-    });
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (!data.user) {
+        setSignedIn(false);
+        setReady(true);
+        return;
+      }
+      setSignedIn(true);
+
+      // Signing in on a second device lands here, because this is the only
+      // page that sends a sign-in link. Someone who already has a plan came
+      // to look at it, not to fill in this form again — and filling it in
+      // would abandon the plan they came for. Send them to it instead.
+      // ?new=1 is the way back in for a deliberate fresh start.
+      if (!new URLSearchParams(window.location.search).has("new")) {
+        const { data: profile } = await supabase
+          .from("athlete_profiles")
+          .select("id")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+        const { data: plan } = profile
+          ? await supabase
+              .from("plans")
+              .select("id")
+              .eq("profile_id", profile.id)
+              .in("status", ["active", "paused", "rehab"])
+              .limit(1)
+              .maybeSingle()
+          : { data: null };
+        // Stay unready through the redirect: the form must not flash up.
+        if (plan && !cancelled) return router.replace("/plan");
+      }
+      if (!cancelled) setReady(true);
+    })();
     // B5: real event calendar (races is public-read); empty table degrades to
     // the free date picker.
     supabase
@@ -58,7 +91,11 @@ export default function Onboarding() {
       .order("event_date", { ascending: true })
       .limit(60)
       .then(({ data }) => setRaces(data ?? []));
-  }, [supabase]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, router]);
 
   // Live preview: the same engine that builds the real plan, in the browser.
   const preview = useMemo(() => {
@@ -114,7 +151,8 @@ export default function Onboarding() {
           race_id: raceId,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? "generation failed");
+      const result = await readApi(res);
+      if (!result.ok) throw new Error(result.message);
       router.push("/plan");
     } catch (e) {
       setError((e as Error).message);
@@ -138,16 +176,21 @@ export default function Onboarding() {
         <Link href="/" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
-        <h1 className="text-2xl font-bold">Create your account</h1>
+        <h1 className="text-2xl font-bold">Sign in</h1>
         <p className="text-ash">
-          We&apos;ll email you a sign-in link — no password to remember, nothing to forget.
+          We&apos;ll email you a sign-in link — no password to remember, and it creates your
+          account if you don&apos;t have one yet.
+        </p>
+        <p className="text-sm text-ash">
+          Open the link <b className="text-bone">on this device</b> — it only works in the browser
+          that asked for it. A link requested on your computer will not sign you in on your phone.
         </p>
         {sent ? (
           <div className="card flex items-center gap-3 text-go animate-pop-in">
             <CheckIcon size={20} />
             <div>
               <div className="font-semibold">Link is on its way!</div>
-              <div className="text-sm text-ash">Check your inbox and tap it to continue.</div>
+              <div className="text-sm text-ash">Check your inbox on this device and tap it to continue.</div>
             </div>
           </div>
         ) : (

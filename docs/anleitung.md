@@ -71,7 +71,16 @@ Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
 
 **Anmeldung** läuft über einen Magic Link: E-Mail eingeben, Link im Postfach klicken. Kein Passwort.
 
-Danach vier kurze Schritte. Alles ist später änderbar.
+**Auf mehreren Geräten.** Handy und PC können gleichzeitig angemeldet sein — die Sitzung liegt als
+Cookie im jeweiligen Browser. Wichtig: **Der Link funktioniert nur in dem Browser, der ihn
+angefordert hat.** Am PC anfordern und die Mail am Handy öffnen geht nicht; fordere den Link auf
+jedem Gerät neu an. Die Anmeldeseite sagt das auch.
+
+**Hast du schon einen Plan, landest du nach der Anmeldung direkt auf `/plan`.** Das Formular unten
+erscheint dann gar nicht mehr — es würde beim Absenden einen neuen Plan bauen und den bestehenden
+verwerfen. Willst du wirklich von vorne anfangen, rufe `/onboarding?new=1` auf.
+
+Beim ersten Mal folgen vier kurze Schritte. Alles ist später änderbar.
 
 | Eingabe | Was sie bewirkt |
 |---|---|
@@ -398,6 +407,11 @@ Strava, Garmin und Telegram als Zeilen mit ihrem Zustand: **connected**, ein *Co
 *not configured* — Letzteres heißt, dass die Integration auf dieser Installation gar nicht
 eingerichtet ist. Ein toter Knopf wäre die schlechtere Antwort.
 
+### Dieses Gerät
+
+**Abmelden** beendet die Sitzung in diesem Browser. Plan und alles Geloggte bleiben, wo sie sind —
+mit einem neuen Link bist du wieder drin, und deine anderen Geräte bleiben angemeldet.
+
 ### Wenn etwas kaputtgeht
 
 Verletzung melden schaltet in den Reha-Modus; im Reha-Modus steht hier der Weg zurück.
@@ -558,6 +572,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Abmelden auf `/settings` („Dieses Gerät"); nach der Anmeldung mit bestehendem Plan geht es direkt auf `/plan` statt ins Onboarding-Formular | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
 | Schwellen- und VO₂max-Intervalle: 86 level- und phasenspezifische Sessions, bewusst ohne Stationsvorbelastung | [4](#4-plan--die-trainingswoche) |
 | Stationsarbeit: 60 level- und phasenspezifische Sessions ohne einen einzigen Laufmeter; Rotation nutzt jetzt alle drei Sessions einer Phase | [4](#4-plan--die-trainingswoche) |
 | Kompromittierte Läufe werden wieder gespeichert (sie brauchen den neuen Bibliothek-Seed aus `setup.sql`) | [4](#4-plan--die-trainingswoche) |

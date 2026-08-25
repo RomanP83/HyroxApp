@@ -124,6 +124,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
           longRunDay: profile.preferred_long_run_day ?? null,
           strengthDays: profile.preferred_strength_days ?? null,
           restDays: profile.preferred_rest_days ?? null,
+          doubleDays: profile.preferred_double_days ?? null,
         },
       });
 

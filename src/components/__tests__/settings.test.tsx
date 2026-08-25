@@ -17,6 +17,7 @@ const base: SettingsProps = {
     long_run_day: 7,
     strength_days: [1, 4],
     rest_days: [3],
+    double_days: [],
   },
   volume: {
     weekly_km_peak: 45,

@@ -21,7 +21,7 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, experience_level, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days",
+      "id, experience_level, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
     )
     .eq("user_id", user.id)
     .single();
@@ -83,6 +83,7 @@ export default async function SettingsPage() {
         long_run_day: (profile.preferred_long_run_day as number | null) ?? null,
         strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
         rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
+        double_days: (profile.preferred_double_days as number[] | null) ?? [],
       }}
       volume={{
         weekly_km_peak: peakKm,

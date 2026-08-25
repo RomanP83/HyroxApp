@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  assessWeekPreferences,
   capHardSessions,
+  distributeSlots,
   defaultPaceZones,
   frequencyAdvice,
   generatePlan,
@@ -482,5 +484,86 @@ describe("ergometer offloading", () => {
       .filter((s) => s.day_slot === "pm")
       .flatMap((s) => s.blocks);
     expect(pm.every((b) => b.load_adjustments.variant_name !== "Cross-Training Combo")).toBe(true);
+  });
+});
+
+describe("pinned double days", () => {
+  const week = (over: Partial<AthleteProfile>, prefs: Record<string, unknown>) => {
+    const p = profile({ training_days_per_week: 6, doubles_per_week: 2, ...over });
+    return distributeSlots({
+      phase: "build",
+      level: p.experience_level,
+      trainingDays: p.training_days_per_week,
+      doublesPerWeek: p.doubles_per_week ?? 0,
+      weekInPhase: 2,
+      isDeload: false,
+      isBenchmark: false,
+      prefs,
+    });
+  };
+
+  it("puts the second session on the day the athlete pinned", () => {
+    // Days the six-day week actually trains on — Thursday is the one it
+    // leaves free, and a pin there is covered by its own warning below.
+    for (const day of [2, 3, 5, 6]) {
+      const slots = week({}, { doubleDays: [day] });
+      const pm = slots.filter((s) => s.day_slot === "pm").map((s) => s.day_hint);
+      expect(pm, `pinned ${day}`).toContain(day);
+    }
+  });
+
+  it("cannot make a day hard — the second session is always from the light pool", () => {
+    // This is the reason a pin is safe at all: the PM pool is easy running and
+    // mobility, so pinning cannot create a hard day and cannot break the
+    // no-two-hard-days-in-a-row rule.
+    for (const day of [1, 2, 3, 4, 5, 6, 7]) {
+      for (const s of week({}, { doubleDays: [day] })) {
+        if (s.day_slot !== "pm") continue;
+        expect(["run_easy", "mobility"]).toContain(s.session_type);
+      }
+    }
+  });
+
+  it("does not move a single morning session", () => {
+    // The days are laid out before any double is attached, so the pin decides
+    // which day gets a second session and nothing else.
+    const plain = week({}, {}).filter((s) => s.day_slot !== "pm");
+    for (const day of [1, 3, 5, 7]) {
+      const pinnedWeek = week({}, { doubleDays: [day] }).filter((s) => s.day_slot !== "pm");
+      expect(pinnedWeek.map((s) => `${s.day_hint}:${s.session_type}`)).toEqual(
+        plain.map((s) => `${s.day_hint}:${s.session_type}`),
+      );
+    }
+  });
+
+  it("never places more doubles than the athlete asked for", () => {
+    const slots = week({ doubles_per_week: 1 }, { doubleDays: [2, 4, 6] });
+    expect(slots.filter((s) => s.day_slot === "pm")).toHaveLength(1);
+  });
+
+  it("says what a pin on the recovery day between two hard days costs", () => {
+    // Hard pin, soft warn: the day still gets its double, and the athlete is
+    // told which recovery it just spent.
+    const warnings = assessWeekPreferences(
+      { doubleDays: [1, 2, 3, 4, 5, 6, 7] },
+      { trainingDays: 5, doublesPerWeek: 2 },
+    );
+    expect(warnings.some((w) => /recovery day between/.test(w))).toBe(true);
+  });
+
+  it("warns that a hard day's double carries no ergometer offload", () => {
+    const warnings = assessWeekPreferences(
+      { doubleDays: [1, 2, 3, 4, 5, 6, 7] },
+      { trainingDays: 5, doublesPerWeek: 3 },
+    );
+    expect(warnings.some((w) => /no ergometer offload/.test(w))).toBe(true);
+  });
+
+  it("says so when the pinned day carries no session at all", () => {
+    const warnings = assessWeekPreferences(
+      { restDays: [7], doubleDays: [7] },
+      { trainingDays: 4, doublesPerWeek: 1 },
+    );
+    expect(warnings.some((w) => /carries no session/.test(w))).toBe(true);
   });
 });

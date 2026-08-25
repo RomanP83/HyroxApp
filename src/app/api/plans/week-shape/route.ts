@@ -17,6 +17,7 @@ const Body = z.object({
   preferred_long_run_day: Day.nullable(),
   preferred_strength_days: z.array(Day).max(4),
   preferred_rest_days: z.array(Day).max(4),
+  preferred_double_days: z.array(Day).max(3),
 });
 
 export async function PATCH(req: Request) {
@@ -66,6 +67,25 @@ export async function PATCH(req: Request) {
       { status: 400 },
     );
   }
+  if (body.preferred_double_days.some((d) => rest.has(d))) {
+    return NextResponse.json(
+      {
+        error: "rest_day_clash",
+        detail:
+          "You pinned a double day on a rest day. A second session needs a first one — pick one or the other.",
+      },
+      { status: 400 },
+    );
+  }
+  if (body.preferred_double_days.length > body.doubles_per_week) {
+    return NextResponse.json(
+      {
+        error: "too_many_double_days",
+        detail: `You pinned ${body.preferred_double_days.length} double days but train twice on ${body.doubles_per_week} day${body.doubles_per_week === 1 ? "" : "s"} a week.`,
+      },
+      { status: 400 },
+    );
+  }
   if (body.preferred_strength_days.length > trainingDays) {
     return NextResponse.json(
       {
@@ -96,6 +116,7 @@ export async function PATCH(req: Request) {
       preferred_long_run_day: body.preferred_long_run_day,
       preferred_strength_days: body.preferred_strength_days,
       preferred_rest_days: body.preferred_rest_days,
+      preferred_double_days: body.preferred_double_days,
     })
     .eq("id", profile.id);
   if (error) return NextResponse.json({ error: "update_failed", detail: error.message }, { status: 500 });
@@ -106,6 +127,7 @@ export async function PATCH(req: Request) {
       longRunDay: body.preferred_long_run_day,
       strengthDays: body.preferred_strength_days,
       restDays: body.preferred_rest_days,
+      doubleDays: body.preferred_double_days,
     },
     { trainingDays, runsPerWeek: profile.runs_per_week, doublesPerWeek: body.doubles_per_week },
   );

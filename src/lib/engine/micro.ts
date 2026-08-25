@@ -232,6 +232,8 @@ export interface WeekPrefs {
   longRunDay?: number | null;
   strengthDays?: number[] | null;
   restDays?: number[] | null;
+  /** Days that must carry the second session, when the athlete trains twice. */
+  doubleDays?: number[] | null;
 }
 
 export interface WeekLayout {
@@ -728,11 +730,20 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
     isBenchmark,
   });
   if (doubles > 0) {
-    const hostOrder = [...slots].sort((a, b) => {
-      const rankA = hostRank(a.session_type);
-      const rankB = hostRank(b.session_type);
-      return rankA === rankB ? a.day_hint - b.day_hint : rankA - rankB;
-    });
+    // A pinned day comes first, whatever the ranking below would have said:
+    // Tuesday evening is a fact and the ranking is a heuristic. What the pin
+    // costs is reported by assessWeekPreferences() rather than resolved here.
+    const pinned = new Set(clean(input.prefs?.doubleDays));
+    const hostOrder = [...slots]
+      .filter((s) => s.day_slot !== "pm")
+      .sort((a, b) => {
+        const pinA = pinned.has(a.day_hint) ? 0 : 1;
+        const pinB = pinned.has(b.day_hint) ? 0 : 1;
+        if (pinA !== pinB) return pinA - pinB;
+        const rankA = hostRank(a.session_type);
+        const rankB = hostRank(b.session_type);
+        return rankA === rankB ? a.day_hint - b.day_hint : rankA - rankB;
+      });
     for (const host of hostOrder.slice(0, doubles)) {
       const type = pmTypeFor(host.session_type);
       slots.push({
@@ -828,8 +839,75 @@ export function assessWeekPreferences(
     });
     const types = slots.filter((s) => s.day_slot !== "pm").map((s) => s.session_type);
     for (const w of layoutWeek(types, prefs).warnings) seen.add(w);
+    for (const w of assessDoubleDays(slots, prefs)) seen.add(w);
   }
   return [...seen];
+}
+
+/**
+ * What a pinned double day costs.
+ *
+ * Not the hard/easy alternation — that cannot be at risk here. The days are
+ * laid out before any second session is attached, and the PM pool is light by
+ * construction (pmTypeFor returns an easy run or mobility), so a double never
+ * turns a day hard and never moves a morning. Three other things can go wrong,
+ * and each is worth saying out loud.
+ */
+function assessDoubleDays(slots: SessionSlot[], prefs: WeekPrefs): string[] {
+  const pinned = clean(prefs.doubleDays);
+  if (!pinned.length) return [];
+  const warnings: string[] = [];
+  const mornings = slots.filter((s) => s.day_slot !== "pm").sort((a, b) => a.day_hint - b.day_hint);
+  const doubled = new Set(slots.filter((s) => s.day_slot === "pm").map((s) => s.day_hint));
+
+  for (const day of pinned) {
+    const host = mornings.find((s) => s.day_hint === day);
+
+    // 1. Nothing to attach to.
+    if (!host) {
+      warnings.push(
+        `${DAY_NAMES[day]} is pinned as a double day but carries no session — a second session needs a first one.`,
+      );
+      continue;
+    }
+    // A taper week, a deload week and a benchmark week carry no doubles at
+    // all, by design. Complaining that the pin went unused there would be a
+    // false alarm about a rule the plan is following on purpose.
+    if (!doubled.size) continue;
+    if (!doubled.has(day)) {
+      warnings.push(
+        `${DAY_NAMES[day]} is pinned as a double day, but you train twice on fewer days than you pinned.`,
+      );
+      continue;
+    }
+
+    // 2. The recovery day between two hard days. The rules still hold on
+    //    paper; the day just stops being the recovery it was there to be.
+    const before = mornings.filter((s) => s.day_hint < day).pop();
+    const after = mornings.find((s) => s.day_hint > day);
+    const between =
+      !HARD_TYPES.includes(host.session_type) &&
+      before != null &&
+      after != null &&
+      HARD_TYPES.includes(before.session_type) &&
+      HARD_TYPES.includes(after.session_type);
+    if (between) {
+      warnings.push(
+        `${DAY_NAMES[day]} is your recovery day between ${DAY_NAMES[before!.day_hint]} and ${
+          DAY_NAMES[after!.day_hint]
+        } — a second session there costs exactly the recovery it is for.`,
+      );
+    }
+
+    // 3. A hard morning takes mobility as its partner, not an easy run — and
+    //    the ergometer offload rides on that easy run.
+    if (HARD_TYPES.includes(host.session_type)) {
+      warnings.push(
+        `${DAY_NAMES[day]} is a hard day, so its second session is mobility rather than an easy run — no ergometer offload on that day.`,
+      );
+    }
+  }
+  return warnings;
 }
 
 // ── Manual moves, replayed ──────────────────────────────────────────────────

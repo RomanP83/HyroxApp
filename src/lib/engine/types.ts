@@ -90,6 +90,8 @@ export interface AthleteProfile {
   preferred_long_run_day?: number | null;
   preferred_strength_days?: number[] | null;
   preferred_rest_days?: number[] | null;
+  /** Weekdays that must carry the second session, when doubles are on. */
+  preferred_double_days?: number[] | null;
 }
 
 export interface AthleteState {

@@ -46,6 +46,7 @@ export interface SettingsProps {
     long_run_day: number | null;
     strength_days: number[];
     rest_days: number[];
+    double_days: number[];
   };
   volume: {
     weekly_km_peak: number | null;
@@ -82,16 +83,20 @@ export function SettingsClient(props: SettingsProps) {
   const [longRunDay, setLongRunDay] = useState<number | null>(props.weekShape.long_run_day);
   const [strengthDays, setStrengthDays] = useState<number[]>(props.weekShape.strength_days);
   const [restDays, setRestDays] = useState<number[]>(props.weekShape.rest_days);
+  const [doubleDays, setDoubleDays] = useState<number[]>(props.weekShape.double_days);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
 
   // Both of these are pure engine functions, so the page can answer live
   // instead of only after a save: change a day and the cost changes with it.
   const maxRestDays = Math.max(0, 7 - trainingDays);
+  // Turning doubles down strands the pins above the new count. Trim them here
+  // rather than letting the athlete run into a rejected save.
+  const pinnedDoubles = doubleDays.slice(0, doubles);
   const maxRuns = Math.max(2, trainingDays - 1);
   const frequency = frequencyAdvice(props.experienceLevel, trainingDays, doubles);
   const warnings = assessWeekPreferences(
-    { longRunDay, strengthDays, restDays },
+    { longRunDay, strengthDays, restDays, doubleDays: pinnedDoubles },
     { trainingDays, runsPerWeek: props.volume.runs_per_week, doublesPerWeek: doubles },
   );
 
@@ -107,6 +112,7 @@ export function SettingsClient(props: SettingsProps) {
           preferred_long_run_day: longRunDay,
           preferred_strength_days: strengthDays,
           preferred_rest_days: restDays,
+          preferred_double_days: pinnedDoubles,
         }),
       });
       const out = await readApi(res);
@@ -227,7 +233,7 @@ export function SettingsClient(props: SettingsProps) {
             {frequency.note}
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <DayPicker
               label="Long run"
               selected={longRunDay == null ? [] : [longRunDay]}
@@ -258,6 +264,26 @@ export function SettingsClient(props: SettingsProps) {
               }
               accent="smoke"
             />
+            {/* Only when there are doubles to place. A picker capped at zero
+                is a control that does nothing, which is worse than absent. */}
+            {doubles > 0 && (
+              <DayPicker
+                // Capped by the doubles setting, not by the training days: you
+                // cannot pin more second sessions than you asked for.
+                label={`Double days (max ${doubles})`}
+                selected={pinnedDoubles}
+                onToggle={(d) =>
+                  setDoubleDays((prev) =>
+                    prev.includes(d)
+                      ? prev.filter((x) => x !== d)
+                      : prev.length >= doubles
+                        ? prev
+                        : [...prev, d].sort(),
+                  )
+                }
+                accent="flame"
+              />
+            )}
           </div>
 
           {warnings.length > 0 && (
@@ -555,12 +581,13 @@ function DayPicker({
   label: string;
   selected: number[];
   onToggle: (day: number) => void;
-  accent: "go" | "amber" | "smoke";
+  accent: "go" | "amber" | "smoke" | "flame";
 }) {
   const on = {
     go: "border-go/70 bg-go/15 text-chalk",
     amber: "border-amber/70 bg-amber/15 text-chalk",
     smoke: "border-edge-strong bg-rack text-bone",
+    flame: "border-flame/70 bg-flame/15 text-chalk",
   }[accent];
   return (
     <div>

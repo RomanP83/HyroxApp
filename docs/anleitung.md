@@ -408,9 +408,12 @@ stehen. Ohne bestehenden Plan gelten sie für den nächsten.
 ergeben sie deine Einheiten pro Woche. Direkt darunter steht, wie das zu deinem Level passt, und
 zwar **live**: Jede Änderung an den Chips rechnet den Hinweis neu, bevor du speicherst.
 
-Darunter sieben Schalter je Zeile für **Long Run**, **Kraft** und **Ruhetage**, Montag zuerst. Die
-Obergrenze für Ruhetage (`7 − Trainingstage`) bewegt sich mit; nimmst du Trainingstage weg, werden
-zu viele Pins automatisch gekürzt statt dich am Speichern-Knopf auflaufen zu lassen.
+Darunter sieben Schalter je Zeile für **Long Run**, **Kraft**, **Ruhetage** und — sobald du
+Doppeltage eingestellt hast — **Doppeltage**, Montag zuerst. Die Obergrenzen bewegen sich mit:
+Ruhetage `7 − Trainingstage`, Doppeltage genau so viele, wie du oben gewählt hast. Nimmst du
+Trainingstage oder Doppeltage weg, werden zu viele Pins automatisch gekürzt statt dich am
+Speichern-Knopf auflaufen zu lassen. Ohne Doppeltage erscheint die Zeile gar nicht — ein Schalter
+mit Obergrenze 0 wäre ein toter Schalter.
 
 *Harte Pins:* Diese Tage gewinnen — auch gegen die Erholungsregeln. Öffnungszeiten im Gym und ein
 freier Sonntag sind Tatsachen, und ein Plan, der sie stillschweigend überstimmt, wird nicht befolgt.
@@ -420,6 +423,22 @@ Tage es zulassen.
 *Weiche Warnung:* Was ein Pin kostet, steht direkt unter den Schaltern — etwa *„Strength on Thursday
 follows a hard Wednesday — plyometrics wants 24-48 h of fresh legs."* Nichts wird heimlich
 korrigiert; du siehst den Preis und entscheidest.
+
+**Doppeltage im Besonderen.** Ohne Pin verteilt die App sie selbst: zuerst auf Kraft- und
+Stationstage (deren PM-Partner ist ein lockerer Lauf, also genau das fehlende aerobe Volumen), dann
+auf harte Tage, und auf einen lockeren Tag zuletzt — der ist die Erholung der Woche. Ein Pin
+überstimmt diese Rangfolge und nennt dir drei mögliche Kosten:
+
+- **Der Erholungstag zwischen zwei harten Tagen.** Die Hart/Locker-Abfolge bleibt formal intakt,
+  aber der Tag ist keine Erholung mehr.
+- **Ein harter Tag als Gastgeber.** Die PM-Einheit wird dann Mobility statt lockerer Lauf — und
+  damit entfällt dort die Ergometer-Entlastung, die am lockeren PM-Lauf hängt.
+- **Ein Tag ohne Einheit.** Eine zweite Einheit braucht eine erste; der Pin verfällt mit Hinweis.
+
+*Was ein Pin nicht kann:* deine Hart/Locker-Abfolge kippen. Die Wochentage werden verteilt,
+**bevor** irgendein Doppeltag angehängt wird, und eine PM-Einheit ist immer leicht — lockerer Lauf
+oder Mobility, nie hart. Ein Doppeltag verschiebt also keine einzige Morgeneinheit und kann keinen
+harten Tag erzeugen.
 
 Drei Dinge lehnt die App beim Speichern ab, statt sie zu erraten: eine Laufanzahl, die nach dem
 Reduzieren der Trainingstage nicht mehr hineinpasst, ein Tag, der gleichzeitig Ruhetag
@@ -607,6 +626,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Doppeltage lassen sich auf feste Wochentage pinnen (Setup → Form deiner Woche), mit Hinweis auf ihre Kosten | [8](#8-settings--setup--tools) |
 | Der letzte Benchmark-Test liegt nie in der Rennwoche: bei kurzem Taper rückt er in die letzte Peak-Woche | [10](#10-benchmarks--tests-eintragen) |
 | Trainingsmischung nach Level und Phase als Vorgabe (Anteile statt fester Reihenfolge); kompromittiertes Laufen ab der Basis; Deload alle 3–4 Wochen in allen Phasen; Taper senkt auch Kraft und Stationen; Interferenzregel in beide Richtungen; AM/PM-Abstand auf der Karte; Ergometer-Entlastung als echte Einheit | [4](#4-plan--die-trainingswoche), [6](#6-wie-sich-der-plan-anpasst) |
 | Abmelden auf `/settings` („Dieses Gerät"); nach der Anmeldung mit bestehendem Plan geht es direkt auf `/plan` statt ins Onboarding-Formular | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |

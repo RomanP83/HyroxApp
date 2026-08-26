@@ -6,8 +6,12 @@
 // ============================================================================
 
 import type { GenerateInput, GeneratedPlan, GeneratedPhase, GeneratedWeek } from "./types";
-import { ENGINE_VERSION, DELOAD_VOLUME_MULTIPLIER } from "./constants";
-import { buildPhasePlan } from "./macro";
+import {
+  ENGINE_VERSION,
+  DELOAD_VOLUME_MULTIPLIER,
+  TRANSITION_VOLUME_FACTOR,
+} from "./constants";
+import { buildPhasePlan, transitionPhasePlan } from "./macro";
 import { scaleRunDurations, weeklyVolumeTarget } from "./running";
 import { applyDayOverrides, distributeSlots } from "./micro";
 import {
@@ -54,7 +58,10 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
     input.startDate && input.races?.length
       ? placeRaces({ startDate: input.startDate, weeksToRace, races: input.races })
       : [];
-  const phasePlans = buildPhasePlan(weeksToRace);
+  // A transition block has nothing to periodise towards, so it is one base
+  // phase at maintenance load rather than a split ending in a taper.
+  const transition = input.mode === "transition";
+  const phasePlans = transition ? transitionPhasePlan(weeksToRace) : buildPhasePlan(weeksToRace);
   const lastBuild = [...phasePlans].reverse().find((p) => p.phase_type === "build");
   const taper = phasePlans.find((p) => p.phase_type === "taper");
   const peak = phasePlans.find((p) => p.phase_type === "peak");
@@ -62,9 +69,10 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
   // ONE full race simulation per cycle, not one per peak week: a complete
   // run-through costs 2-3 days of recovery. It goes three weeks out — late
   // enough to rehearse pacing, early enough to absorb.
-  const fullSimWeek = peak
-    ? Math.min(peak.end_week, Math.max(peak.start_week, weeksToRace - 2))
-    : null;
+  const fullSimWeek =
+    peak && !transition
+      ? Math.min(peak.end_week, Math.max(peak.start_week, weeksToRace - 2))
+      : null;
 
   // Benchmark weeks (§5 Schritt 1): week 1, end of build, and one last test
   // before the race.
@@ -76,7 +84,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
   // own mix. So a short taper tests in the last peak week instead, stepping
   // back once more if that is the week carrying the full simulation: a test
   // and a complete run-through in one week is two race efforts in seven days.
-  const benchmarkWeeks = new Set<number>([1]);
+  const benchmarkWeeks = new Set<number>(transition ? [] : [1]);
   if (lastBuild) benchmarkWeeks.add(lastBuild.end_week);
   if (taper) {
     const taperWeeks = taper.end_week - taper.start_week + 1;
@@ -130,6 +138,17 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
 
       // When the athlete gave the cycle a peak volume, the week's runs are
       // stretched or shrunk onto its share of it (running.ts holds the curve).
+      // A transition block runs the whole week at maintenance load — the runs
+      // through the volume target below, everything else here, because the
+      // phase multiplier is keyed on the phase type and this block borrows
+      // "base" from a race cycle.
+      if (transition) {
+        slots = slots.map((slot) => ({
+          ...slot,
+          planned_duration_min: Math.round(slot.planned_duration_min * TRANSITION_VOLUME_FACTOR),
+        }));
+      }
+
       if (profile.weekly_km_peak) {
         slots = scaleRunDurations(
           slots,
@@ -139,7 +158,9 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
             phase: pp.phase_type,
             isDeload,
             weekNumber: w,
-          }) * raceVolumeMultiplier(w, placements),
+          }) *
+            raceVolumeMultiplier(w, placements) *
+            (transition ? TRANSITION_VOLUME_FACTOR : 1),
         );
       }
 

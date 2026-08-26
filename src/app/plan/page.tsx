@@ -8,7 +8,8 @@ import {
 } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
-import { currentWeekNumber } from "@/lib/planWeek";
+import { currentWeekNumber, raceIsBehind } from "@/lib/planWeek";
+import { PlanFinished } from "@/components/PlanFinished";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ export default async function PlanPage({
     .from("plans")
     .select("id, race_date, starts_on, status, total_weeks, stripe_payment_id")
     .eq("profile_id", profile.id)
-    .in("status", ["active", "paused", "rehab"])
+    // 'completed' as well: a plan whose race has been and gone is what the
+    // athlete should land on the morning after, not the onboarding form.
+    .in("status", ["active", "paused", "rehab", "completed"])
     .order("generated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -56,6 +59,14 @@ export default async function PlanPage({
         </Link>
       </main>
     );
+  }
+
+  // The race is behind us: this plan is a record now, and the week view would
+  // only show its last taper week for ever. Two ways on — the next race, or a
+  // block with no race in it at all.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (raceIsBehind(String(plan.race_date), todayIso) || plan.status === "completed") {
+    return <PlanFinished raceDate={String(plan.race_date).slice(0, 10)} />;
   }
 
   // C4: a per-plan purchase OR an active subscription unlocks the plan.

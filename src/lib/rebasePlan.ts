@@ -12,7 +12,7 @@ import { generatePlan, type AthleteProfile } from "@/lib/engine";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { loadDayOverrides } from "@/lib/dayOverrides";
-import { weekStartOf } from "@/lib/planWeek";
+import { raceIsBehind, weekStartOf } from "@/lib/planWeek";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 
 export async function rebasePlan(
@@ -48,6 +48,13 @@ export async function rebasePlan(
   const today = new Date().toISOString().slice(0, 10);
   const start = weekStartOf(startsOn?.slice(0, 10) ?? today, 1);
   const raceDate = String(plan.race_date).slice(0, 10);
+
+  // Never rebase past a race that has already happened. planWeeksTo counts
+  // weeks TO the race; against a date in the past it clamps to its floor and
+  // hands back a two-week taper aimed at a day that is over. The guard lives
+  // here rather than in each of the six callers, because any of them can be
+  // reached the week after a race.
+  if (raceIsBehind(raceDate, today)) return null;
   const calendar = await loadSeasonRaces(admin, plan.profile_id);
   const races = racesForPlan(
     calendar.some((r) => r.date === raceDate)

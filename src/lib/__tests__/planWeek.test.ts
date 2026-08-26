@@ -1,7 +1,15 @@
 // The current week is derived, so this is where "which week am I in" is
 // actually decided. It replaced a stored flag that nothing ever advanced.
 import { describe, it, expect } from "vitest";
-import { currentWeekNumber, nextMonday, planIsRunning, weekStartOf } from "../planWeek";
+import {
+  currentWeekNumber,
+  nextMonday,
+  planIsRunning,
+  raceIsBehind,
+  weekStartOf,
+} from "../planWeek";
+import { planWeeksTo } from "../seasonCalendar";
+import { splitPhases } from "@/lib/engine";
 
 const day = (iso: string) => iso;
 
@@ -88,5 +96,24 @@ describe("the highlight on the week view", () => {
     for (const status of ["done", "skipped", "moved"]) {
       expect(focal({ shownWeek: 4, thisWeek: 4, weekday: 3, dayHint: 3, status })).toBe(false);
     }
+  });
+});
+
+describe("a plan whose race is behind it", () => {
+  // The concrete failure: planWeeksTo counts weeks TO the race and clamps to
+  // its floor, so a finished plan rebased the week after the race came back as
+  // two taper weeks aimed at a day that was over. rebasePlan refuses now, and
+  // this is the arithmetic that says why it had to.
+  it("would produce a nonsense length if it were rebased", () => {
+    expect(planWeeksTo("2026-02-23", "2026-03-02", 2)).toBe(2);
+    expect(planWeeksTo("2025-12-01", "2026-03-02", 2)).toBe(2);
+    // Two weeks is all taper: a block with no base, no build and no peak.
+    expect(splitPhases(2).map((p) => p.phase_type)).toEqual(["taper"]);
+  });
+
+  it("counts race day itself as still ahead", () => {
+    // You train on race morning; the plan closes the day after.
+    expect(raceIsBehind("2026-05-24", "2026-05-24")).toBe(false);
+    expect(raceIsBehind("2026-05-24", "2026-05-25")).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 import { rebasePlan } from "@/lib/rebasePlan";
 import { loadTuning } from "@/lib/engineConfig";
 import { currentWeekNumber } from "@/lib/planWeek";
+import { raceIsBehind } from "@/lib/planWeek";
 
 export const runtime = "nodejs";
 
@@ -45,14 +46,27 @@ export async function POST(req: Request) {
 
   const { data: plans } = await admin
     .from("plans")
-    .select("id, profile_id, status, generated_at, starts_on, total_weeks")
+    .select("id, profile_id, status, generated_at, starts_on, total_weeks, race_date")
     .in("status", ["active", "paused"]);
 
   const now = Date.now();
   const results: Record<string, string[]> = {};
   const tuning = await loadTuning(admin);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   for (const plan of plans ?? []) {
+    // A plan whose race has been and gone is a record, not a plan. It gets
+    // closed here rather than adapted: planWeeksTo counts weeks TO the race,
+    // so rebasing against a past date clamps to the floor and produces a
+    // two-week taper aimed at a day that is over — and the seven-days-inactive
+    // rebase below is precisely what the week after a race triggers.
+    if (raceIsBehind(String(plan.race_date), today)) {
+      await admin.from("plans").update({ status: "completed" }).eq("id", plan.id);
+      results[plan.id] = ["race day passed — plan closed"];
+      continue;
+    }
+
     const { data: stateRow } = await admin
       .from("athlete_state")
       .select("*")

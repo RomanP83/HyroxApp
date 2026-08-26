@@ -133,6 +133,16 @@ export const PHASE_RPE_TARGET: Record<PhaseType, number> = {
   taper: 5,
 };
 
+/**
+ * What a transition block runs at, against the same peak week a race block
+ * would use. Low enough to be recoverable indefinitely, high enough that the
+ * base does not have to be rebuilt from scratch for the next goal.
+ */
+export const TRANSITION_VOLUME_FACTOR = 0.7;
+
+/** Weeks a transition block runs for when nothing else is said. */
+export const TRANSITION_WEEKS = 4;
+
 export const DELOAD_VOLUME_MULTIPLIER = 0.6; // §5: every 4th week in base/build
 
 // ── Adaptive engine tuning constants (§5 Schritt 4 / "Ehrliche Einordnung") ──

@@ -342,6 +342,31 @@ ist die Reduktion: das Wochenvolumen sinkt dort um 41–55 %, während die Inten
 Intervallen erhalten bleibt. Die Häufigkeit bleibt auch — gekürzt wird die Dauer, nicht die Anzahl:
 der lange Lauf der Rennwoche ist 35 Minuten statt 60, die Intervalle 32 statt 55.
 
+**Wie lang ein Plan ist.** Nicht fix. Die Länge wird aus Startdatum und Renntermin gerechnet und
+auf die Phasen verteilt — 9 Wochen ergeben 3/3/2/1, 13 Wochen 5/4/3/1, 17 Wochen 7/5/4/1. Zwei
+Grenzen: **mindestens 4 Wochen** und **höchstens 20**. Ein Rennen in einem Jahr ergibt also keinen
+52-Wochen-Plan, sondern 20 Wochen; der Rest wartet. Unter 8 Wochen fällt zuerst die Basis weg, der
+Taper bleibt immer.
+
+Neu gerechnet wird die Länge bei jedem Neuaufbau — Wochenform, Volumen, Level, Startdatum,
+Verletzung, oder automatisch bei ACWR über 1,5 und nach 7 Tagen Pause. **Verschiebst du dein
+Renndatum, passiert nichts von selbst:** Du baust den Plan auf [`/season`](#7-season--rennkalender-und-jahresplanung)
+neu aus dem Kalender.
+
+**Nach dem Renntag.** Ist der Renntag vorbei, ist der Plan ein Protokoll und wird als *abgeschlossen*
+geführt. `/plan` zeigt dann keinen Wochenplan mehr, sondern zwei Wege weiter:
+
+- **Nächstes Rennen wählen** — auf `/season` eintragen und daraus bauen.
+- **Übergangsblock starten** — vier Wochen Basisarbeit auf Erhaltungslast: 70 % Volumen, kein
+  Benchmark, keine Simulation, kein Taper. Es gibt nichts, worauf hin getapert würde. Long Run,
+  Kraft und Stationsarbeit bleiben drin, denn genau die verfallen in vier ungeplanten Wochen.
+  Sobald du ein Rennen wählst, wird der Block ersetzt.
+
+Ein abgeschlossener Plan wird **nie neu aufgebaut**. Das ist keine Kosmetik: Die Wochen werden zum
+Renntag hin gezählt, gegen ein vergangenes Datum käme ein Zwei-Wochen-Taper auf einen Tag heraus,
+der schon vorbei ist — und der automatische Neuaufbau nach 7 Tagen Pause ist genau das, was die
+Woche nach einem Rennen auslöst.
+
 **Rebase statt Flickwerk.** Wenn sich etwas Grundlegendes ändert — Verletzung, Pause, neues
 Laufvolumen — wird der Plan **ab heute neu gerechnet**, nicht rückwirkend verbogen. Vergangene
 Wochen bleiben als Protokoll stehen.
@@ -673,6 +698,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Nach dem Renntag: Plan wird abgeschlossen statt weiter angepasst; Übergangsblock ohne Rennen (4 Wochen Erhaltung) als Alternative zum nächsten Rennen | [6](#6-wie-sich-der-plan-anpasst) |
 | Laufvolumen gipfelt jetzt in der Basis und fällt bis zum Rennen (100/90/80/40 % statt 85/100/90/50 %) | [6](#6-wie-sich-der-plan-anpasst) |
 | Level (Zielzeit) und Division nachträglich änderbar; der Plan wird neu gebaut, Pace-Zonen und Tiers bleiben erhalten | [8](#8-settings--setup--tools) |
 | Startdatum des Plans wählbar (Onboarding und Setup, mit Frage nach Neuaufbau); die laufende Woche wird aus dem Startdatum abgeleitet statt aus einem Status, der nie weitergeschaltet wurde | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |

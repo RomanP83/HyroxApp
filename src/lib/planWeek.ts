@@ -71,3 +71,17 @@ export function weeksFromStartToRace(startsOn: string, raceDate: string): number
   const weeks = Math.round((mondayOf(raceDate) - mondayOf(startsOn)) / (7 * DAY_MS)) + 1;
   return Math.max(0, weeks);
 }
+
+/**
+ * The race this plan was built for is behind us.
+ *
+ * Worth its own name because two things must key off it. A finished plan is
+ * not the athlete's current plan any more — it is a record — and, more sharply,
+ * it must never be rebased: planWeeksTo counts weeks to the race, so against a
+ * date in the past it clamps to its floor and hands back a two-week taper
+ * aimed at a day that has been and gone. The nightly job rebases for seven
+ * days of inactivity, which is exactly what the week after a race looks like.
+ */
+export function raceIsBehind(raceDate: string, today: string): boolean {
+  return raceDate.slice(0, 10) < today.slice(0, 10);
+}

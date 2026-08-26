@@ -195,6 +195,12 @@ export interface GenerateInput {
   library: WorkoutBlock[];
   weeksToRace: number;
   /**
+   * "race" periodises towards a race day; "transition" is the block between
+   * goals — base work at maintenance load, no benchmark, no simulation, no
+   * taper, because there is nothing to taper into. See transitionPhasePlan.
+   */
+  mode?: "race" | "transition";
+  /**
    * Any date inside plan week 1 (normally today). Only needed when races are
    * passed: it anchors the plan grid so a calendar date can be resolved to a
    * plan day.

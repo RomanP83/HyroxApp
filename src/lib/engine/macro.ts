@@ -6,7 +6,11 @@
 // ============================================================================
 
 import type { PhaseType } from "./types";
-import { PHASE_SPLIT_TABLE, PHASE_VOLUME_MULTIPLIER } from "./constants";
+import {
+  PHASE_SPLIT_TABLE,
+  PHASE_VOLUME_MULTIPLIER,
+  TRANSITION_VOLUME_FACTOR,
+} from "./constants";
 
 export interface PhaseSplit {
   phase_type: PhaseType;
@@ -137,4 +141,32 @@ export function buildPhasePlan(weeksToRace: number): PhasePlan[] {
       cursor = end + 1;
     });
   return phases;
+}
+
+/**
+ * A block with no race in front of it.
+ *
+ * After a race — or between goals — there is nothing to periodise towards, and
+ * pretending otherwise is what produced a two-week taper aimed at a date in the
+ * past. What belongs here is base work at maintenance load: aerobic economy and
+ * strength kept alive, volume down, no benchmark, no simulation, no taper.
+ *
+ * It stays phase_type "base" rather than earning a phase of its own: a
+ * transition block IS base work, and every catalogue, mix row and pace target
+ * in the engine is keyed on the four phases. What makes it a transition is the
+ * volume it runs at (TRANSITION_VOLUME_FACTOR), not a different kind of week.
+ */
+export function transitionPhasePlan(weeks: number): PhasePlan[] {
+  const span = Math.max(1, Math.floor(weeks));
+  return [
+    {
+      phase_type: "base",
+      sort_order: 0,
+      start_week: 1,
+      end_week: span,
+      volume_multiplier: TRANSITION_VOLUME_FACTOR,
+      focus_description:
+        "Between goals: aerobic base and strength kept alive at a load you could hold indefinitely. Pick your next race whenever you are ready — the plan rebuilds around it.",
+    },
+  ];
 }

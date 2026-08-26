@@ -5,6 +5,8 @@
 // ============================================================================
 
 export type Division = "open" | "pro" | "doubles" | "masters_open" | "masters_pro";
+/** The four stages of the block between goals (constants.ts holds their specs). */
+export type TransitionModule = "reset" | "reintroduction" | "reload" | "offseason";
 export type ExperienceLevel =
   | "beginner"
   | "intermediate"
@@ -200,6 +202,13 @@ export interface GenerateInput {
    * taper, because there is nothing to taper into. See transitionPhasePlan.
    */
   mode?: "race" | "transition";
+  /**
+   * Which transition module the block opens on. A block that continues one —
+   * no race in the calendar, the last simply ran out — starts at the
+   * off-season: the three days of nothing belong after a race, not after a
+   * loading cycle.
+   */
+  firstModule?: TransitionModule;
   /**
    * Any date inside plan week 1 (normally today). Only needed when races are
    * passed: it anchors the plan grid so a calendar date can be resolved to a

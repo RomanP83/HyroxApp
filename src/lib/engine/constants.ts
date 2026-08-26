@@ -7,6 +7,7 @@
 
 import type {
   ExperienceLevel,
+  TransitionModule,
   PhaseType,
   SessionType,
   PaceZones,
@@ -144,8 +145,6 @@ export const PHASE_RPE_TARGET: Record<PhaseType, number> = {
 // block, no simulation, no benchmark. Race specificity is what the next
 // macrocycle is for; this block exists to arrive at it intact.
 
-export type TransitionModule = "reset" | "reintroduction" | "reload" | "offseason";
-
 export interface TransitionModuleSpec {
   module: TransitionModule;
   name: string;
@@ -227,8 +226,12 @@ export const TRANSITION_ORDER: TransitionModule[] = [
   "offseason",
 ];
 
-/** Weeks a transition block runs for when no next race is known. */
-export const TRANSITION_WEEKS = 4;
+/**
+ * The longest plan the format holds. A race block never needs more (the switch
+ * into race-specific work happens 12-16 weeks out), and it is how far an
+ * open-ended transition block runs before it has to be extended.
+ */
+export const PLAN_MAX_WEEKS = 20;
 
 /**
  * The runway a race block wants. Anything beyond it before the next race is

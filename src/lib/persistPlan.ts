@@ -22,6 +22,11 @@ export interface PersistMeta {
    * Omitted, the database falls back to this week's Monday.
    */
   startsOn?: string | null;
+  /**
+   * "transition" marks the block between goals: race_date holds its own end
+   * and no race happens on it, so nothing may present it as a race cycle.
+   */
+  kind?: "race" | "transition";
   raceId?: string | null;
   stripePaymentId?: string | null;
   status?: "active" | "paused";
@@ -45,6 +50,7 @@ export async function persistPlan(
     race_id: meta.raceId ?? null,
     race_date: meta.raceDate,
     starts_on: meta.startsOn ?? null,
+    kind: meta.kind ?? "race",
     status: meta.status ?? "active",
     stripe_payment_id: meta.stripePaymentId ?? null,
     total_weeks: plan.total_weeks,

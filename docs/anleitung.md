@@ -381,9 +381,21 @@ seine volle Anlaufstrecke (16 Wochen), alles davor ist Übergang:
 | 32 Wochen | 16 Wochen (Off-Season gedehnt) | 16 |
 | 20 Wochen | 4 Wochen (klassischer Durchlauf) | 16 |
 | 12 Wochen | 1 Woche (nur Reset) | 11 |
-| kein Rennen im Kalender | 4 Wochen | — |
+| **kein Rennen im Kalender** | **20 Wochen, danach verlängerbar** | — |
 
 Nie null: Die Woche nach einem Rennen ist ein Reset, egal wie eng es wird.
+
+**Ohne Rennen läuft der Block offen.** Die Frage „wie lang?" hat dann keine Antwort, die jemand
+ausrechnen könnte — also bekommt er die 20 Wochen, die das Planformat hergibt: Reset,
+Re-Introduction, Volume Reload und **17 Wochen Off-Season** in Vierwochenzyklen (Deload in Woche 7,
+11, 15, 19). Läuft er aus, verlängerst du ihn mit einem Knopf — und die **Verlängerung beginnt bei
+der Off-Season**, nicht bei einem weiteren Reset. Drei Tage Nichtstun gehören nach ein Rennen, nicht
+nach zwanzig Belastungswochen. Auch die Volumen-Anlaufkurve entfällt dabei: Du steigst nicht neu
+ein, du machst weiter.
+
+**Ein Übergangsblock gibt sich nicht als Rennzyklus aus.** In der Kopfzeile steht *Block ends* statt
+*Race day*, und am Ende *„That block is done — kein Rennen war darin"*. Technisch trägt der Plan
+dafür eine Kennzeichnung (`kind`); das Feld `race_date` hält nur das Ende des Blocks.
 
 Ein abgeschlossener Plan wird **nie neu aufgebaut**. Das ist keine Kosmetik: Die Wochen werden zum
 Renntag hin gezählt, gegen ein vergangenes Datum käme ein Zwei-Wochen-Taper auf einen Tag heraus,
@@ -721,6 +733,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Ohne Rennen läuft der Übergangsblock offen (20 Wochen, Verlängerung ab Off-Season statt neuem Reset) und wird nicht mehr als Rennzyklus angezeigt | [6](#6-wie-sich-der-plan-anpasst) |
 | Nach dem Renntag: Plan wird abgeschlossen statt weiter angepasst; Übergangsblock in vier Modulen (Reset → Re-Introduction → Volume Reload → Off-Season), Länge aus dem Abstand zum nächsten Rennen | [6](#6-wie-sich-der-plan-anpasst) |
 | Laufvolumen gipfelt jetzt in der Basis und fällt bis zum Rennen (100/90/80/40 % statt 85/100/90/50 %) | [6](#6-wie-sich-der-plan-anpasst) |
 | Level (Zielzeit) und Division nachträglich änderbar; der Plan wird neu gebaut, Pace-Zonen und Tiers bleiben erhalten | [8](#8-settings--setup--tools) |

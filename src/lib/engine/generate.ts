@@ -141,15 +141,22 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
       // A transition block runs its own deload rhythm: the off-season is
       // three loading weeks and one at -40%, counted from where the off-season
       // starts rather than from the block's first week.
-      const isDeload = transition ? transitionIsDeload(w) : deloadWeeks.has(w);
-      const moduleSpec = transition ? TRANSITION_MODULES[transitionModuleFor(w)] : null;
+      const isDeload = transition
+        ? transitionIsDeload(w, input.firstModule)
+        : deloadWeeks.has(w);
+      const moduleSpec = transition
+        ? TRANSITION_MODULES[transitionModuleFor(w, input.firstModule)]
+        : null;
 
       // For the mix, a transition MODULE is the phase: reset, re-introduction
       // and reload are one week each, and the off-season is everything after
       // them. Without that the apportionment would carry its remainder across
       // four modules that are not training for the same thing, and a 15%
       // station share would surface once at the very end of the block.
-      const offseasonStart = TRANSITION_ORDER.indexOf("offseason") + 1;
+      const offseasonStart =
+        TRANSITION_ORDER.indexOf("offseason") -
+        TRANSITION_ORDER.indexOf(input.firstModule ?? "reset") +
+        1;
       const moduleWeek = moduleSpec
         ? moduleSpec.module === "offseason"
           ? w - offseasonStart + 1
@@ -211,7 +218,10 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
             peakKm: profile.weekly_km_peak,
             phase: pp.phase_type,
             isDeload,
-            weekNumber: w,
+            // A block that continues one is not ramping into anything: the
+            // athlete has just finished twenty weeks of it. The ramp belongs
+            // at the start of training, not at the start of a file.
+            weekNumber: input.firstModule === "offseason" ? undefined : w,
           }) *
             raceVolumeMultiplier(w, placements) *
             (moduleSpec ? moduleSpec.volume : 1),

@@ -61,6 +61,11 @@ interface Props {
   currentWeek: WeekMeta;
   /** The plan week today actually falls in — not necessarily the one shown. */
   thisWeekNumber: number;
+  /**
+   * A transition block has no race in it: race_date holds the block's own end.
+   * Counting down to "Race day" on that date would be a plain untruth.
+   */
+  planKind: "race" | "transition";
   sessions: ClientSession[];
   state: any;
   adjustments: string[];
@@ -288,7 +293,10 @@ export function PlanClient(props: Props) {
   return (
     <main className="space-y-6">
       <AppHeader
-        countdown={{ label: "Race day", days: daysToRace }}
+        countdown={{
+          label: props.planKind === "transition" ? "Block ends" : "Race day",
+          days: daysToRace,
+        }}
         action={
           !props.paid ? (
             <button className="btn-primary" onClick={() => unlock()}>

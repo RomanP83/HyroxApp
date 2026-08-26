@@ -67,6 +67,18 @@ export async function POST(req: Request) {
   const weeks =
     parsed.data.weeks ??
     transitionWeeksFor(nextRace ? planWeeksTo(nextRace.date, startsOn, 1) : null);
+
+  // Continuing rather than starting. When the athlete's last plan was itself a
+  // transition block, this one picks up at the off-season: the three days of
+  // nothing belong after a race, not after twenty weeks of loading.
+  const { data: previous } = await supabase
+    .from("plans")
+    .select("kind")
+    .eq("profile_id", profile.id)
+    .order("generated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const firstModule = previous?.kind === "transition" ? ("offseason" as const) : ("reset" as const);
   // The block's own last day stands where a race date would: the plan ends
   // when it ends, and nothing is periodised towards it.
   const endsOn = weekStartOf(startsOn, weeks + 1);
@@ -79,12 +91,13 @@ export async function POST(req: Request) {
       library: await loadLibrary(supabase),
       weeksToRace: weeks,
       mode: "transition",
+      firstModule,
       startDate: startsOn,
       dayOverrides: await loadDayOverrides(supabase, profile.id, today),
     });
     planId = await persistPlan(
       supabase,
-      { profileId: profile.id, raceDate: endsOn, startsOn },
+      { profileId: profile.id, raceDate: endsOn, startsOn, kind: "transition" },
       plan,
     );
   } catch (e) {
@@ -99,5 +112,11 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ planId, weeks, starts_on: startsOn, ends_on: endsOn });
+  return NextResponse.json({
+    planId,
+    weeks,
+    starts_on: startsOn,
+    ends_on: endsOn,
+    first_module: firstModule,
+  });
 }

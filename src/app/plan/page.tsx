@@ -35,7 +35,7 @@ export default async function PlanPage({
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, race_date, starts_on, status, total_weeks, stripe_payment_id")
+    .select("id, race_date, starts_on, kind, status, total_weeks, stripe_payment_id")
     .eq("profile_id", profile.id)
     // 'completed' as well: a plan whose race has been and gone is what the
     // athlete should land on the morning after, not the onboarding form.
@@ -66,7 +66,12 @@ export default async function PlanPage({
   // block with no race in it at all.
   const todayIso = new Date().toISOString().slice(0, 10);
   if (raceIsBehind(String(plan.race_date), todayIso) || plan.status === "completed") {
-    return <PlanFinished raceDate={String(plan.race_date).slice(0, 10)} />;
+    return (
+      <PlanFinished
+        raceDate={String(plan.race_date).slice(0, 10)}
+        kind={plan.kind === "transition" ? "transition" : "race"}
+      />
+    );
   }
 
   // C4: a per-plan purchase OR an active subscription unlocks the plan.
@@ -258,6 +263,7 @@ export default async function PlanPage({
       weeks={weekList}
       currentWeek={current}
       thisWeekNumber={thisWeek}
+      planKind={plan.kind === "transition" ? "transition" : "race"}
       sessions={clientSessions}
       state={state}
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}

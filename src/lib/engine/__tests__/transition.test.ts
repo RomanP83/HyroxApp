@@ -12,7 +12,7 @@ import {
   initialAthleteState,
   splitPhases,
   TRANSITION_MODULES,
-  TRANSITION_WEEKS,
+  PLAN_MAX_WEEKS,
   transitionIsDeload,
   transitionModuleFor,
   transitionPhasePlan,
@@ -61,10 +61,10 @@ function build(mode: "race" | "transition", weeks: number) {
 
 describe("a block with no race in front of it", () => {
   it("is one base phase, not a cycle that ends in a taper", () => {
-    const phases = transitionPhasePlan(TRANSITION_WEEKS);
+    const phases = transitionPhasePlan(4);
     expect(phases).toHaveLength(1);
     expect(phases[0].phase_type).toBe("base");
-    expect(phases[0].end_week).toBe(TRANSITION_WEEKS);
+    expect(phases[0].end_week).toBe(4);
     // Which is what a four-week RACE block would not be: there the runway is
     // so short that everything collapses into peak and taper.
     expect(splitPhases(4).map((p) => p.phase_type)).toContain("taper");
@@ -130,14 +130,23 @@ describe("a block with no race in front of it", () => {
     expect(transitionModuleFor(4)).toBe("offseason");
     expect(transitionModuleFor(20)).toBe("offseason");
     // The off-season starts in week 4, so its fourth week is plan week 7.
-    expect([1, 2, 3, 4, 5, 6].map(transitionIsDeload)).toEqual([false, false, false, false, false, false]);
+    expect([1, 2, 3, 4, 5, 6].map((w) => transitionIsDeload(w))).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
     expect(transitionIsDeload(7)).toBe(true);
     expect(transitionIsDeload(11)).toBe(true);
   });
 
   it("is as long as the room before the next race leaves it", () => {
     // The race block wants its full runway; the off-season fills what is left.
-    expect(transitionWeeksFor(null)).toBe(TRANSITION_WEEKS);
+    // No race in the calendar: the block runs as far as the format goes,
+    // because the off-season is the module that is supposed to stretch.
+    expect(transitionWeeksFor(null)).toBe(PLAN_MAX_WEEKS);
     expect(transitionWeeksFor(32)).toBe(16);
     expect(transitionWeeksFor(20)).toBe(4);
     // Too little room: the block collapses to its first modules and the race
@@ -163,5 +172,56 @@ describe("a race that has been and gone", () => {
     expect(raceIsBehind("2026-03-01", "2026-03-02")).toBe(true);
     expect(raceIsBehind("2026-03-02", "2026-03-02")).toBe(false); // race day itself
     expect(raceIsBehind("2026-03-03", "2026-03-02")).toBe(false);
+  });
+});
+
+describe("a transition block with no race in the calendar", () => {
+  // The question this answers: what does "how long?" mean when nothing is
+  // being periodised towards? Four weeks was the old answer, and it cut the
+  // off-season — the module meant to stretch — off after a single week.
+  const openEnded = () => build("transition", transitionWeeksFor(null));
+
+  it("runs as far as the plan format goes, not four weeks", () => {
+    expect(transitionWeeksFor(null)).toBe(PLAN_MAX_WEEKS);
+    const rows = openEnded().weeks;
+    expect(rows).toHaveLength(PLAN_MAX_WEEKS);
+    // And nearly all of it is the off-season: reset, re-introduction and
+    // reload are one week each, everything after them is the block proper.
+    const offseason = rows.filter((r) => transitionModuleFor(r.week.week_number) === "offseason");
+    expect(offseason).toHaveLength(PLAN_MAX_WEEKS - 3);
+  });
+
+  it("keeps the four-week rhythm the whole way", () => {
+    const deloads = openEnded()
+      .weeks.filter((r) => r.week.is_deload)
+      .map((r) => r.week.week_number);
+    expect(deloads).toEqual([7, 11, 15, 19]);
+  });
+
+  it("is extended from the off-season, not from another reset", () => {
+    // Three days of nothing belong after a race, not after twenty weeks of
+    // loading — and a continuation is not ramping into anything either.
+    const p = profile();
+    const state = initialAthleteState(p);
+    const plan = generatePlan({
+      profile: p,
+      state,
+      library: DEMO_LIBRARY,
+      weeksToRace: 8,
+      mode: "transition",
+      firstModule: "offseason",
+      startDate: "2026-03-02",
+    });
+    const weeks = plan.phases.flatMap((ph) => ph.weeks);
+    expect(weeks[0].sessions.some((s) => s.session_type === "mobility")).toBe(false);
+    expect(weeks[0].sessions.length).toBeGreaterThan(3);
+    // No ramp: the first week already carries the block's full volume.
+    const km = weeks.map(
+      (w) => weeklyRunSummary(w.sessions, state.pace_zones, "base").total_km,
+    );
+    expect(km[0]).toBeGreaterThan(km[3]); // week 4 is the deload
+    expect(Math.abs(km[0] - km[1])).toBeLessThan(1);
+    // And its own four-week rhythm starts with it.
+    expect(weeks.filter((w) => w.is_deload).map((w) => w.week_number)).toEqual([4, 8]);
   });
 });

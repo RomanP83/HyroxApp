@@ -5,16 +5,15 @@
 // pure-template competitors break (§5 Contra).
 // ============================================================================
 
-import type { PhaseType } from "./types";
+import type { PhaseType, TransitionModule } from "./types";
 import {
   OFFSEASON_DELOAD_EVERY,
   PHASE_SPLIT_TABLE,
   PHASE_VOLUME_MULTIPLIER,
+  PLAN_MAX_WEEKS,
   RACE_BLOCK_WEEKS,
   TRANSITION_MODULES,
   TRANSITION_ORDER,
-  TRANSITION_WEEKS,
-  type TransitionModule,
 } from "./constants";
 
 export interface PhaseSplit {
@@ -184,9 +183,18 @@ export function transitionPhasePlan(weeks: number): PhasePlan[] {
  * off-season. A block too short for all four simply stops where it stops — two
  * weeks is reset and re-introduction, and the race block picks up from there.
  */
-export function transitionModuleFor(week: number): TransitionModule {
+export function transitionModuleFor(
+  week: number,
+  /**
+   * Where the block starts. A block that CONTINUES one — no race in the
+   * calendar, the last one simply ran out — starts at the off-season: the
+   * three days of nothing belong after a race, not after a loading cycle.
+   */
+  firstModule: TransitionModule = "reset",
+): TransitionModule {
   const w = Math.max(1, Math.floor(week));
-  return TRANSITION_ORDER[Math.min(w, TRANSITION_ORDER.length) - 1];
+  const from = TRANSITION_ORDER.indexOf(firstModule);
+  return TRANSITION_ORDER[Math.min(from + w - 1, TRANSITION_ORDER.length - 1)];
 }
 
 /**
@@ -194,11 +202,14 @@ export function transitionModuleFor(week: number): TransitionModule {
  * count starts when the off-season does, not when the block does, so the
  * deload never lands on the first off-season week.
  */
-export function transitionIsDeload(week: number): boolean {
-  const offseasonStart = TRANSITION_ORDER.indexOf("offseason") + 1;
+export function transitionIsDeload(
+  week: number,
+  firstModule: TransitionModule = "reset",
+): boolean {
+  const offseasonStart =
+    TRANSITION_ORDER.indexOf("offseason") - TRANSITION_ORDER.indexOf(firstModule) + 1;
   if (week < offseasonStart) return false;
-  const inOffseason = week - offseasonStart + 1;
-  return inOffseason % OFFSEASON_DELOAD_EVERY === 0;
+  return (week - offseasonStart + 1) % OFFSEASON_DELOAD_EVERY === 0;
 }
 
 /**
@@ -211,6 +222,10 @@ export function transitionIsDeload(week: number): boolean {
  * true.
  */
 export function transitionWeeksFor(weeksToNextRace: number | null): number {
-  if (weeksToNextRace == null) return TRANSITION_WEEKS;
-  return Math.max(1, Math.min(20, weeksToNextRace - RACE_BLOCK_WEEKS));
+  // No race in the calendar: the block has no end anyone has worked out, so it
+  // runs as far as the plan format goes. Four weeks would cut the off-season —
+  // the one module meant to stretch — off after a single week, and hand the
+  // athlete a fresh three-day reset every month.
+  if (weeksToNextRace == null) return PLAN_MAX_WEEKS;
+  return Math.max(1, Math.min(PLAN_MAX_WEEKS, weeksToNextRace - RACE_BLOCK_WEEKS));
 }

@@ -17,7 +17,13 @@ import { haptic } from "@/lib/haptics";
 import { CalendarIcon, LeafIcon, SpinnerIcon } from "./icons";
 import { AppHeader } from "./AppHeader";
 
-export function PlanFinished({ raceDate }: { raceDate: string }) {
+export function PlanFinished({
+  raceDate,
+  kind,
+}: {
+  raceDate: string;
+  kind: "race" | "transition";
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +53,22 @@ export function PlanFinished({ raceDate }: { raceDate: string }) {
       <div className="mx-auto max-w-lg space-y-5 pt-6">
       <div className="text-center">
         <div className="text-4xl">🏁</div>
-        <h1 className="mt-2 text-h2 font-bold text-chalk">That cycle is done</h1>
+        <h1 className="mt-2 text-h2 font-bold text-chalk">
+          {kind === "transition" ? "That block is done" : "That cycle is done"}
+        </h1>
         <p className="mt-2 text-ash">
-          Your race was on <span className="font-mono tabular-nums">{raceDate}</span>. The plan that
-          led to it stays as a record — every logged week is still there under{" "}
+          {kind === "transition" ? (
+            <>
+              Your transition block ran to{" "}
+              <span className="font-mono tabular-nums">{raceDate}</span>. No race was in it — every
+              logged week is still there under{" "}
+            </>
+          ) : (
+            <>
+              Your race was on <span className="font-mono tabular-nums">{raceDate}</span>. The plan
+              that led to it stays as a record — every logged week is still there under{" "}
+            </>
+          )}
           <Link href="/progress" className="text-flame hover:underline">
             progress
           </Link>
@@ -71,7 +89,9 @@ export function PlanFinished({ raceDate }: { raceDate: string }) {
       </div>
 
       <div className="card space-y-3">
-        <h2 className="text-lead font-semibold text-chalk">Not yet — run the transition block</h2>
+        <h2 className="text-lead font-semibold text-chalk">
+          {kind === "transition" ? "Keep going — extend the block" : "Not yet — run the transition block"}
+        </h2>
         <p className="text-meta leading-relaxed text-ash">
           Four modules that build on each other:{" "}
           <b className="text-bone">Reset</b> (three days of nothing, then movement without impact),{" "}
@@ -83,12 +103,13 @@ export function PlanFinished({ raceDate }: { raceDate: string }) {
         </p>
         <p className="text-meta leading-relaxed text-ash">
           No compromised running anywhere in it, and no simulation: race specificity is what the
-          next cycle is for. If a race is already in your calendar the block runs exactly as long as
-          the room before it leaves — the race block keeps its full runway.
+          next cycle is for. With a race in your calendar the block runs exactly as long as the room
+          before it leaves; without one it runs on, and an extension picks up at the off-season
+          rather than sending you back through another reset.
         </p>
         <button className="btn-ghost" onClick={() => void startTransition()} disabled={busy}>
           {busy ? <SpinnerIcon size={16} /> : <LeafIcon size={16} />}
-          Start a transition block
+          {kind === "transition" ? "Extend the off-season" : "Start a transition block"}
         </button>
         {error && <p className="text-meta text-stop">{error}</p>}
       </div>

@@ -2,7 +2,12 @@ import { redirect } from "next/navigation";
 import { currentWeekNumber } from "@/lib/planWeek";
 import { supabaseServer } from "@/lib/supabase/server";
 import { SettingsClient } from "@/components/SettingsClient";
-import { assessVolumeTarget, type ExperienceLevel, type PaceZones } from "@/lib/engine";
+import {
+  assessVolumeTarget,
+  type Division,
+  type ExperienceLevel,
+  type PaceZones,
+} from "@/lib/engine";
 import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { signDeepLink } from "@/lib/telegram";
 import { stravaConfigured } from "@/lib/strava";
@@ -22,7 +27,7 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, experience_level, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
+      "id, experience_level, division, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
     )
     .eq("user_id", user.id)
     .single();
@@ -92,6 +97,7 @@ export default async function SettingsPage() {
       }
       planStatus={plan?.status ?? "none"}
       experienceLevel={(profile.experience_level as ExperienceLevel) ?? "intermediate"}
+      division={(profile.division as Division) ?? "open"}
       weekShape={{
         training_days_per_week: trainingDays,
         doubles_per_week: profile.doubles_per_week ?? 0,

@@ -12,6 +12,7 @@ const base: SettingsProps = {
   planStart: { starts_on: "2026-03-02", race_date: "2026-05-24", total_weeks: 12 },
   planStatus: "active",
   experienceLevel: "advanced",
+  division: "open",
   weekShape: {
     training_days_per_week: 5,
     doubles_per_week: 0,
@@ -43,12 +44,15 @@ describe("the setup page", () => {
   });
 
   it("shows the pinned days as pressed, and the rest as not", () => {
-    // Sunday long run, Monday and Thursday strength, Wednesday rest — plus the
-    // two chip rows, which each have exactly one pressed option.
+    // Four pinned days (Sunday long run, Monday and Thursday strength,
+    // Wednesday rest), plus one pressed option in each of the four single-
+    // choice rows: training days, doubles, level and division.
     const pressed = (html.match(/aria-pressed="true"/g) ?? []).length;
-    expect(pressed).toBe(4 + 2);
+    expect(pressed).toBe(4 + 4);
     expect(html).toContain('aria-label="Long run: Sunday"');
     expect(html).toContain('aria-label="Rest (max 2): Wednesday"');
+    expect(html).toContain('aria-label="Level and target time: Competitive · sub 1:20"');
+    expect(html).toContain('aria-label="Division: Open"');
   });
 
   it("puts the training days and the doubles where the week is shaped", () => {

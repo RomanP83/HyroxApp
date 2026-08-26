@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import {
   assessWeekPreferences,
   frequencyAdvice,
+  type Division,
   type ExperienceLevel,
   type VolumeAssessment,
 } from "@/lib/engine";
@@ -39,6 +40,7 @@ const DAY_FULL = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "S
 
 export interface SettingsProps {
   hasPlan: boolean;
+  division: Division;
   /** The Monday week 1 begins on, and the race it runs to. */
   planStart: { starts_on: string; race_date: string; total_weeks: number } | null;
   planStatus: string;
@@ -90,6 +92,24 @@ export function SettingsClient(props: SettingsProps) {
   const [doubleDays, setDoubleDays] = useState<number[]>(props.weekShape.double_days);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
+  const [level, setLevel] = useState<ExperienceLevel>(props.experienceLevel);
+  const [division, setDivision] = useState<Division>(props.division);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    haptic("confirm");
+    const res = await fetch("/api/plans/profile", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ experience_level: level, division }),
+    });
+    const result = await readApi(res);
+    setSavingProfile(false);
+    setToast(result.ok ? "Level saved — the remaining weeks were rebuilt." : result.message);
+    if (result.ok) router.refresh();
+  }
+
   const [startsOn, setStartsOn] = useState(props.planStart?.starts_on ?? "");
   const [askRebuild, setAskRebuild] = useState(false);
   const [savingStart, setSavingStart] = useState(false);
@@ -129,7 +149,7 @@ export function SettingsClient(props: SettingsProps) {
   // rather than letting the athlete run into a rejected save.
   const pinnedDoubles = doubleDays.slice(0, doubles);
   const maxRuns = Math.max(2, trainingDays - 1);
-  const frequency = frequencyAdvice(props.experienceLevel, trainingDays, doubles);
+  const frequency = frequencyAdvice(level, trainingDays, doubles);
   const warnings = assessWeekPreferences(
     { longRunDay, strengthDays, restDays, doubleDays: pinnedDoubles },
     { trainingDays, runsPerWeek: props.volume.runs_per_week, doublesPerWeek: doubles },
@@ -225,6 +245,59 @@ export function SettingsClient(props: SettingsProps) {
         <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">
           Your training week
         </h2>
+
+        <div className="card space-y-3">
+          <div>
+            <h3 className="flex items-center gap-2 text-lead font-semibold text-chalk">
+              <RunIcon size={18} className="text-flame" />
+              What you are training for
+            </h3>
+            <p className="mt-1 max-w-[62ch] text-meta leading-relaxed text-ash">
+              Your level is the single biggest thing about a week: the split between running,
+              strength, station work and compromised running is set per level and phase, and every
+              session catalogue picks by it. The division sets every weight in the plan.
+            </p>
+          </div>
+
+          <ChoiceRow
+            label="Level and target time"
+            options={[
+              ["beginner", "New · 1:40+"],
+              ["intermediate", "Trained · sub 1:30"],
+              ["advanced", "Competitive · sub 1:20"],
+              ["elite", "Elite · sub 70"],
+              ["world_class", "World class · sub 60"],
+            ]}
+            value={level}
+            onChange={setLevel}
+          />
+          <ChoiceRow
+            label="Division"
+            options={[
+              ["open", "Open"],
+              ["pro", "Pro"],
+              ["doubles", "Doubles"],
+              ["masters_open", "Masters"],
+              ["masters_pro", "Masters Pro"],
+            ]}
+            value={division}
+            onChange={setDivision}
+          />
+
+          <p className="max-w-[62ch] text-meta leading-relaxed text-ash">
+            Changing this rebuilds the remaining weeks.{" "}
+            <b className="text-bone">Nothing you have earned is reset</b> — your pace zones and
+            station tiers come from what you have logged, not from the level, and they carry over
+            untouched.
+          </p>
+
+          <SaveRow
+            onSave={() => void saveProfile()}
+            busy={savingProfile}
+            hasPlan={props.hasPlan}
+            icon={<RunIcon size={16} />}
+          />
+        </div>
 
         {props.planStart && (
           <div className="card space-y-3">
@@ -741,6 +814,48 @@ function DayPicker({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The string cousin of ChipRow: a choice out of a named set, wrapping onto a
+ * second line when the labels are long. Level labels carry their target time,
+ * because the target IS the level — there is no separate goal field, and one
+ * would only be a second source of truth next to the engine's own prognosis.
+ */
+function ChoiceRow<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: [T, string][];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
+      <div className="flex flex-wrap gap-1">
+        {options.map(([key, text]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={value === key}
+            aria-label={`${label}: ${text}`}
+            onClick={() => onChange(key)}
+            className={`h-9 flex-1 whitespace-nowrap rounded-control border px-3 text-meta font-semibold transition-colors duration-150 ease-out ${
+              value === key
+                ? "border-flame/70 bg-flame/10 text-chalk"
+                : "border-edge bg-well text-ash hover:border-edge-strong hover:text-bone"
+            }`}
+          >
+            {text}
+          </button>
+        ))}
       </div>
     </div>
   );

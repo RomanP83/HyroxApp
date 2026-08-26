@@ -402,6 +402,25 @@ entscheidest.
 
 ### Deine Trainingswoche
 
+**Wofür du trainierst.** Ganz oben Level und Division — beides nachträglich änderbar, nicht mehr nur
+im Onboarding.
+
+Das **Level ist die stärkste Einzelgröße im Plan**: Die Aufteilung zwischen Laufen, Kraft,
+Stationsarbeit und kompromittiertem Laufen ist nach Level *und* Phase festgelegt, und alle drei
+Session-Kataloge wählen danach aus. Dein Ziel ist das Level — U70 heißt *Elite*, U60 heißt *World
+Class*. Ein separates Zielzeit-Feld gibt es bewusst nicht: Es stünde als zweite Wahrheit neben der
+Prognose, die die App aus deinen Logs rechnet.
+
+Die **Division** setzt jedes Gewicht im Plan — Open, Pro, Doubles, Masters, Masters Pro.
+
+Speichern baut die verbleibenden Wochen neu. **Deine Kalibrierung bleibt unangetastet:** Pace-Zonen
+und Stations-Tiers kommen aus dem, was du geloggt hast, nicht aus dem Level. Ein neues Ziel ist kein
+Neuanfang.
+
+*Die 5-km-Zeit steht hier bewusst nicht.* Sie ist nur der Startwert für die allererste Kalibrierung;
+danach führen die [Benchmarks](#10-benchmarks--tests-eintragen) deine Zonen. Ein Regler dafür würde
+mehr versprechen, als er tut.
+
 **Wann der Plan startet.** Ganz oben das Startdatum: der Montag, an dem Woche 1 beginnt. Daneben
 steht, wie viele Wochen dieser Termin bis zum Rennen übrig lässt — und ob das zur Länge deines
 Plans passt.
@@ -642,6 +661,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Level (Zielzeit) und Division nachträglich änderbar; der Plan wird neu gebaut, Pace-Zonen und Tiers bleiben erhalten | [8](#8-settings--setup--tools) |
 | Startdatum des Plans wählbar (Onboarding und Setup, mit Frage nach Neuaufbau); die laufende Woche wird aus dem Startdatum abgeleitet statt aus einem Status, der nie weitergeschaltet wurde | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
 | Doppeltage lassen sich auf feste Wochentage pinnen (Setup → Form deiner Woche), mit Hinweis auf ihre Kosten | [8](#8-settings--setup--tools) |
 | Der letzte Benchmark-Test liegt nie in der Rennwoche: bei kurzem Taper rückt er in die letzte Peak-Woche | [10](#10-benchmarks--tests-eintragen) |

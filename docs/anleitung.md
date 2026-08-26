@@ -357,10 +357,33 @@ neu aus dem Kalender.
 geführt. `/plan` zeigt dann keinen Wochenplan mehr, sondern zwei Wege weiter:
 
 - **Nächstes Rennen wählen** — auf `/season` eintragen und daraus bauen.
-- **Übergangsblock starten** — vier Wochen Basisarbeit auf Erhaltungslast: 70 % Volumen, kein
-  Benchmark, keine Simulation, kein Taper. Es gibt nichts, worauf hin getapert würde. Long Run,
-  Kraft und Stationsarbeit bleiben drin, denn genau die verfallen in vier ungeplanten Wochen.
-  Sobald du ein Rennen wählst, wird der Block ersetzt.
+- **Übergangsblock starten** — vier Module, die aufeinander aufbauen (siehe unten). Sobald du ein
+  Rennen wählst, wird der Block ersetzt.
+
+### Der Übergangsblock
+
+| Modul | Woche | Volumen | Inhalt |
+|---|---|---|---|
+| **Reset** | 1 | 15 %, RPE ≤ 3 | Tag 1–3 gar nichts. Tag 4–7 Bewegung ohne Stoß: Spinning, Schwimmen, Spaziergang, Mobility. **Kein Laufen, keine Landungen, kein Krafttraining.** |
+| **Re-Introduction** | 2 | 45 %, RPE ≤ 6 | 2–3 kurze Zone-1/2-Läufe, 2 leichte Ganzkörper-Krafteinheiten (hohe Wiederholungen, kein Muskelversagen), Ergometer-Technik. Kein Long Run, keine Intervalle. |
+| **Volume Reload** | 3 | 65 % | Laufvolumen normalisiert sich in Zone 2, höchstens ein moderater Reiz. Die Grundübungen kommen zurück. Gute Woche, um das Rennen auszuwerten und die Schwachstelle für den nächsten Zyklus zu benennen. |
+| **Off-Season** | 4 bis X | 80 %, polarisiert | Schwere Compounds, hohes Zone-2-Volumen über Laufen und Ergometer, isolierte Stationsarbeit an dem, was das Rennen aufgedeckt hat. Gegliedert in Vierwochenzyklen: **drei Belastungswochen, eine Deload-Woche mit −40 %.** |
+
+**In keinem Modul steht kompromittiertes Laufen** — und keine Simulation, kein Benchmark.
+Rennspezifik ist die Aufgabe des nächsten Makrozyklus; dieser Block sorgt dafür, dass du intakt dort
+ankommst.
+
+**Wie lang der Block läuft**, entscheidet der Abstand zum nächsten Rennen. Der Rennblock bekommt
+seine volle Anlaufstrecke (16 Wochen), alles davor ist Übergang:
+
+| Nächstes Rennen in | Übergangsblock | Rennblock |
+|---|---|---|
+| 32 Wochen | 16 Wochen (Off-Season gedehnt) | 16 |
+| 20 Wochen | 4 Wochen (klassischer Durchlauf) | 16 |
+| 12 Wochen | 1 Woche (nur Reset) | 11 |
+| kein Rennen im Kalender | 4 Wochen | — |
+
+Nie null: Die Woche nach einem Rennen ist ein Reset, egal wie eng es wird.
 
 Ein abgeschlossener Plan wird **nie neu aufgebaut**. Das ist keine Kosmetik: Die Wochen werden zum
 Renntag hin gezählt, gegen ein vergangenes Datum käme ein Zwei-Wochen-Taper auf einen Tag heraus,
@@ -698,7 +721,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
-| Nach dem Renntag: Plan wird abgeschlossen statt weiter angepasst; Übergangsblock ohne Rennen (4 Wochen Erhaltung) als Alternative zum nächsten Rennen | [6](#6-wie-sich-der-plan-anpasst) |
+| Nach dem Renntag: Plan wird abgeschlossen statt weiter angepasst; Übergangsblock in vier Modulen (Reset → Re-Introduction → Volume Reload → Off-Season), Länge aus dem Abstand zum nächsten Rennen | [6](#6-wie-sich-der-plan-anpasst) |
 | Laufvolumen gipfelt jetzt in der Basis und fällt bis zum Rennen (100/90/80/40 % statt 85/100/90/50 %) | [6](#6-wie-sich-der-plan-anpasst) |
 | Level (Zielzeit) und Division nachträglich änderbar; der Plan wird neu gebaut, Pace-Zonen und Tiers bleiben erhalten | [8](#8-settings--setup--tools) |
 | Startdatum des Plans wählbar (Onboarding und Setup, mit Frage nach Neuaufbau); die laufende Woche wird aus dem Startdatum abgeleitet statt aus einem Status, der nie weitergeschaltet wurde | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |

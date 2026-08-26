@@ -9,11 +9,17 @@ import type { GenerateInput, GeneratedPlan, GeneratedPhase, GeneratedWeek } from
 import {
   ENGINE_VERSION,
   DELOAD_VOLUME_MULTIPLIER,
-  TRANSITION_VOLUME_FACTOR,
+  TRANSITION_MODULES,
+  TRANSITION_ORDER,
 } from "./constants";
-import { buildPhasePlan, transitionPhasePlan } from "./macro";
+import {
+  buildPhasePlan,
+  transitionIsDeload,
+  transitionModuleFor,
+  transitionPhasePlan,
+} from "./macro";
 import { scaleRunDurations, weeklyVolumeTarget } from "./running";
-import { applyDayOverrides, distributeSlots } from "./micro";
+import { applyDayOverrides, distributeSlots, type SessionSlot } from "./micro";
 import {
   applyRacesToWeek,
   placeRaces,
@@ -37,6 +43,23 @@ const SESSION_TITLES: Record<string, string> = {
   race_day: "Race Day",
   rest: "Rest",
 };
+
+/**
+ * Week one of a transition block: three days of nothing, then movement that
+ * does not land. Spin, swim, walk, mobility — the sessions the plan has for
+ * "move without loading anything" are mobility sessions, and that is all this
+ * week is allowed to contain.
+ */
+function resetWeek(rpeCap: number): SessionSlot[] {
+  return [4, 5, 6, 7].map((day, i) => ({
+    session_type: "mobility" as const,
+    day_hint: day,
+    day_slot: "am" as const,
+    intensity_rpe_target: Math.min(rpeCap, 2),
+    planned_duration_min: 30,
+    sort_order: i,
+  }));
+}
 
 export function generatePlan(input: GenerateInput): GeneratedPlan {
   const { profile, state, library, weeksToRace } = input;
@@ -115,19 +138,44 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
     for (let w = pp.start_week; w <= pp.end_week; w++) {
       const weekInPhase = w - pp.start_week + 1;
       const isBenchmark = benchmarkWeeks.has(w);
-      const isDeload = deloadWeeks.has(w);
+      // A transition block runs its own deload rhythm: the off-season is
+      // three loading weeks and one at -40%, counted from where the off-season
+      // starts rather than from the block's first week.
+      const isDeload = transition ? transitionIsDeload(w) : deloadWeeks.has(w);
+      const moduleSpec = transition ? TRANSITION_MODULES[transitionModuleFor(w)] : null;
+
+      // For the mix, a transition MODULE is the phase: reset, re-introduction
+      // and reload are one week each, and the off-season is everything after
+      // them. Without that the apportionment would carry its remainder across
+      // four modules that are not training for the same thing, and a 15%
+      // station share would surface once at the very end of the block.
+      const offseasonStart = TRANSITION_ORDER.indexOf("offseason") + 1;
+      const moduleWeek = moduleSpec
+        ? moduleSpec.module === "offseason"
+          ? w - offseasonStart + 1
+          : 1
+        : weekInPhase;
+      const moduleLength = moduleSpec
+        ? moduleSpec.module === "offseason"
+          ? Math.max(1, pp.end_week - offseasonStart + 1)
+          : 1
+        : pp.end_week - pp.start_week + 1;
 
       let slots = distributeSlots({
         phase: pp.phase_type,
         level: profile.experience_level,
-        weeksInPhase: pp.end_week - pp.start_week + 1,
+        weeksInPhase: moduleLength,
         trainingDays: profile.training_days_per_week,
-        weekInPhase,
+        weekInPhase: moduleWeek,
         isDeload,
         isBenchmark,
         doublesPerWeek: profile.doubles_per_week ?? 0,
         runsPerWeek: profile.runs_per_week ?? undefined,
         includeFullSim: w === fullSimWeek,
+        mix: moduleSpec?.mix,
+        intervals: moduleSpec ? moduleSpec.intervals : undefined,
+        longRun: moduleSpec ? moduleSpec.long_run : undefined,
+        rpeCap: moduleSpec?.rpe_cap,
         prefs: {
           longRunDay: profile.preferred_long_run_day ?? null,
           strengthDays: profile.preferred_strength_days ?? null,
@@ -142,11 +190,17 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
       // through the volume target below, everything else here, because the
       // phase multiplier is keyed on the phase type and this block borrows
       // "base" from a race cycle.
-      if (transition) {
-        slots = slots.map((slot) => ({
-          ...slot,
-          planned_duration_min: Math.round(slot.planned_duration_min * TRANSITION_VOLUME_FACTOR),
-        }));
+      if (moduleSpec) {
+        slots =
+          moduleSpec.module === "reset"
+            ? // The reset week is the one the mix cannot express: the first
+              // three days carry nothing at all, and days 4-7 move without
+              // impact. No running, no landings, no lifting.
+              resetWeek(moduleSpec.rpe_cap)
+            : slots.map((slot) => ({
+                ...slot,
+                planned_duration_min: Math.round(slot.planned_duration_min * moduleSpec.volume),
+              }));
       }
 
       if (profile.weekly_km_peak) {
@@ -160,7 +214,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
             weekNumber: w,
           }) *
             raceVolumeMultiplier(w, placements) *
-            (transition ? TRANSITION_VOLUME_FACTOR : 1),
+            (moduleSpec ? moduleSpec.volume : 1),
         );
       }
 
@@ -207,14 +261,21 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
           : undefined,
         weekly_goal:
           raceNotesForWeek(w, placements)[0] ??
-          weeklyGoal({
-            phase: pp.phase_type,
-            weekInPhase,
-            phaseLength: pp.end_week - pp.start_week + 1,
-            isDeload,
-            isBenchmark,
-            weeksToRace: weeksToRace - w + 1,
-          }),
+          // A transition week is named by its module, not by a phase it is
+          // only borrowing. "Base phase, week 1/14" would be a lie about what
+          // the week is for.
+          (moduleSpec
+            ? `${moduleSpec.name}${isDeload ? " · deload week, volume down 40%" : ""}. ${
+                moduleSpec.focus
+              }`
+            : weeklyGoal({
+                phase: pp.phase_type,
+                weekInPhase,
+                phaseLength: pp.end_week - pp.start_week + 1,
+                isDeload,
+                isBenchmark,
+                weeksToRace: weeksToRace - w + 1,
+              })),
         target_sessions: sessions.length,
         sessions,
       });

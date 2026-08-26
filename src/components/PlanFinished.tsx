@@ -71,11 +71,20 @@ export function PlanFinished({ raceDate }: { raceDate: string }) {
       </div>
 
       <div className="card space-y-3">
-        <h2 className="text-lead font-semibold text-chalk">Not yet — keep the base alive</h2>
+        <h2 className="text-lead font-semibold text-chalk">Not yet — run the transition block</h2>
         <p className="text-meta leading-relaxed text-ash">
-          Four weeks of base work at maintenance load: aerobic economy and strength kept where they
-          are, volume at 70%, no benchmark and no simulation. There is nothing to taper into, so
-          nothing tapers. Pick a race whenever you are ready and the plan rebuilds around it.
+          Four modules that build on each other:{" "}
+          <b className="text-bone">Reset</b> (three days of nothing, then movement without impact),{" "}
+          <b className="text-bone">Re-Introduction</b> (short aerobic runs and light full-body
+          strength), <b className="text-bone">Volume Reload</b> (capacity back, real lifts again),
+          then <b className="text-bone">Off-Season</b> for as long as there is room — heavy
+          compounds, high Zone-2 volume and the weaknesses the race exposed, in four-week cycles of
+          three loading weeks and one deload.
+        </p>
+        <p className="text-meta leading-relaxed text-ash">
+          No compromised running anywhere in it, and no simulation: race specificity is what the
+          next cycle is for. If a race is already in your calendar the block runs exactly as long as
+          the room before it leaves — the race block keeps its full runway.
         </p>
         <button className="btn-ghost" onClick={() => void startTransition()} disabled={busy}>
           {busy ? <SpinnerIcon size={16} /> : <LeafIcon size={16} />}

@@ -7,9 +7,14 @@
 
 import type { PhaseType } from "./types";
 import {
+  OFFSEASON_DELOAD_EVERY,
   PHASE_SPLIT_TABLE,
   PHASE_VOLUME_MULTIPLIER,
-  TRANSITION_VOLUME_FACTOR,
+  RACE_BLOCK_WEEKS,
+  TRANSITION_MODULES,
+  TRANSITION_ORDER,
+  TRANSITION_WEEKS,
+  type TransitionModule,
 } from "./constants";
 
 export interface PhaseSplit {
@@ -148,13 +153,14 @@ export function buildPhasePlan(weeksToRace: number): PhasePlan[] {
  *
  * After a race — or between goals — there is nothing to periodise towards, and
  * pretending otherwise is what produced a two-week taper aimed at a date in the
- * past. What belongs here is base work at maintenance load: aerobic economy and
- * strength kept alive, volume down, no benchmark, no simulation, no taper.
+ * past. What belongs here is four modules that build on each other: complete
+ * recovery, a gentle re-introduction, volume back to normal, and then an
+ * off-season for as long as there is room for one.
  *
- * It stays phase_type "base" rather than earning a phase of its own: a
- * transition block IS base work, and every catalogue, mix row and pace target
- * in the engine is keyed on the four phases. What makes it a transition is the
- * volume it runs at (TRANSITION_VOLUME_FACTOR), not a different kind of week.
+ * It stays phase_type "base" rather than earning a phase of its own: every
+ * catalogue, mix row and pace target in the engine is keyed on the four race
+ * phases. What makes it a transition is which module each week runs
+ * (transitionModuleFor) and the load that module carries.
  */
 export function transitionPhasePlan(weeks: number): PhasePlan[] {
   const span = Math.max(1, Math.floor(weeks));
@@ -164,9 +170,47 @@ export function transitionPhasePlan(weeks: number): PhasePlan[] {
       sort_order: 0,
       start_week: 1,
       end_week: span,
-      volume_multiplier: TRANSITION_VOLUME_FACTOR,
+      volume_multiplier: TRANSITION_MODULES.offseason.volume,
       focus_description:
-        "Between goals: aerobic base and strength kept alive at a load you could hold indefinitely. Pick your next race whenever you are ready — the plan rebuilds around it.",
+        "Between goals: recover, rebuild the capacity, then spend the room that is left on the weaknesses the race exposed. Pick your next race whenever you are ready — the plan rebuilds around it.",
     },
   ];
+}
+
+/**
+ * Which module a given week of a transition block runs.
+ *
+ * The first three weeks are one module each; everything after them is the
+ * off-season. A block too short for all four simply stops where it stops — two
+ * weeks is reset and re-introduction, and the race block picks up from there.
+ */
+export function transitionModuleFor(week: number): TransitionModule {
+  const w = Math.max(1, Math.floor(week));
+  return TRANSITION_ORDER[Math.min(w, TRANSITION_ORDER.length) - 1];
+}
+
+/**
+ * Off-season weeks run in four-week cycles: three loading, one at -40%. The
+ * count starts when the off-season does, not when the block does, so the
+ * deload never lands on the first off-season week.
+ */
+export function transitionIsDeload(week: number): boolean {
+  const offseasonStart = TRANSITION_ORDER.indexOf("offseason") + 1;
+  if (week < offseasonStart) return false;
+  const inOffseason = week - offseasonStart + 1;
+  return inOffseason % OFFSEASON_DELOAD_EVERY === 0;
+}
+
+/**
+ * How long a transition block should run, given the weeks to the next race.
+ *
+ * The race block wants its full runway (RACE_BLOCK_WEEKS); everything before
+ * that is where the off-season stretches. With little room the block collapses
+ * to its first modules and the race block starts almost immediately — but
+ * never to nothing, because the week after a race is a reset whatever else is
+ * true.
+ */
+export function transitionWeeksFor(weeksToNextRace: number | null): number {
+  if (weeksToNextRace == null) return TRANSITION_WEEKS;
+  return Math.max(1, Math.min(20, weeksToNextRace - RACE_BLOCK_WEEKS));
 }

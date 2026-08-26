@@ -115,6 +115,14 @@ interface DistributeInput {
   includeFullSim?: boolean;
   /** The athlete's pinned weekdays for long run, strength and rest. */
   prefs?: WeekPrefs;
+  /** A transition module's own mix, instead of the level's for this phase. */
+  mix?: TrainingMix;
+  /** Threshold and VO2max work; false keeps the running purely aerobic. */
+  intervals?: boolean;
+  /** A long run; false keeps every run short. */
+  longRun?: boolean;
+  /** Ceiling on this week's RPE targets. */
+  rpeCap?: number;
 }
 
 /**
@@ -517,7 +525,13 @@ function categoryOf(type: SessionType): MixCategory | null {
  * aerobic share, then the phase's quality session, then easy volume — while
  * the other three simply repeat.
  */
-function nextTypeFor(category: MixCategory, week: SessionType[], phase: PhaseType): SessionType | null {
+function nextTypeFor(
+  category: MixCategory,
+  week: SessionType[],
+  phase: PhaseType,
+  intervals = true,
+  longRun = true,
+): SessionType | null {
   switch (category) {
     case "strength":
       return "strength";
@@ -526,10 +540,12 @@ function nextTypeFor(category: MixCategory, week: SessionType[], phase: PhaseTyp
     case "compromised":
       return "compromised_run";
     case "run": {
-      if (!week.includes("long_run")) return "long_run";
+      if (longRun && !week.includes("long_run")) return "long_run";
       // The taper keeps its quality session; a deload week gets it too, at the
       // reduced duration every session in that week is already cut to.
-      if (!week.includes("run_intervals")) return "run_intervals";
+      // A re-introduction week has no business at threshold: the capacity to
+      // absorb it is exactly what is being rebuilt.
+      if (intervals && !week.includes("run_intervals")) return "run_intervals";
       return "run_easy";
     }
   }
@@ -550,8 +566,17 @@ export function typesForMix(opts: {
    * omitted, there is no last week and no floor.
    */
   weeksInPhase?: number;
+  /**
+   * Overrides the level's mix for this phase. A transition module brings its
+   * own — it is not training for the same thing.
+   */
+  mix?: TrainingMix;
+  /** Threshold and VO2max work; false keeps the running purely aerobic. */
+  intervals?: boolean;
+  /** A long run; false keeps every run short. */
+  longRun?: boolean;
 }): SessionType[] {
-  const mix = TRAINING_MIX[opts.level][opts.phase];
+  const mix = opts.mix ?? TRAINING_MIX[opts.level][opts.phase];
   const minutes: Record<MixCategory, number> = { run: 0, strength: 0, station: 0, compromised: 0 };
   let week: SessionType[] = [];
 
@@ -563,7 +588,7 @@ export function typesForMix(opts: {
       for (const category of CATEGORY_ORDER) {
         const share = mix[category];
         if (share <= 0) continue;
-        const type = nextTypeFor(category, week, opts.phase);
+        const type = nextTypeFor(category, week, opts.phase, opts.intervals, opts.longRun);
         if (!type) continue;
         // Sainte-Lague: the smaller the quotient, the further behind.
         const quotient = (minutes[category] + durationFor(type, false, "am", opts.phase) / 2) / share;
@@ -573,7 +598,7 @@ export function typesForMix(opts: {
         }
       }
       if (!chosen) break;
-      const type = nextTypeFor(chosen, week, opts.phase)!;
+      const type = nextTypeFor(chosen, week, opts.phase, opts.intervals, opts.longRun)!;
       week.push(type);
       minutes[chosen] += durationFor(type, false, "am", opts.phase);
     }
@@ -690,6 +715,9 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
     count: Math.max(2, trimmed - extras),
     weekInPhase,
     weeksInPhase: input.weeksInPhase,
+    mix: input.mix,
+    intervals: input.intervals,
+    longRun: input.longRun,
   });
 
   // Benchmark week: the test leads the week.
@@ -702,7 +730,7 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
   types = applyRunFrequency(types, phase, input.runsPerWeek);
 
   // Two hard days a week is the ceiling, whatever the week is called.
-  types = capHardSessions(types, phase, TRAINING_MIX[input.level ?? "intermediate"][phase]);
+  types = capHardSessions(types, phase, input.mix ?? TRAINING_MIX[input.level ?? "intermediate"][phase]);
 
   // The athlete's own week shape decides WHEN; the phase decided WHAT.
   const layout = layoutWeek(types, input.prefs);
@@ -711,7 +739,10 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
     session_type,
     day_hint: layout.days[i] ?? i + 1,
     day_slot: "am" as DaySlot,
-    intensity_rpe_target: rpeFor(session_type, phase, isDeload, "am"),
+    intensity_rpe_target: Math.min(
+      input.rpeCap ?? 10,
+      rpeFor(session_type, phase, isDeload, "am"),
+    ),
     planned_duration_min: durationFor(session_type, isDeload, "am", phase),
     sort_order: i,
   }));
@@ -750,7 +781,7 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
         session_type: type,
         day_hint: host.day_hint,
         day_slot: "pm",
-        intensity_rpe_target: rpeFor(type, phase, isDeload, "pm"),
+        intensity_rpe_target: Math.min(input.rpeCap ?? 10, rpeFor(type, phase, isDeload, "pm")),
         planned_duration_min: durationFor(type, isDeload, "pm", phase),
         sort_order: 0, // assigned below, once the week is in order
       });

@@ -18,7 +18,8 @@ import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadDayOverrides } from "@/lib/dayOverrides";
 import { nextMonday, weekStartOf } from "@/lib/planWeek";
-import { generatePlan, TRANSITION_WEEKS, type AthleteProfile } from "@/lib/engine";
+import { generatePlan, transitionWeeksFor, type AthleteProfile } from "@/lib/engine";
+import { loadSeasonRaces, pickMainRace, planWeeksTo } from "@/lib/seasonCalendar";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 
 export const runtime = "nodejs";
@@ -31,7 +32,6 @@ const Body = z.object({
 export async function POST(req: Request) {
   const parsed = Body.safeParse((await req.json().catch(() => null)) ?? {});
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
-  const weeks = parsed.data.weeks ?? TRANSITION_WEEKS;
 
   const supabase = supabaseServer();
   const {
@@ -57,6 +57,16 @@ export async function POST(req: Request) {
 
   const today = new Date().toISOString().slice(0, 10);
   const startsOn = weekStartOf(parsed.data.starts_on ?? nextMonday(today), 1);
+
+  // How long the block runs is a question about the next race, not a
+  // preference: the race block wants its full runway, and everything before
+  // that is where the off-season module stretches out. With a race already in
+  // the calendar the athlete does not have to work that out.
+  const calendar = await loadSeasonRaces(supabase, profile.id);
+  const nextRace = pickMainRace(calendar, startsOn);
+  const weeks =
+    parsed.data.weeks ??
+    transitionWeeksFor(nextRace ? planWeeksTo(nextRace.date, startsOn, 1) : null);
   // The block's own last day stands where a race date would: the plan ends
   // when it ends, and nothing is periodised towards it.
   const endsOn = weekStartOf(startsOn, weeks + 1);

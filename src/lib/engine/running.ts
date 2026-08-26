@@ -295,11 +295,27 @@ export function frequencyAdvice(
  * The athlete sets the peak, not an average: an average hides the single
  * hardest week, which is the one that decides whether the cycle is survivable.
  */
+/**
+ * Where the running kilometres sit across the cycle, as a share of the peak
+ * week the athlete set.
+ *
+ * The mileage peaks in the BASE block and falls from there. That is the
+ * opposite of a pure running periodisation, and it is deliberate: what rises
+ * towards the race in a Hyrox cycle is not distance but specificity. The
+ * training mix moves from 45-55% running in the base to 30% in the peak while
+ * compromised running and station work take over (TRAINING_MIX), and those
+ * carry their own load. Holding the mileage up on top of that is how the base
+ * gives way before the fitness arrives.
+ *
+ * The non-run sessions have their own curve (PHASE_VOLUME_MULTIPLIER in
+ * constants.ts), which peaks later — that is the same statement from the other
+ * side: distance early, station load late.
+ */
 export const VOLUME_CURVE_BY_PHASE: Record<PhaseType, number> = {
-  base: 0.85,
-  build: 1,
-  peak: 0.9,
-  taper: 0.5,
+  base: 1,
+  build: 0.9,
+  peak: 0.8,
+  taper: 0.4,
 };
 
 /** Weeks spent ramping into the plan's volume before the curve applies fully. */

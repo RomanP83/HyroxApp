@@ -29,11 +29,27 @@ const profile = (over: Partial<AthleteProfile> = {}): AthleteProfile => ({
 });
 
 describe("weeklyVolumeTarget", () => {
-  it("peaks in the build block and yields to intensity in the peak", () => {
-    expect(VOLUME_CURVE_BY_PHASE.build).toBe(1);
-    expect(VOLUME_CURVE_BY_PHASE.peak).toBeLessThan(VOLUME_CURVE_BY_PHASE.build);
-    expect(VOLUME_CURVE_BY_PHASE.taper).toBeLessThan(VOLUME_CURVE_BY_PHASE.peak);
-    expect(weeklyVolumeTarget({ peakKm: 50, phase: "build", isDeload: false })).toBe(50);
+  it("peaks in the base block and falls the whole way to the race", () => {
+    // Distance early, specificity late. What rises towards the race is the
+    // compromised running and the station work the mix hands over to (30%
+    // running in an elite peak against 55% in its base) — mileage held up on
+    // top of that is the base giving way before the fitness arrives.
+    const curve = VOLUME_CURVE_BY_PHASE;
+    expect(curve.base).toBe(1);
+    expect(curve.build).toBeLessThan(curve.base);
+    expect(curve.peak).toBeLessThan(curve.build);
+    expect(curve.taper).toBeLessThan(curve.peak);
+    expect(weeklyVolumeTarget({ peakKm: 50, phase: "base", isDeload: false })).toBe(50);
+  });
+
+  it("lands a 50 km cycle where the prescription puts it", () => {
+    // base 40-50, build 35-45, peak 30-40, taper 15-22 for a peak week of 50.
+    const km = (phase: "base" | "build" | "peak" | "taper") =>
+      weeklyVolumeTarget({ peakKm: 50, phase, isDeload: false });
+    expect(km("base")).toBe(50);
+    expect(km("build")).toBe(45);
+    expect(km("peak")).toBe(40);
+    expect(km("taper")).toBe(20);
   });
 
   it("ramps into the first weeks instead of starting at full volume", () => {
@@ -195,5 +211,75 @@ describe("loggedDistanceKm", () => {
   it("falls back to minutes at the session's pace zone", () => {
     expect(loggedDistanceKm("run_easy", 40, null, ZONES)).toBeGreaterThan(5);
     expect(loggedDistanceKm("strength", 60, null, ZONES)).toBe(0);
+  });
+});
+
+describe("the volume a generated cycle actually carries", () => {
+  // The curve is a target; what the athlete sees is the sum of the sessions
+  // after they have been scaled and clamped to their own bounds. This is the
+  // test that says the two agree — a curve nobody's week follows is a comment.
+  const profile = (over: Partial<AthleteProfile> = {}): AthleteProfile => ({
+    id: "t",
+    division: "pro",
+    experience_level: "world_class",
+    five_k_seconds: 1140, // 19:00 — 3:48 / km
+    station_estimates: {},
+    training_days_per_week: 6,
+    doubles_per_week: 2,
+    equipment_access: "full_gym",
+    weekly_km_peak: 50,
+    ...over,
+  });
+
+  function weeks(over: Partial<AthleteProfile> = {}) {
+    const p = profile(over);
+    const state = initialAthleteState(p);
+    const plan = generatePlan({ profile: p, state, library: DEMO_LIBRARY, weeksToRace: 12 });
+    return plan.phases.flatMap((ph) =>
+      ph.weeks.map((w) => ({
+        phase: ph.phase_type,
+        week: w.week_number,
+        isDeload: w.is_deload,
+        km: weeklyRunSummary(w.sessions, state.pace_zones, ph.phase_type).total_km,
+      })),
+    );
+  }
+
+  it("tracks its own target week by week", () => {
+    for (const w of weeks()) {
+      const target = weeklyVolumeTarget({
+        peakKm: 50,
+        phase: w.phase,
+        isDeload: w.isDeload,
+        weekNumber: w.week,
+      });
+      // Within 15%: sessions have their own floors and ceilings, and a
+      // benchmark or a simulation displaces a run for the week it lands in.
+      expect(
+        Math.abs(w.km - target) / target,
+        `W${w.week} ${w.phase}: ${w.km} km against a ${target} km target`,
+      ).toBeLessThan(0.15);
+    }
+  });
+
+  it("falls from the base block to the race rather than rising into it", () => {
+    const rows = weeks();
+    const best = (phase: string) => Math.max(...rows.filter((r) => r.phase === phase).map((r) => r.km));
+    expect(best("base")).toBeGreaterThan(best("build"));
+    expect(best("build")).toBeGreaterThan(best("peak"));
+    expect(best("peak")).toBeGreaterThan(best("taper"));
+  });
+
+  it("puts a 19:00 five-k athlete at 35-50 km through the loading blocks", () => {
+    // The bracket a sub-65 runner is aimed at: enough to hold race pace off
+    // the stations, not so much that the stations pay for it.
+    const loading = weeks().filter((w) => w.phase !== "taper" && !w.isDeload);
+    for (const w of loading) {
+      expect(w.km, `W${w.week} ${w.phase}`).toBeGreaterThanOrEqual(35);
+      expect(w.km, `W${w.week} ${w.phase}`).toBeLessThanOrEqual(50);
+    }
+    const taper = weeks().find((w) => w.phase === "taper")!;
+    expect(taper.km).toBeGreaterThanOrEqual(15);
+    expect(taper.km).toBeLessThanOrEqual(23);
   });
 });

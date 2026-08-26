@@ -88,7 +88,7 @@ Beim ersten Mal folgen vier kurze Schritte. Alles ist später änderbar.
 | **Erfahrungslevel** | Start-Tiers der Stationen, Grundlage für die Frequenzberatung. |
 | **Trainingstage pro Woche (3–6)** | Wie viele Slots eine Woche bekommt. Bei 5 Tagen überleben die fünf höchstpriorisierten Einheiten der Phase. *Später jederzeit unter [Setup](#8-settings--setup--tools) änderbar.* |
 | **Doppeltage (0–3)** | Tage mit AM- und PM-Einheit. Die PM-Einheit ist immer die leichtere. *Später jederzeit unter [Setup](#8-settings--setup--tools) änderbar.* |
-| **Peak-km pro Woche** | Die eine Zahl für das Laufvolumen; eine Kurve verteilt sie über die Phasen. |
+| **Peak-km pro Woche** | Die eine Zahl für das Laufvolumen; eine Kurve verteilt sie über die Phasen. Der Gipfel liegt in der **Basis** — siehe [6](#6-wie-sich-der-plan-anpasst). |
 | **Läufe pro Woche** | Optional. Verschiebt die Mischung Richtung Laufen — genau ein Nicht-Lauf-Slot bleibt geschützt. |
 | **Equipment** (Full Gym / Home / Hybrid) | Wählt zwischen Gym- und Home-Varianten aller Blöcke. |
 | **5-km-Zeit** | Leitet alle Pace-Zonen ab (easy / race / interval) und die erste Zielzeit-Prognose. |
@@ -321,6 +321,18 @@ darunter trainierst du auf unerholter Ermüdung, darüber ist es ein zweiter Tag
 Laufen, halb SkiErg, Rudergerät oder Rad. Das ist genau das Zusatzvolumen, das sonst die
 Achillessehne bezahlt — gleicher Motor, ein Bruchteil des Aufpralls. Ohne Ergometer bekommst du
 sie nicht.
+
+**Die Kilometer gipfeln in der Basis, nicht im Build.** Aus deiner Peak-km-Zahl verteilt eine Kurve
+das Wochenvolumen über die Phasen: **Basis 100 % · Build 90 % · Peak 80 % · Taper 40 %.** Bei 50 km
+Peak sind das 50 / 45 / 40 / 20 km. Die ersten drei Wochen laufen zusätzlich mit 75 → 100 % an, damit
+der Zyklus nicht auf voller Last beginnt.
+
+Das ist bewusst *gegenläufig* zu einer reinen Laufperiodisierung. Was in einem Hyrox-Zyklus zum
+Rennen hin steigt, ist nicht die Distanz, sondern die Spezifität: Der Laufanteil der
+[Trainingsmischung](#4-plan--die-trainingswoche) sinkt von 45–55 % in der Basis auf 30 % im Peak,
+während kompromittiertes Laufen und Stationsarbeit übernehmen — und die bringen ihre eigene Last
+mit. Die Kilometer obendrauf zu halten heißt, die Basis wegbrechen zu lassen, bevor die Form da ist.
+Die Nicht-Lauf-Einheiten haben ihre eigene Kurve, die später gipfelt: Distanz früh, Stationslast spät.
 
 **Deload alle 3–4 Wochen.** Jede vierte Woche wird auf 60 % Volumen getrimmt — quer durch alle
 Phasen, auch im Peak. Zwei Wochen sind nie Deload: eine Testwoche (dafür sollst du frisch sein) und
@@ -661,6 +673,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Laufvolumen gipfelt jetzt in der Basis und fällt bis zum Rennen (100/90/80/40 % statt 85/100/90/50 %) | [6](#6-wie-sich-der-plan-anpasst) |
 | Level (Zielzeit) und Division nachträglich änderbar; der Plan wird neu gebaut, Pace-Zonen und Tiers bleiben erhalten | [8](#8-settings--setup--tools) |
 | Startdatum des Plans wählbar (Onboarding und Setup, mit Frage nach Neuaufbau); die laufende Woche wird aus dem Startdatum abgeleitet statt aus einem Status, der nie weitergeschaltet wurde | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
 | Doppeltage lassen sich auf feste Wochentage pinnen (Setup → Form deiner Woche), mit Hinweis auf ihre Kosten | [8](#8-settings--setup--tools) |

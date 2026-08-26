@@ -9,6 +9,7 @@
 // ============================================================================
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { applyMicroForSession } from "@/lib/adaptiveRunner";
+import { currentWeekNumber } from "@/lib/planWeek";
 
 const RUN_SESSION_TYPES = ["run_easy", "run_intervals", "compromised_run"];
 
@@ -48,7 +49,7 @@ export async function autoLogRun(
 ): Promise<string | null> {
   const { data: plan } = await admin
     .from("plans")
-    .select("id")
+    .select("id, starts_on, total_weeks")
     .eq("profile_id", profileId)
     .eq("status", "active")
     .order("generated_at", { ascending: false })
@@ -56,11 +57,17 @@ export async function autoLogRun(
     .maybeSingle();
   if (!plan) return null;
 
+  const thisWeek = currentWeekNumber({
+    startsOn: String(plan.starts_on).slice(0, 10),
+    today: new Date().toISOString().slice(0, 10),
+    totalWeeks: plan.total_weeks,
+  });
+
   const { data: week } = await admin
     .from("plan_weeks")
     .select("id")
     .eq("plan_id", plan.id)
-    .eq("status", "current")
+    .eq("week_number", thisWeek)
     .maybeSingle();
   if (!week) return null;
 

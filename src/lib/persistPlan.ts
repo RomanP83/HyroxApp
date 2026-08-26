@@ -16,6 +16,12 @@ export async function loadLibrary(supabase: SupabaseClient): Promise<WorkoutBloc
 export interface PersistMeta {
   profileId: string;
   raceDate: string; // ISO date
+  /**
+   * The Monday week 1 begins on. Everything that asks "which week is now"
+   * derives it from this, so it is the plan's anchor rather than a label.
+   * Omitted, the database falls back to this week's Monday.
+   */
+  startsOn?: string | null;
   raceId?: string | null;
   stripePaymentId?: string | null;
   status?: "active" | "paused";
@@ -38,6 +44,7 @@ export async function persistPlan(
     profile_id: meta.profileId,
     race_id: meta.raceId ?? null,
     race_date: meta.raceDate,
+    starts_on: meta.startsOn ?? null,
     status: meta.status ?? "active",
     stripe_payment_id: meta.stripePaymentId ?? null,
     total_weeks: plan.total_weeks,

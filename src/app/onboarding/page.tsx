@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { readApi } from "@/lib/apiResult";
+import { nextMonday, weekStartOf } from "@/lib/planWeek";
 import { frequencyAdvice, initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
 import { fmtClock, PHASE_COLORS, titleCase } from "@/lib/format";
 import { CheckIcon, SpinnerIcon } from "@/components/icons";
@@ -40,6 +41,7 @@ export default function Onboarding() {
   const [fiveKMin, setFiveKMin] = useState(22);
   const [fiveKSec, setFiveKSec] = useState(30);
   const [raceDate, setRaceDate] = useState("");
+  const [startsOn, setStartsOn] = useState(() => nextMonday(new Date().toISOString().slice(0, 10)));
   const [raceId, setRaceId] = useState<string | null>(null);
   const [races, setRaces] = useState<
     { id: string; name: string; city: string | null; event_date: string }[]
@@ -100,7 +102,7 @@ export default function Onboarding() {
   // Live preview: the same engine that builds the real plan, in the browser.
   const preview = useMemo(() => {
     if (!raceDate) return null;
-    const ms = new Date(raceDate).getTime() - Date.now();
+    const ms = new Date(raceDate).getTime() - new Date(startsOn).getTime();
     if (Number.isNaN(ms) || ms <= 0) return null;
     const weeks = Math.max(4, Math.min(20, Math.ceil(ms / (7 * 86_400_000))));
     const profile: AthleteProfile = {
@@ -119,7 +121,7 @@ export default function Onboarding() {
       split: splitPhases(weeks),
       predicted: initialAthleteState(profile).predicted_race_time_sec,
     };
-  }, [raceDate, division, level, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
+  }, [raceDate, startsOn, division, level, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
 
   async function sendMagicLink() {
     setError(null);
@@ -148,6 +150,7 @@ export default function Onboarding() {
           weekly_km_peak: kmPeak ? Number(kmPeak) : null,
           equipment_access: equipment,
           race_date: raceDate,
+          starts_on: startsOn,
           race_id: raceId,
         }),
       });
@@ -384,17 +387,34 @@ export default function Onboarding() {
               </select>
             </div>
           )}
-          <div>
-            <label className="label">Race date</label>
-            <input
-              className="input"
-              type="date"
-              value={raceDate}
-              onChange={(e) => {
-                setRaceDate(e.target.value);
-                setRaceId(null); // manual date overrides the event pick
-              }}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label">Race date</label>
+              <input
+                className="input"
+                type="date"
+                value={raceDate}
+                onChange={(e) => {
+                  setRaceDate(e.target.value);
+                  setRaceId(null); // manual date overrides the event pick
+                }}
+              />
+            </div>
+            <div>
+              <label className="label">Start the plan on</label>
+              <input
+                className="input"
+                type="date"
+                value={startsOn}
+                onChange={(e) => setStartsOn(weekStartOf(e.target.value, 1))}
+              />
+              {/* Week 1 runs Monday to Sunday. Starting mid-week would give it
+                  two days, so the date snaps to the Monday of whatever is
+                  picked, and defaults to the coming one. */}
+              <p className="mt-1 text-micro text-ash">
+                Week 1 begins on this Monday — the coming one unless you pick another.
+              </p>
+            </div>
           </div>
 
           {/* Show value quickly: the plan skeleton, generated live. */}

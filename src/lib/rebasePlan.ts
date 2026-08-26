@@ -12,12 +12,19 @@ import { generatePlan, type AthleteProfile } from "@/lib/engine";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { loadDayOverrides } from "@/lib/dayOverrides";
+import { weekStartOf } from "@/lib/planWeek";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 
 export async function rebasePlan(
   admin: SupabaseClient,
   planId: string,
   reason: string,
+  /**
+   * The Monday the rebuilt plan starts on. A rebase means "from today", so the
+   * default is this week's Monday; the settings page passes a chosen date when
+   * the athlete is deliberately moving the start.
+   */
+  startsOn?: string,
 ): Promise<string | null> {
   const { data: plan } = await admin
     .from("plans")
@@ -39,6 +46,7 @@ export async function rebasePlan(
   // A rebase must not lose the race calendar: the B and C races the athlete
   // entered are part of the plan, not decoration on the season page.
   const today = new Date().toISOString().slice(0, 10);
+  const start = weekStartOf(startsOn?.slice(0, 10) ?? today, 1);
   const raceDate = String(plan.race_date).slice(0, 10);
   const calendar = await loadSeasonRaces(admin, plan.profile_id);
   const races = racesForPlan(
@@ -57,8 +65,8 @@ export async function rebasePlan(
     profile,
     state,
     library,
-    weeksToRace: planWeeksTo(raceDate, today, 2),
-    startDate: today,
+    weeksToRace: planWeeksTo(raceDate, start, 2),
+    startDate: start,
     races,
     dayOverrides,
   });
@@ -70,6 +78,7 @@ export async function rebasePlan(
       raceDate: plan.race_date,
       raceId: plan.race_id,
       stripePaymentId: plan.stripe_payment_id,
+      startsOn: start,
     },
     generated,
   );

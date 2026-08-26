@@ -2,26 +2,17 @@
 // Manual moves, stored against the calendar week so a rebase can replay them.
 //
 // Plan week numbering shifts when a plan is rebuilt from today; the Monday a
-// week starts on does not. Plan week W of a plan generated on G starts at
-// monday(G) + (W-1)*7 — the same grid the race calendar uses.
+// week starts on does not. The grid itself lives in planWeek.ts — the same one
+// the current week is derived from, so a moved session and "which week is now"
+// can never mean different Mondays.
 // ============================================================================
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DayOverride } from "@/lib/engine";
+import { mondayOf, weekStartOf } from "@/lib/planWeek";
+
+export { weekStartOf };
 
 const DAY_MS = 86_400_000;
-
-function mondayOf(iso: string): number {
-  const d = new Date(`${iso.slice(0, 10)}T00:00:00.000Z`);
-  const dow = d.getUTCDay();
-  return d.getTime() - (dow === 0 ? 6 : dow - 1) * DAY_MS;
-}
-
-/** The Monday a given plan week starts on. */
-export function weekStartOf(planGeneratedAt: string, weekNumber: number): string {
-  return new Date(mondayOf(planGeneratedAt) + (weekNumber - 1) * 7 * DAY_MS)
-    .toISOString()
-    .slice(0, 10);
-}
 
 /**
  * Overrides worth replaying: this week and every week ahead of it. Past weeks

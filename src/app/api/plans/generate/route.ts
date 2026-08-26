@@ -5,6 +5,7 @@ import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadDayOverrides } from "@/lib/dayOverrides";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { generatePlan, initialAthleteState, type AthleteProfile } from "@/lib/engine";
+import { nextMonday, weekStartOf } from "@/lib/planWeek";
 
 const Body = z.object({
   division: z.enum(["open", "pro", "doubles", "masters_open", "masters_pro"]),
@@ -18,6 +19,8 @@ const Body = z.object({
   equipment_access: z.enum(["full_gym", "home_minimal", "hybrid"]),
   telegram_chat_id: z.string().optional(),
   race_date: z.string(), // ISO date
+  /** The Monday week 1 begins on. Absent, the coming Monday. */
+  starts_on: z.string().optional(),
   race_id: z.string().uuid().nullable().optional(),
 });
 
@@ -86,7 +89,11 @@ export async function POST(req: Request) {
   // buys a short taper, a C race replaces the week's hard session).
   const today = new Date().toISOString().slice(0, 10);
   const raceDate = body.race_date.slice(0, 10);
-  const weeksToRace = planWeeksTo(raceDate, today);
+  // Week 1 begins on a Monday the athlete chose, defaulting to the coming one.
+  // The plan is still built from today — what starts_on decides is which
+  // Monday the grid is counted from, and the weeks run to the race either way.
+  const startsOn = weekStartOf(body.starts_on?.slice(0, 10) ?? nextMonday(today), 1);
+  const weeksToRace = planWeeksTo(raceDate, startsOn);
 
   // The target race is always in the plan, whether or not it is in the season
   // calendar yet — a plan that does not end on its race day is a plan with a
@@ -109,13 +116,18 @@ export async function POST(req: Request) {
       state,
       library,
       weeksToRace,
-      startDate: today,
+      startDate: startsOn,
       races,
       dayOverrides,
     });
     planId = await persistPlan(
       supabase,
-      { profileId: profile.id, raceDate: body.race_date, raceId: body.race_id ?? null },
+      {
+        profileId: profile.id,
+        raceDate: body.race_date,
+        raceId: body.race_id ?? null,
+        startsOn,
+      },
       plan,
     );
   } catch (e) {

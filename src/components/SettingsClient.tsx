@@ -13,6 +13,7 @@
 // ============================================================================
 import { useState } from "react";
 import { readApi } from "@/lib/apiResult";
+import { weeksFromStartToRace, weekStartOf } from "@/lib/planWeek";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import {
@@ -38,6 +39,8 @@ const DAY_FULL = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "S
 
 export interface SettingsProps {
   hasPlan: boolean;
+  /** The Monday week 1 begins on, and the race it runs to. */
+  planStart: { starts_on: string; race_date: string; total_weeks: number } | null;
   planStatus: string;
   experienceLevel: ExperienceLevel;
   weekShape: {
@@ -64,6 +67,7 @@ export function SettingsClient(props: SettingsProps) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
 
+
   async function signOut() {
     setSigningOut(true);
     haptic("confirm");
@@ -86,6 +90,37 @@ export function SettingsClient(props: SettingsProps) {
   const [doubleDays, setDoubleDays] = useState<number[]>(props.weekShape.double_days);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
+  const [startsOn, setStartsOn] = useState(props.planStart?.starts_on ?? "");
+  const [askRebuild, setAskRebuild] = useState(false);
+  const [savingStart, setSavingStart] = useState(false);
+  const [startWarnings, setStartWarnings] = useState<string[]>([]);
+  const runway = props.planStart
+    ? weeksFromStartToRace(startsOn || props.planStart.starts_on, props.planStart.race_date)
+    : 0;
+
+  async function moveStart(rebuild: boolean) {
+    setSavingStart(true);
+    haptic("confirm");
+    const res = await fetch("/api/plans/start-date", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ starts_on: startsOn, rebuild }),
+    });
+    const result = await readApi<{ warnings?: string[] }>(res);
+    setSavingStart(false);
+    setAskRebuild(false);
+    if (!result.ok) {
+      setToast(result.message);
+      return;
+    }
+    setStartWarnings(result.data.warnings ?? []);
+    setToast(
+      rebuild
+        ? "Plan rebuilt from the new start date."
+        : "Start date moved — the weeks kept their content.",
+    );
+    router.refresh();
+  }
 
   // Both of these are pure engine functions, so the page can answer live
   // instead of only after a save: change a day and the cost changes with it.
@@ -190,6 +225,102 @@ export function SettingsClient(props: SettingsProps) {
         <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">
           Your training week
         </h2>
+
+        {props.planStart && (
+          <div className="card space-y-3">
+            <div>
+              <h3 className="flex items-center gap-2 text-lead font-semibold text-chalk">
+                <CalendarIcon size={18} className="text-flame" />
+                When the plan starts
+              </h3>
+              <p className="mt-1 max-w-[62ch] text-meta leading-relaxed text-ash">
+                Week 1 begins on this Monday, and everything — which week is
+                &ldquo;now&rdquo;, the check-in, the weekly review — is counted from it. Build a
+                plan on a Saturday and week 1 would otherwise be two days long.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block">
+                <span className="mb-1 block text-micro font-semibold uppercase tracking-wider text-ash">
+                  Week 1 Monday
+                </span>
+                <input
+                  className="input"
+                  type="date"
+                  value={startsOn}
+                  onChange={(e) => {
+                    // Week 1 runs Monday to Sunday, so the date snaps.
+                    setStartsOn(e.target.value ? weekStartOf(e.target.value, 1) : "");
+                    setAskRebuild(e.target.value !== props.planStart!.starts_on);
+                    setStartWarnings([]);
+                  }}
+                />
+              </label>
+              <p className="text-meta text-ash">
+                {/* The runway the chosen date leaves, recomputed live — that is
+                    the number the rebuild decision turns on, and it is not the
+                    plan's stored length once the date moves. */}
+                <span className={runway === props.planStart.total_weeks ? "" : "text-amber"}>
+                  {runway} week{runway === 1 ? "" : "s"}
+                </span>{" "}
+                to {props.planStart.race_date}
+                {runway === props.planStart.total_weeks
+                  ? "."
+                  : `, and the plan is ${props.planStart.total_weeks} weeks long.`}
+              </p>
+            </div>
+
+            {askRebuild && (
+              // Moving the start with a fixed race date changes how much
+              // runway is left, so the two answers are not the same change.
+              // Both consequences stand next to their button.
+              <div className="rounded-control border border-edge-strong bg-well p-3">
+                <p className="text-meta font-semibold text-chalk">
+                  You moved the start. Rebuild the plan for the new runway?
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className="btn-primary"
+                    onClick={() => void moveStart(true)}
+                    disabled={savingStart}
+                  >
+                    {savingStart ? <SpinnerIcon size={16} /> : <CalendarIcon size={16} />}
+                    Rebuild for the new runway
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => void moveStart(false)}
+                    disabled={savingStart}
+                  >
+                    Only move the calendar
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      setStartsOn(props.planStart!.starts_on);
+                      setAskRebuild(false);
+                    }}
+                    disabled={savingStart}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="mt-2 max-w-[62ch] text-micro leading-relaxed text-ash">
+                  <b className="text-bone">Rebuild</b> recalculates the phases for the weeks that
+                  are actually left — past weeks stay as they were logged.{" "}
+                  <b className="text-bone">Only move</b> keeps every week exactly as it is and
+                  slides them along the calendar, which can leave the plan ending after race day.
+                </p>
+              </div>
+            )}
+
+            {startWarnings.map((w) => (
+              <p key={w} className="text-meta leading-relaxed text-amber">
+                {w}
+              </p>
+            ))}
+          </div>
+        )}
 
         <div className="card-focal space-y-4">
           <div className="flex items-center gap-2">

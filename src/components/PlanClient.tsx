@@ -59,6 +59,8 @@ interface Props {
   phases: PhaseMeta[];
   weeks: WeekMeta[];
   currentWeek: WeekMeta;
+  /** The plan week today actually falls in — not necessarily the one shown. */
+  thisWeekNumber: number;
   sessions: ClientSession[];
   state: any;
   adjustments: string[];
@@ -451,7 +453,14 @@ export function PlanClient(props: Props) {
           {props.sessions.map((cs) => (
             <SessionCard
               key={cs.id}
-              focal={today?.weekday === cs.session.day_hint && cs.status === "planned"}
+              // Today's session — and only while the week on screen is the
+              // week today is in. Without that second half the same weekday
+              // lit up in every week of the plan.
+              focal={
+                props.currentWeek.week_number === props.thisWeekNumber &&
+                today?.weekday === cs.session.day_hint &&
+                cs.status === "planned"
+              }
               session={cs.session}
               status={optimistic[cs.id] ?? cs.status}
               locked={props.locked}

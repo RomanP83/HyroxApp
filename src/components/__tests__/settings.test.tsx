@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({
 
 const base: SettingsProps = {
   hasPlan: true,
+  planStart: { starts_on: "2026-03-02", race_date: "2026-05-24", total_weeks: 12 },
   planStatus: "active",
   experienceLevel: "advanced",
   weekShape: {

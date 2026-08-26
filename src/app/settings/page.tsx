@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { currentWeekNumber } from "@/lib/planWeek";
 import { supabaseServer } from "@/lib/supabase/server";
 import { SettingsClient } from "@/components/SettingsClient";
 import { assessVolumeTarget, type ExperienceLevel, type PaceZones } from "@/lib/engine";
@@ -29,7 +30,7 @@ export default async function SettingsPage() {
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, status, total_weeks")
+    .select("id, status, total_weeks, starts_on, race_date")
     .eq("profile_id", profile.id)
     .in("status", ["active", "paused", "rehab"])
     .order("generated_at", { ascending: false })
@@ -44,6 +45,11 @@ export default async function SettingsPage() {
   // needs the athlete's pace zones and where the plan currently stands.
   let assessment = null;
   if (peakKm && plan) {
+    const thisWeek = currentWeekNumber({
+      startsOn: String(plan.starts_on).slice(0, 10),
+      today: new Date().toISOString().slice(0, 10),
+      totalWeeks: plan.total_weeks,
+    });
     const [{ data: state }, { data: phases }, { data: current }] = await Promise.all([
       supabase.from("athlete_state").select("pace_zones").eq("profile_id", profile.id).maybeSingle(),
       supabase.from("plan_phases").select("phase_type, end_week").eq("plan_id", plan.id),
@@ -51,7 +57,7 @@ export default async function SettingsPage() {
         .from("plan_weeks")
         .select("week_number")
         .eq("plan_id", plan.id)
-        .eq("status", "current")
+        .eq("week_number", thisWeek)
         .maybeSingle(),
     ]);
     const zones = (state?.pace_zones ?? {}) as PaceZones;
@@ -75,6 +81,15 @@ export default async function SettingsPage() {
   return (
     <SettingsClient
       hasPlan={Boolean(plan)}
+      planStart={
+        plan
+          ? {
+              starts_on: String(plan.starts_on).slice(0, 10),
+              race_date: String(plan.race_date).slice(0, 10),
+              total_weeks: plan.total_weeks,
+            }
+          : null
+      }
       planStatus={plan?.status ?? "none"}
       experienceLevel={(profile.experience_level as ExperienceLevel) ?? "intermediate"}
       weekShape={{

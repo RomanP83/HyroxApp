@@ -93,6 +93,7 @@ Beim ersten Mal folgen vier kurze Schritte. Alles ist später änderbar.
 | **Equipment** (Full Gym / Home / Hybrid) | Wählt zwischen Gym- und Home-Varianten aller Blöcke. |
 | **5-km-Zeit** | Leitet alle Pace-Zonen ab (easy / race / interval) und die erste Zielzeit-Prognose. |
 | **Renndatum** | Aus der Rennliste oder frei gewählt. Der Plan wird rückwärts davon geplant. |
+| **Startdatum** | Der Montag, an dem Woche 1 beginnt — voreingestellt der kommende. Alles, was „welche Woche ist jetzt" beantwortet, zählt von hier. Ein anderer Wochentag rastet auf den Montag seiner Woche ein. |
 
 **Live-Vorschau:** Noch bevor irgendetwas gespeichert wird, rechnet die Engine im Browser die
 Phasenaufteilung und die geschätzte Zielzeit — man sieht das Ergebnis, bevor man sich festlegt.
@@ -401,6 +402,21 @@ entscheidest.
 
 ### Deine Trainingswoche
 
+**Wann der Plan startet.** Ganz oben das Startdatum: der Montag, an dem Woche 1 beginnt. Daneben
+steht, wie viele Wochen dieser Termin bis zum Rennen übrig lässt — und ob das zur Länge deines
+Plans passt.
+
+Änderst du es, fragt die App, **ob der Plan neu gebaut werden soll**, und stellt beide Folgen
+nebeneinander:
+
+- **Neu bauen für die neue Laufzeit** — die Phasen werden auf die tatsächlich verbleibenden Wochen
+  gerechnet. Vergangene Wochen bleiben als Protokoll stehen.
+- **Nur den Kalender verschieben** — jede Woche behält ihren Inhalt und rutscht mit. Das kann dazu
+  führen, dass der Plan nach dem Renntag endet; dann sagt die App es hinterher.
+
+Der Grund für die Frage: Bei festem Renndatum ändert ein späterer Start die Anzahl der Wochen bis
+zum Rennen. Ein Plan mit fester Länge passt danach nicht mehr auf die Strecke.
+
 Beide Regler bauen die **verbleibenden Wochen** neu auf; vergangene Wochen bleiben als Protokoll
 stehen. Ohne bestehenden Plan gelten sie für den nächsten.
 
@@ -626,6 +642,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Startdatum des Plans wählbar (Onboarding und Setup, mit Frage nach Neuaufbau); die laufende Woche wird aus dem Startdatum abgeleitet statt aus einem Status, der nie weitergeschaltet wurde | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
 | Doppeltage lassen sich auf feste Wochentage pinnen (Setup → Form deiner Woche), mit Hinweis auf ihre Kosten | [8](#8-settings--setup--tools) |
 | Der letzte Benchmark-Test liegt nie in der Rennwoche: bei kurzem Taper rückt er in die letzte Peak-Woche | [10](#10-benchmarks--tests-eintragen) |
 | Trainingsmischung nach Level und Phase als Vorgabe (Anteile statt fester Reihenfolge); kompromittiertes Laufen ab der Basis; Deload alle 3–4 Wochen in allen Phasen; Taper senkt auch Kraft und Stationen; Interferenzregel in beide Richtungen; AM/PM-Abstand auf der Karte; Ergometer-Entlastung als echte Einheit | [4](#4-plan--die-trainingswoche), [6](#6-wie-sich-der-plan-anpasst) |

@@ -8,6 +8,7 @@ import {
 } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
+import { currentWeekNumber } from "@/lib/planWeek";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function PlanPage({
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, race_date, status, total_weeks, stripe_payment_id")
+    .select("id, race_date, starts_on, status, total_weeks, stripe_payment_id")
     .eq("profile_id", profile.id)
     .in("status", ["active", "paused", "rehab"])
     .order("generated_at", { ascending: false })
@@ -92,9 +93,17 @@ export default async function PlanPage({
     ]);
 
   const weekList = weeks ?? [];
+  // Which week is now is derived from the plan's start, not read off a stored
+  // flag — the flag was written once and never advanced, so every reader sat
+  // on week 1 forever.
+  const thisWeek = currentWeekNumber({
+    startsOn: String(plan.starts_on).slice(0, 10),
+    today: new Date().toISOString().slice(0, 10),
+    totalWeeks: plan.total_weeks,
+  });
   const current =
     weekList.find((w) => String(w.week_number) === searchParams.week) ??
-    weekList.find((w) => w.status === "current") ??
+    weekList.find((w) => w.week_number === thisWeek) ??
     weekList[0];
 
   // Load sessions + blocks for the selected week.
@@ -237,6 +246,7 @@ export default async function PlanPage({
       phases={phases ?? []}
       weeks={weekList}
       currentWeek={current}
+      thisWeekNumber={thisWeek}
       sessions={clientSessions}
       state={state}
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}

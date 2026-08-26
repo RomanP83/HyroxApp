@@ -5,6 +5,7 @@ import { macroGuardrails } from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 import { rebasePlan } from "@/lib/rebasePlan";
 import { loadTuning } from "@/lib/engineConfig";
+import { currentWeekNumber } from "@/lib/planWeek";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
 
   const { data: plans } = await admin
     .from("plans")
-    .select("id, profile_id, status, generated_at")
+    .select("id, profile_id, status, generated_at, starts_on, total_weeks")
     .in("status", ["active", "paused"]);
 
   const now = Date.now();
@@ -112,11 +113,16 @@ export async function POST(req: Request) {
         }
       } else if (d.type === "trim_week") {
         // B3: actually reduce the remaining sessions of the current week.
+        const thisWeek = currentWeekNumber({
+          startsOn: String(plan.starts_on).slice(0, 10),
+          today: new Date().toISOString().slice(0, 10),
+          totalWeeks: plan.total_weeks,
+        });
         const { data: curWeek } = await admin
           .from("plan_weeks")
           .select("id")
           .eq("plan_id", plan.id)
-          .eq("status", "current")
+          .eq("week_number", thisWeek)
           .maybeSingle();
         if (curWeek) await scaleSessions(admin, [curWeek.id], d.multiplier);
       } else if (d.type === "ramp_up") {

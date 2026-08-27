@@ -94,6 +94,8 @@ Beim ersten Mal folgen vier kurze Schritte. Alles ist später änderbar.
 | **Läufe pro Woche** | Optional. Verschiebt die Mischung Richtung Laufen — genau ein Nicht-Lauf-Slot bleibt geschützt. |
 | **Equipment** (Full Gym / Home / Hybrid) | Wählt zwischen Gym- und Home-Varianten aller Blöcke. |
 | **5-km-Zeit** | Leitet alle Pace-Zonen ab (easy / race / interval) und die erste Zielzeit-Prognose. |
+| **Level** | Was du heute tragen kannst: Trainingsmischung, Sessionkataloge, Einheitenzahl, Start-Tiers. |
+| **Zielzeit** | Was du anstrebst. Schlägt zunächst die Zeit des Levels vor und folgt ihm nicht mehr, sobald du selbst eine wählst. |
 | **Renndatum** | Aus der Rennliste oder frei gewählt. Der Plan wird rückwärts davon geplant. |
 | **Startdatum** | Der Montag, an dem Woche 1 beginnt — voreingestellt der kommende. Alles, was „welche Woche ist jetzt" beantwortet, zählt von hier. Ein anderer Wochentag rastet auf den Montag seiner Woche ein. |
 
@@ -202,10 +204,21 @@ Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 
 | Karte | Funktion |
 |---|---|
-| **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter deine Pace-Zonen und der ACWR. Die eine Zahl, für die das ganze System existiert. |
+| **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter dein **Ziel und der Abstand dahin**, dann Pace-Zonen und ACWR. Die eine Zahl, für die das ganze System existiert. |
 | **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
 | **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
 | **Setup & tools** | Ein Link auf die [eigene Setup-Seite](#8-settings--setup--tools). |
+
+**Liegst du auf Kurs?** Unter der Prognose steht deine Zielzeit und was zwischen beiden liegt — und
+zwar aufgeteilt: wie viel davon **noch in den Stationen steckt** (mit der teuersten zuerst) und wie
+viel **aus den Beinen kommen muss.** Steckst du bereits innerhalb des Ziels, steht dort, wie weit.
+
+Bei einem ambitionierten Ziel kommt eine Zeile dazu: welche Pace die acht Kilometer dann noch
+verlangen, *wenn jede Station schon perfekt wäre.* „Sub 50" kommt als 1:47/km zurück — das
+beantwortet sich selbst, ohne dass die App jemandem sein Ziel ausreden muss.
+
+Die Zielzeit steuert den Plan **nicht**. Sie ist der Maßstab, nicht die Vorgabe: Ein Wunschziel
+würde die Trainingspaces sonst in den Verletzungsbereich schieben.
 | **Coach-Feedback** | Erscheint nach dem Loggen als Overlay (siehe Abschnitt 6). |
 
 ---
@@ -476,20 +489,27 @@ entscheidest.
 
 ### Deine Trainingswoche
 
-**Wofür du trainierst.** Ganz oben Level und Division — beides nachträglich änderbar, nicht mehr nur
-im Onboarding.
+**Wofür du trainierst.** Ganz oben Level, Zielzeit und Division — alle drei nachträglich änderbar,
+nicht mehr nur im Onboarding.
 
 Das **Level ist die stärkste Einzelgröße im Plan**: Die Aufteilung zwischen Laufen, Kraft,
 Stationsarbeit und kompromittiertem Laufen ist nach Level *und* Phase festgelegt, und alle drei
-Session-Kataloge wählen danach aus. Dein Ziel ist das Level — U70 heißt *Elite*, U60 heißt *World
-Class*. Ein separates Zielzeit-Feld gibt es bewusst nicht: Es stünde als zweite Wahrheit neben der
-Prognose, die die App aus deinen Logs rechnet.
+Session-Kataloge wählen danach aus. Es beschreibt, **was du heute tragen kannst.**
+
+Die **Zielzeit** ist davon getrennt und beschreibt, **was du anstrebst.** Sie steht seit Kurzem als
+eigene Zahl da. Vorher trug das Level beide Rollen — die Auswahl hieß „Level und Zielzeit", *Elite*
+stand für U70 — und an dieser Stelle war zu lesen, ein eigenes Feld sei bewusst weggelassen, es
+stünde als zweite Wahrheit neben der Prognose. Das war ein Fehlschluss: Prognose und Ziel sind keine
+zwei Wahrheiten, sondern zwei verschiedene Dinge — die eine sagt, was du laufen wirst, das andere,
+was du willst. Solange nur das Level beides trug, hatte niemand mit 1:30 und dem Ziel U70 eine
+ehrliche Wahl: *Elite* liefert Einheiten, die er nicht durchhält, *Trained* zeigt ihm sein Ziel nie.
 
 Die **Division** setzt jedes Gewicht im Plan — Open, Pro, Doubles, Masters, Masters Pro.
 
-Speichern baut die verbleibenden Wochen neu. **Deine Kalibrierung bleibt unangetastet:** Pace-Zonen
-und Stations-Tiers kommen aus dem, was du geloggt hast, nicht aus dem Level. Ein neues Ziel ist kein
-Neuanfang.
+**Level oder Division ändern baut die verbleibenden Wochen neu. Nur die Zielzeit ändern nicht** —
+sie ist das, woran der Plan gemessen wird, nicht das, woraus er gebaut wird. **Deine Kalibrierung
+bleibt in beiden Fällen unangetastet:** Pace-Zonen und Stations-Tiers kommen aus dem, was du geloggt
+hast. Ein neues Ziel ist kein Neuanfang.
 
 *Die 5-km-Zeit steht hier bewusst nicht.* Sie ist nur der Startwert für die allererste Kalibrierung;
 danach führen die [Benchmarks](#10-benchmarks--tests-eintragen) deine Zonen. Ein Regler dafür würde
@@ -656,9 +676,13 @@ besteht — nach hinten das Rennen, das gelaufen wurde, und was die App daraus l
 
 ### Das Pacing-Blatt
 
-Oben steht ein Feld für die **Zielzeit** (`1:25:00`). Daraus rechnet die App die siebzehn Abschnitte
-eines Hyrox-Rennens: acht Läufe, acht Roxzone-Wechsel und acht Stationen, in Rennreihenfolge,
-jeweils mit Teilzeit und aufgelaufener Uhrzeit.
+Oben steht ein Feld für die **Zielzeit** — vorbelegt mit dem Ziel aus deinem
+[Setup](#8-settings--setup--tools). Daraus rechnet die App die siebzehn Abschnitte eines
+Hyrox-Rennens: acht Läufe, acht Roxzone-Wechsel und acht Stationen, in Rennreihenfolge, jeweils mit
+Teilzeit und aufgelaufener Uhrzeit.
+
+*Kurzzeitig war hier die Prognose vorbelegt statt des Ziels.* Das zerlegte die Zeit, die du ohnehin
+laufen wirst — die Lücke unten konnte damit gar nichts anderes als null anzeigen.
 
 **Die Reihenfolge des Abzugs ist die eigentliche Aussage.** Stationen und Roxzone werden zuerst
 abgezogen — sie sind am Renntag, was sie sind; niemand schiebt den Schlitten schneller, weil die Uhr
@@ -812,6 +836,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Zielzeit als eigene Zahl, getrennt vom Level (Level = was du tragen kannst, Ziel = was du anstrebst). Auf `/plan` steht der Abstand zum Ziel, aufgeteilt in Stationen und Beine; das Pacing-Blatt öffnet auf dem Ziel statt auf der Prognose. Nur die Zielzeit zu ändern baut keine Woche neu | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
 | Zielzeit-Prognose läuft auf demselben Rennmodell wie das Pacing-Blatt (Stationen und Roxzone statt einer Divisionskonstante, gemessene Rennsplits wo vorhanden). Die Prognosen werden dadurch realistischer und rund zehn Minuten langsamer; die Pro-Referenzzeiten waren zu optimistisch und kosten jetzt die Minuten, die die schwereren Lasten wirklich kosten | [11](#11-progress--auswertungen), [12](#12-race--renntag-pacing-und-ergebnis) |
 | Neue Seite `/race`: Pacing-Blatt aus der Zielzeit (17 Abschnitte, Stationen zuerst abgezogen), Stationskosten in Sekunden statt Tiers, und ein Rennergebnis mit Laufsplits und Stationszeiten, das die Tiers neu kalibriert | [12](#12-race--renntag-pacing-und-ergebnis) |
 | Ohne Rennen läuft der Übergangsblock offen (20 Wochen, Verlängerung ab Off-Season statt neuem Reset) und wird nicht mehr als Rennzyklus angezeigt | [6](#6-wie-sich-der-plan-anpasst) |

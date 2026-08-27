@@ -20,7 +20,7 @@ export default async function RacePage() {
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id, division, experience_level, five_k_seconds")
+    .select("id, division, experience_level, goal_race_time_sec, five_k_seconds")
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
@@ -52,6 +52,7 @@ export default async function RacePage() {
       level={(profile.experience_level as ExperienceLevel) ?? "intermediate"}
       tiers={(state?.station_tiers as Record<string, number>) ?? {}}
       paceZones={zones}
+      goalSeconds={profile.goal_race_time_sec ?? null}
       predictedSeconds={state?.predicted_race_time_sec ?? null}
       measured={(state?.measured_station_seconds as Partial<Record<Station, number>>) ?? undefined}
       nextRaceDate={plan && plan.kind !== "transition" ? String(plan.race_date).slice(0, 10) : null}

@@ -67,10 +67,28 @@ export type StationTiers = Record<string, number>; // station -> tier 1..3
 
 export type DaySlot = "am" | "pm";
 
+/** One benchmark result, latest per test. */
+export interface BenchmarkSample {
+  slug: string; // benchmark_definitions.slug
+  value: number; // metric value (sec, reps, or m)
+}
+
 export interface AthleteProfile {
   id: string;
   division: Division;
+  /**
+   * What this athlete can currently carry: it steers the training mix, the
+   * level-keyed catalogues, the session frequency and the default tiers.
+   * Deliberately NOT the goal — see goal_race_time_sec.
+   */
   experience_level: ExperienceLevel;
+  /**
+   * The finish time the athlete is actually training for, in seconds. Ability
+   * and ambition are different numbers and an athlete is allowed to have both:
+   * running 1:30 today and wanting sub 70 is a training plan, not a
+   * contradiction. Null until set; goalSecondsForLevel supplies the default.
+   */
+  goal_race_time_sec?: number | null;
   five_k_seconds: number | null;
   station_estimates: Record<string, number>;
   training_days_per_week: number; // 3..6

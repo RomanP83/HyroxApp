@@ -6,7 +6,13 @@ import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { readApi } from "@/lib/apiResult";
 import { nextMonday, weekStartOf } from "@/lib/planWeek";
-import { frequencyAdvice, initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
+import {
+  frequencyAdvice,
+  goalSecondsForLevel,
+  initialAthleteState,
+  splitPhases,
+  type AthleteProfile,
+} from "@/lib/engine";
 import { fmtClock, PHASE_COLORS, titleCase } from "@/lib/format";
 import { CheckIcon, SpinnerIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
@@ -34,6 +40,10 @@ export default function Onboarding() {
 
   const [division, setDivision] = useState<Division>("open");
   const [level, setLevel] = useState<Level>("intermediate");
+  // The goal starts where the level suggests and stops following it the moment
+  // the athlete picks one — ability proposes, ambition decides.
+  const [goalSeconds, setGoalSeconds] = useState(goalSecondsForLevel("intermediate"));
+  const [goalTouched, setGoalTouched] = useState(false);
   const [days, setDays] = useState(4);
   const [doubles, setDoubles] = useState(0);
   const [kmPeak, setKmPeak] = useState("");
@@ -109,6 +119,7 @@ export default function Onboarding() {
       id: "preview",
       division,
       experience_level: level,
+      goal_race_time_sec: goalSeconds,
       five_k_seconds: fiveKMin * 60 + fiveKSec,
       station_estimates: {},
       training_days_per_week: days,
@@ -121,7 +132,7 @@ export default function Onboarding() {
       split: splitPhases(weeks),
       predicted: initialAthleteState(profile).predicted_race_time_sec,
     };
-  }, [raceDate, startsOn, division, level, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
+  }, [raceDate, startsOn, division, level, goalSeconds, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
 
   async function sendMagicLink() {
     setError(null);
@@ -144,6 +155,7 @@ export default function Onboarding() {
         body: JSON.stringify({
           division,
           experience_level: level,
+          goal_race_time_sec: goalSeconds,
           five_k_seconds: fiveKMin * 60 + fiveKSec,
           training_days_per_week: days,
           doubles_per_week: doubles,
@@ -259,16 +271,34 @@ export default function Onboarding() {
             onChange={(v) => setDivision(v as Division)}
           />
           <ChipGroup
-            label="How seasoned are you? (target finish time)"
+            label="How seasoned are you? (what you can carry today)"
             options={[
-              ["beginner", "New · 1:40+"],
-              ["intermediate", "Trained · sub 1:30"],
-              ["advanced", "Competitive · sub 1:20"],
-              ["elite", "Elite · sub 70 min"],
-              ["world_class", "World class · sub 60"],
+              ["beginner", "New"],
+              ["intermediate", "Trained"],
+              ["advanced", "Competitive"],
+              ["elite", "Elite"],
+              ["world_class", "World class"],
             ]}
             value={level}
-            onChange={(v) => setLevel(v as Level)}
+            onChange={(v) => {
+              setLevel(v as Level);
+              if (!goalTouched) setGoalSeconds(goalSecondsForLevel(v as Level));
+            }}
+          />
+          <ChipGroup
+            label="Goal finish time (what you are chasing)"
+            options={[
+              [String(100 * 60), "1:40"],
+              [String(90 * 60), "1:30"],
+              [String(80 * 60), "1:20"],
+              [String(70 * 60), "1:10"],
+              [String(60 * 60), "1:00"],
+            ]}
+            value={String(goalSeconds)}
+            onChange={(v) => {
+              setGoalSeconds(Number(v));
+              setGoalTouched(true);
+            }}
           />
           <ChipGroup
             label="Training days per week"

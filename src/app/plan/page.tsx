@@ -4,8 +4,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib/engine";
 import {
   defaultPaceZones,
+  goalCheck,
   weeklyRunSummary,
 } from "@/lib/engine";
+import type { AthleteProfile, AthleteState } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
 import { currentWeekNumber, raceIsBehind } from "@/lib/planWeek";
@@ -27,7 +29,7 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, subscription_status, training_days_per_week",
+      "id, division, experience_level, goal_race_time_sec, subscription_status, training_days_per_week",
     )
     .eq("user_id", user.id)
     .single();
@@ -251,8 +253,18 @@ export default async function PlanPage({
 
   // The volume corrective: the target the athlete set, measured against the
   // kilometres they have actually been running.
+  // The goal against the estimate. The stored prediction is reused rather than
+  // recomputed: it is the same number the estimate card shows, and re-deriving
+  // it here would mean reading every benchmark on the app's hottest page.
+  const goal = goalCheck({
+    profile: profile as unknown as AthleteProfile,
+    state: (state ?? {}) as unknown as AthleteState,
+    predictedSeconds: state?.predicted_race_time_sec ?? null,
+  });
+
   return (
     <PlanClient
+      goalCheck={goal}
       planId={plan.id}
       profileId={profile.id}
       paid={paid}

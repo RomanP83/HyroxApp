@@ -24,7 +24,7 @@ import {
   type Station,
 } from "@/lib/engine";
 import { readApi } from "@/lib/apiResult";
-import { fmtClock, fmtPace } from "@/lib/format";
+import { fmtClock, fmtPace, parseClock } from "@/lib/format";
 import { haptic } from "@/lib/haptics";
 import { AppHeader } from "./AppHeader";
 import { CalendarIcon, CheckIcon, RunIcon, SpinnerIcon } from "./icons";
@@ -45,6 +45,12 @@ interface Props {
   level: ExperienceLevel;
   tiers: Record<string, number>;
   paceZones: PaceZones;
+  /**
+   * The time the athlete is training for. This is what the sheet opens on:
+   * pre-filling the PREDICTION instead would decompose the time they are
+   * already going to run, and the gap could then only ever read zero.
+   */
+  goalSeconds: number | null;
   predictedSeconds: number | null;
   /**
    * The best station split known per station, merged across logged races and
@@ -54,14 +60,6 @@ interface Props {
   measured: Partial<Record<Station, number>> | undefined;
   nextRaceDate: string | null;
   results: LoggedResult[];
-}
-
-/** "1:25:30" or "5:30" back into seconds; blank and nonsense become null. */
-function parseClock(text: string): number | null {
-  const parts = text.trim().split(":").map((p) => Number(p));
-  if (!parts.length || parts.some((p) => !Number.isFinite(p) || p < 0)) return null;
-  const seconds = parts.reduce((total, part) => total * 60 + part, 0);
-  return seconds > 0 ? Math.round(seconds) : null;
 }
 
 export function RaceClient(props: Props) {
@@ -78,7 +76,7 @@ export function RaceClient(props: Props) {
   );
 
   const [goal, setGoal] = useState(
-    fmtClock(props.predictedSeconds ?? latest?.total_seconds ?? 5400),
+    fmtClock(props.goalSeconds ?? props.predictedSeconds ?? latest?.total_seconds ?? 5400),
   );
   const goalSeconds = parseClock(goal);
   const plan = useMemo(

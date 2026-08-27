@@ -17,7 +17,14 @@ import {
   titleCase,
 } from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
-import type { FrequencyAdvice, PhaseType, VolumeAssessment, WeeklyRunSummary } from "@/lib/engine";
+import type {
+  FrequencyAdvice,
+  GoalCheck,
+  PhaseType,
+  VolumeAssessment,
+  WeeklyRunSummary,
+} from "@/lib/engine";
+import { STATION_LABELS } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
   LeafIcon,
@@ -74,6 +81,8 @@ interface Props {
   runSummary: WeeklyRunSummary | null;
   /** Whether the subscription tier is configured (C4). */
   subscriptionAvailable: boolean;
+  /** Goal against prediction — null until the athlete has set a goal. */
+  goalCheck: GoalCheck | null;
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
@@ -501,6 +510,7 @@ export function PlanClient(props: Props) {
             <div className="mt-1.5 font-mono text-clock font-bold tabular-nums text-chalk">
               {fmtClock(props.state?.predicted_race_time_sec)}
             </div>
+            {props.goalCheck && <GoalLine check={props.goalCheck} />}
             {props.state && (
               <dl className="mt-4 space-y-1.5 border-t border-edge pt-3">
                 <Row k="Easy pace" v={fmtPace(props.state.pace_zones?.easy_sec_km)} />
@@ -509,6 +519,8 @@ export function PlanClient(props: Props) {
               </dl>
             )}
             <p className="mt-3 text-micro text-smoke">Recalibrates every time you log.</p>
+          </div>
+
           <div className="card">
             <div className="mb-2.5 flex items-center gap-2">
               <SparkIcon size={15} className="text-amber" />
@@ -533,8 +545,6 @@ export function PlanClient(props: Props) {
                 ))}
               </ul>
             )}
-          </div>
-
           </div>
 
           {(() => {
@@ -600,6 +610,63 @@ function Row({ k, v }: { k: string; v: string }) {
     <div className="flex items-baseline justify-between gap-3 text-meta">
       <dt className="text-ash">{k}</dt>
       <dd className="font-mono tabular-nums text-bone">{v}</dd>
+    </div>
+  );
+}
+
+/**
+ * The goal, and the honest distance to it.
+ *
+ * Both numbers existed long before this line did — the app knew what an athlete
+ * would run and what they had asked for, and never said the two out loud
+ * together. Splitting the shortfall into what the stations can still give and
+ * what would have to come from the legs is what turns it from a verdict into
+ * something you can train against.
+ */
+function GoalLine({ check }: { check: GoalCheck }) {
+  const short = Math.abs(check.delta_seconds);
+  return (
+    <div className="mt-3 border-t border-edge pt-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-micro font-semibold uppercase tracking-widest text-ash">Goal</span>
+        <span className="font-mono text-base font-semibold tabular-nums text-bone">
+          {fmtClock(check.goal_seconds)}
+        </span>
+      </div>
+
+      {check.on_course ? (
+        <p className="mt-1.5 text-meta leading-relaxed text-go">
+          <b>{fmtClock(short)} inside it</b> on today&apos;s numbers.
+        </p>
+      ) : check.out_of_reach ? (
+        <p className="mt-1.5 text-meta leading-relaxed text-amber">
+          The stations alone take longer than this. Nothing in the legs can close it.
+        </p>
+      ) : (
+        <>
+          <p className="mt-1.5 text-meta leading-relaxed text-amber">
+            <b>{fmtClock(short)} to find.</b>{" "}
+            {check.station_gap_seconds > 0 && (
+              <>
+                {fmtClock(check.station_gap_seconds)} of it is sitting in the stations
+                {check.worst[0] ? ` — ${STATION_LABELS[check.worst[0].station].toLowerCase()} first` : ""}.{" "}
+              </>
+            )}
+            {check.running_gap_seconds > 0 && (
+              <>The other {fmtClock(check.running_gap_seconds)} has to come from the legs.</>
+            )}
+          </p>
+          {check.running_gap_seconds > 0 && (
+            <p className="mt-1.5 text-micro leading-relaxed text-smoke">
+              With every station perfect that is still{" "}
+              <span className="font-mono tabular-nums">
+                {fmtPace(check.required_pace_after_stations_sec_km)}
+              </span>{" "}
+              for all eight kilometres.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -12,6 +12,7 @@ const base: SettingsProps = {
   planStart: { starts_on: "2026-03-02", race_date: "2026-05-24", total_weeks: 12 },
   planStatus: "active",
   experienceLevel: "advanced",
+  goalRaceTimeSec: null,
   division: "open",
   weekShape: {
     training_days_per_week: 5,
@@ -51,7 +52,12 @@ describe("the setup page", () => {
     expect(pressed).toBe(4 + 4);
     expect(html).toContain('aria-label="Long run: Sunday"');
     expect(html).toContain('aria-label="Rest (max 2): Wednesday"');
-    expect(html).toContain('aria-label="Level and target time: Competitive · sub 1:20"');
+    // Level and goal are two controls now: the level says what the athlete can
+    // carry, the goal what they are chasing.
+    expect(html).toContain('aria-label="Level — what you can carry now: Competitive"');
+    expect(html).toContain('aria-label="Goal finish time"');
+    // Nothing stored yet, so the goal opens on what the level has always implied.
+    expect(html).toContain('value="1:20:00"');
     expect(html).toContain('aria-label="Division: Open"');
   });
 

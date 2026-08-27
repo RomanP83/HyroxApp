@@ -398,3 +398,26 @@ export function defaultStationTiers(level: string): StationTiers {
   for (const s of STATIONS) tiers[s] = tier;
   return tiers;
 }
+
+// ── Goal times ──────────────────────────────────────────────────────────────
+
+/**
+ * The finish time each level has always implied, now as a number.
+ *
+ * These are the times the level control has been promising in its own label
+ * ("Competitive · sub 1:20") without anything ever checking them. They are a
+ * starting point only: the goal is the athlete's to set, and the level goes
+ * back to describing what they can currently carry.
+ */
+export const GOAL_SECONDS_BY_LEVEL: Record<ExperienceLevel, number> = {
+  beginner: 100 * 60, // 1:40
+  intermediate: 90 * 60, // 1:30
+  advanced: 80 * 60, // 1:20
+  elite: 70 * 60, // 1:10
+  world_class: 60 * 60, // 1:00
+};
+
+/** The goal an athlete starts with, before they have said otherwise. */
+export function goalSecondsForLevel(level: ExperienceLevel): number {
+  return GOAL_SECONDS_BY_LEVEL[level] ?? GOAL_SECONDS_BY_LEVEL.intermediate;
+}

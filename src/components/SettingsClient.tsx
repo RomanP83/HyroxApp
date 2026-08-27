@@ -19,10 +19,12 @@ import { useRouter } from "next/navigation";
 import {
   assessWeekPreferences,
   frequencyAdvice,
+  goalSecondsForLevel,
   type Division,
   type ExperienceLevel,
   type VolumeAssessment,
 } from "@/lib/engine";
+import { fmtClock, parseClock } from "@/lib/format";
 import { AppHeader } from "./AppHeader";
 import { haptic } from "@/lib/haptics";
 import {
@@ -45,6 +47,8 @@ export interface SettingsProps {
   planStart: { starts_on: string; race_date: string; total_weeks: number } | null;
   planStatus: string;
   experienceLevel: ExperienceLevel;
+  /** The finish time being trained for; null until the athlete has set one. */
+  goalRaceTimeSec: number | null;
   weekShape: {
     training_days_per_week: number;
     doubles_per_week: number;
@@ -94,6 +98,10 @@ export function SettingsClient(props: SettingsProps) {
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
   const [level, setLevel] = useState<ExperienceLevel>(props.experienceLevel);
   const [division, setDivision] = useState<Division>(props.division);
+  const [goal, setGoal] = useState(
+    fmtClock(props.goalRaceTimeSec ?? goalSecondsForLevel(props.experienceLevel)),
+  );
+  const goalSeconds = parseClock(goal);
   const [savingProfile, setSavingProfile] = useState(false);
 
   async function saveProfile() {
@@ -102,11 +110,21 @@ export function SettingsClient(props: SettingsProps) {
     const res = await fetch("/api/plans/profile", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ experience_level: level, division }),
+      body: JSON.stringify({
+        experience_level: level,
+        division,
+        goal_race_time_sec: goalSeconds,
+      }),
     });
-    const result = await readApi(res);
+    const result = await readApi<{ rebased?: boolean }>(res);
     setSavingProfile(false);
-    setToast(result.ok ? "Level saved — the remaining weeks were rebuilt." : result.message);
+    setToast(
+      result.ok
+        ? result.data?.rebased
+          ? "Saved — the remaining weeks were rebuilt around it."
+          : "Saved. Your goal is what the plan is measured against, so no week changed."
+        : result.message,
+    );
     if (result.ok) router.refresh();
   }
 
@@ -253,24 +271,44 @@ export function SettingsClient(props: SettingsProps) {
               What you are training for
             </h3>
             <p className="mt-1 max-w-[62ch] text-meta leading-relaxed text-ash">
-              Your level is the single biggest thing about a week: the split between running,
-              strength, station work and compromised running is set per level and phase, and every
-              session catalogue picks by it. The division sets every weight in the plan.
+              Two different things, kept apart on purpose. Your <b className="text-bone">level</b>{" "}
+              is what you can carry today: it sets the split between running, strength, station work
+              and compromised running, and every session catalogue picks by it. Your{" "}
+              <b className="text-bone">goal time</b> is what you are chasing. Running 1:30 today and
+              wanting sub 70 is a training plan, not a contradiction.
             </p>
           </div>
 
           <ChoiceRow
-            label="Level and target time"
+            label="Level — what you can carry now"
             options={[
-              ["beginner", "New · 1:40+"],
-              ["intermediate", "Trained · sub 1:30"],
-              ["advanced", "Competitive · sub 1:20"],
-              ["elite", "Elite · sub 70"],
-              ["world_class", "World class · sub 60"],
+              ["beginner", "New"],
+              ["intermediate", "Trained"],
+              ["advanced", "Competitive"],
+              ["elite", "Elite"],
+              ["world_class", "World class"],
             ]}
             value={level}
             onChange={setLevel}
           />
+
+          <label className="block">
+            <span className="mb-1 block text-micro font-semibold uppercase tracking-wider text-ash">
+              Goal time — what you are chasing
+            </span>
+            <input
+              className="input w-40 font-mono tabular-nums"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="1:20:00"
+              aria-label="Goal finish time"
+            />
+            <span className="mt-1 block text-meta text-ash">
+              {goalSeconds
+                ? "This is what /plan and the pacing sheet measure you against."
+                : "As h:mm:ss — for example 1:20:00."}
+            </span>
+          </label>
           <ChoiceRow
             label="Division"
             options={[
@@ -285,7 +323,8 @@ export function SettingsClient(props: SettingsProps) {
           />
 
           <p className="max-w-[62ch] text-meta leading-relaxed text-ash">
-            Changing this rebuilds the remaining weeks.{" "}
+            Changing the level or division rebuilds the remaining weeks; changing only the goal
+            does not.{" "}
             <b className="text-bone">Nothing you have earned is reset</b> — your pace zones and
             station tiers come from what you have logged, not from the level, and they carry over
             untouched.

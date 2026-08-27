@@ -17,7 +17,15 @@
 // results arrive rather than guessed at again in five places.
 // ============================================================================
 
-import { STATIONS, type Division, type ExperienceLevel, type PaceZones, type Station, type StationTiers } from "./types";
+import {
+  STATIONS,
+  type BenchmarkSample,
+  type Division,
+  type ExperienceLevel,
+  type PaceZones,
+  type Station,
+  type StationTiers,
+} from "./types";
 
 /** The eight stations in race order; a run precedes each one. */
 export const STATION_ORDER: Station[] = STATIONS;
@@ -122,6 +130,61 @@ export function roxzoneSeconds(level: ExperienceLevel): number {
   return ROXZONE_SEC_PER_TRANSITION[level] * RACE_RUNS;
 }
 
+// ── What the benchmarks are allowed to say about the race ───────────────────
+//
+// These corrections used to live inside the finish-time estimate alone. The
+// pacing sheet never saw them, so the sheet's station total and the estimate's
+// station total drifted apart by exactly this much — and the drift came out as
+// a "gap" the athlete was told to close. A correction that only one of two
+// consumers applies is a second model; it belongs here, where both read it.
+
+/** A 1 km time trial run fresh, as a fraction of the pace held under fatigue. */
+const TIME_TRIAL_TO_RACE_PACE = 1.12;
+/** How far the 1 km test is trusted against the calibrated race zone. */
+const TIME_TRIAL_WEIGHT = 0.3;
+/** Wall-ball reps in two minutes: the window, and what it is worth in seconds. */
+const WALL_BALL_REFERENCE_REPS = 65;
+const WALL_BALL_REP_WINDOW = 25;
+const WALL_BALL_MAX_SECONDS = 60;
+
+/**
+ * Race pace after the 1 km test has had its say.
+ *
+ * A fast time trial suggests the calibrated zone is conservative — but it is
+ * run fresh and the race is not, so it only leans on the zone rather than
+ * replacing it.
+ */
+export function racePaceWithBenchmarks(
+  racePaceSecKm: number,
+  benchmarks: BenchmarkSample[] = [],
+): number {
+  const run1k = benchmarks.find((b) => b.slug === "run_1k");
+  if (!run1k) return racePaceSecKm;
+  const implied = run1k.value * TIME_TRIAL_TO_RACE_PACE;
+  return racePaceSecKm + (implied - racePaceSecKm) * TIME_TRIAL_WEIGHT;
+}
+
+/**
+ * The wall-ball test speaks to exactly one station, so it moves that one.
+ * A split the race actually measured is the better number and keeps its place:
+ * the test exists to sharpen an estimate, not to argue with what happened.
+ */
+function stationSecondsWithBenchmarks(
+  station: Station,
+  seconds: number,
+  measured: boolean,
+  benchmarks: BenchmarkSample[],
+): number {
+  if (station !== "wall_balls" || measured) return seconds;
+  const test = benchmarks.find((b) => b.slug === "wall_balls");
+  if (!test) return seconds;
+  const norm = Math.max(
+    -1,
+    Math.min(1, (test.value - WALL_BALL_REFERENCE_REPS) / WALL_BALL_REP_WINDOW),
+  );
+  return Math.max(1, Math.round(seconds - norm * WALL_BALL_MAX_SECONDS));
+}
+
 export interface StationCost {
   station: Station;
   /** What this station takes you today. */
@@ -148,10 +211,16 @@ export function stationCosts(input: {
   division: Division;
   tiers: StationTiers;
   measured?: Partial<Record<Station, number>>;
+  benchmarks?: BenchmarkSample[];
 }): StationCost[] {
   return STATION_ORDER.map((station) => {
     const measured = input.measured?.[station];
-    const seconds = measured ?? stationSeconds(station, input.division, input.tiers[station] ?? 2);
+    const seconds = stationSecondsWithBenchmarks(
+      station,
+      measured ?? stationSeconds(station, input.division, input.tiers[station] ?? 2),
+      measured != null,
+      input.benchmarks ?? [],
+    );
     const best = stationSeconds(station, input.division, 3);
     return {
       station,
@@ -210,11 +279,14 @@ export function pacingPlan(input: {
   tiers: StationTiers;
   paceZones: PaceZones;
   measured?: Partial<Record<Station, number>>;
+  /** The same corrections the finish-time estimate applies. */
+  benchmarks?: BenchmarkSample[];
 }): PacingPlan {
   const costs = stationCosts({
     division: input.division,
     tiers: input.tiers,
     measured: input.measured,
+    benchmarks: input.benchmarks,
   });
   const byStation = new Map(costs.map((c) => [c.station, c.seconds]));
 
@@ -223,7 +295,9 @@ export function pacingPlan(input: {
   const runningTotal = input.goalSeconds - stationTotal - roxzone;
   const impossible = runningTotal <= 0;
   const requiredPace = impossible ? 0 : Math.round(runningTotal / RACE_RUNS);
-  const currentPace = input.paceZones.race_sec_km || 300;
+  const currentPace = Math.round(
+    racePaceWithBenchmarks(input.paceZones.race_sec_km || 300, input.benchmarks),
+  );
 
   // Eight runs at one rounded pace do not add up to the running budget, and a
   // sheet whose last line reads a second past the goal is a sheet you stop

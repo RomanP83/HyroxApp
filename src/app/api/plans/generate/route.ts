@@ -4,12 +4,18 @@ import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadDayOverrides } from "@/lib/dayOverrides";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
-import { generatePlan, initialAthleteState, type AthleteProfile } from "@/lib/engine";
+import {
+  generatePlan,
+  goalSecondsForLevel,
+  initialAthleteState,
+  type AthleteProfile,
+} from "@/lib/engine";
 import { nextMonday, weekStartOf } from "@/lib/planWeek";
 
 const Body = z.object({
   division: z.enum(["open", "pro", "doubles", "masters_open", "masters_pro"]),
   experience_level: z.enum(["beginner", "intermediate", "advanced", "elite", "world_class"]),
+  goal_race_time_sec: z.number().int().min(1800).max(21600).nullable().optional(),
   five_k_seconds: z.number().int().positive().nullable().optional(),
   station_estimates: z.record(z.number()).optional(),
   training_days_per_week: z.number().int().min(3).max(6),
@@ -45,6 +51,8 @@ export async function POST(req: Request) {
         user_id: user.id,
         division: body.division,
         experience_level: body.experience_level,
+        goal_race_time_sec:
+          body.goal_race_time_sec ?? goalSecondsForLevel(body.experience_level),
         five_k_seconds: body.five_k_seconds ?? null,
         station_estimates: body.station_estimates ?? {},
         training_days_per_week: body.training_days_per_week,

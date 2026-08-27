@@ -6,12 +6,13 @@
 // never asked of them.
 // ============================================================================
 import { describe, expect, it } from "vitest";
-import { predictRaceTime } from "../prognosis";
+import { goalCheck, predictRaceTime } from "../prognosis";
 import { pacingPlan, roxzoneSeconds, stationSeconds, STATION_ORDER } from "../raceModel";
 import { defaultPaceZones, defaultStationTiers } from "../constants";
 import type { AthleteProfile, AthleteState, Division, ExperienceLevel, Station } from "../types";
 
 const athlete = (over: {
+  goal?: number;
   division?: Division;
   level?: ExperienceLevel;
   fiveK?: number;
@@ -23,6 +24,7 @@ const athlete = (over: {
   const profile = {
     division: over.division ?? "open",
     experience_level: level,
+    goal_race_time_sec: over.goal ?? null,
   } as AthleteProfile;
   const state = {
     pace_zones: zones,
@@ -33,6 +35,30 @@ const athlete = (over: {
 };
 
 describe("the finish-time estimate", () => {
+  it("agrees with the sheet even once the benchmarks have had their say", () => {
+    // The corrections used to live only inside the estimate. The sheet then
+    // decomposed a number built with them using station totals built without
+    // them, and reported the difference to the athlete as a gap to close —
+    // 96 seconds of it for a good 1 km time trial.
+    const { profile, state, zones } = athlete();
+    for (const benchmarks of [
+      [{ slug: "run_1k", value: 200 }],
+      [{ slug: "wall_balls", value: 90 }],
+      [{ slug: "run_1k", value: 260 }, { slug: "wall_balls", value: 40 }],
+    ]) {
+      const predicted = predictRaceTime(profile, state, benchmarks);
+      const sheet = pacingPlan({
+        division: "open",
+        level: "intermediate",
+        goalSeconds: predicted,
+        tiers: state.station_tiers,
+        paceZones: zones,
+        benchmarks,
+      });
+      expect(sheet.gap_seconds).toBe(0);
+    }
+  });
+
   it("agrees with the pacing sheet it gets decomposed into", () => {
     // The regression this file exists for. v1 predicted 1:05 for an athlete
     // whose race pace was 4:23/km; the pacing sheet then demanded 3:16/km to
@@ -143,5 +169,68 @@ describe("what the benchmarks are allowed to move", () => {
     const implied = 200 * 1.12;
     const full = (zones.race_sec_km - implied) * 8;
     expect(base - fast).toBeLessThan(full);
+  });
+});
+
+describe("am I on course", () => {
+  it("says nothing at all until a goal has been set", () => {
+    const { profile, state } = athlete();
+    expect(goalCheck({ profile, state })).toBeNull();
+  });
+
+  it("calls a goal the athlete is already inside on course", () => {
+    // 1:30 for someone the model puts at about 1:14.
+    const { profile, state } = athlete({ goal: 90 * 60 });
+    const check = goalCheck({ profile, state })!;
+    expect(check.on_course).toBe(true);
+    expect(check.delta_seconds).toBeLessThan(0);
+    expect(check.station_gap_seconds).toBe(0);
+    expect(check.running_gap_seconds).toBe(0);
+  });
+
+  it("splits a shortfall into what the stations can give and what the legs must", () => {
+    const { profile, state } = athlete({ goal: 70 * 60 });
+    const check = goalCheck({ profile, state })!;
+    expect(check.on_course).toBe(false);
+    expect(check.delta_seconds).toBeGreaterThan(0);
+    // The two halves account for the whole shortfall, and neither invents time.
+    expect(check.station_gap_seconds + check.running_gap_seconds).toBe(check.delta_seconds);
+    expect(check.station_gap_seconds).toBeGreaterThan(0);
+  });
+
+  it("never promises more from the stations than the stations have", () => {
+    // A goal far out of reach: the stations can only ever give what they cost.
+    const { profile, state } = athlete({ goal: 45 * 60 });
+    const check = goalCheck({ profile, state })!;
+    const available = check.worst.reduce((n, w) => n + w.cost_seconds, 0);
+    expect(check.station_gap_seconds).toBeGreaterThanOrEqual(available);
+    expect(check.running_gap_seconds).toBeGreaterThan(0);
+  });
+
+  it("names the stations holding the time, worst first", () => {
+    const { profile, state } = athlete({ goal: 70 * 60 });
+    const worst = goalCheck({ profile, state })!.worst;
+    expect(worst.length).toBeGreaterThan(0);
+    expect(worst.length).toBeLessThanOrEqual(3);
+    for (let i = 1; i < worst.length; i++) {
+      expect(worst[i - 1].cost_seconds).toBeGreaterThanOrEqual(worst[i].cost_seconds);
+    }
+  });
+
+  it("makes an unrealistic goal legible as a pace rather than a verdict", () => {
+    // Sub-50 with every station already perfect still needs the legs to do
+    // something nobody does. The number says so without anyone editorialising.
+    const { profile, state } = athlete({ goal: 50 * 60 });
+    const check = goalCheck({ profile, state })!;
+    expect(check.out_of_reach).toBe(false); // arithmetically there is room
+    expect(check.required_pace_after_stations_sec_km).toBeLessThan(150); // under 2:30/km
+    expect(check.required_pace_after_stations_sec_km).toBeGreaterThan(0);
+  });
+
+  it("flags a goal the stations alone already exceed", () => {
+    const { profile, state } = athlete({ goal: 25 * 60 });
+    const check = goalCheck({ profile, state })!;
+    expect(check.out_of_reach).toBe(true);
+    expect(check.required_pace_after_stations_sec_km).toBe(0);
   });
 });

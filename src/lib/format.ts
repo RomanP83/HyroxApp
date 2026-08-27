@@ -86,6 +86,19 @@ export const DEMAND_LABELS: Record<Demand, string> = {
   recovery: "Recovery",
 };
 
+/**
+ * "1:25:30", "85:00" or "5:30" back into seconds; blank and nonsense become
+ * null. The inverse of fmtClock, and the only reader of a typed-in time —
+ * every clock field in the app goes through this one so they all accept the
+ * same three shapes.
+ */
+export function parseClock(text: string): number | null {
+  const parts = text.trim().split(":").map((p) => Number(p));
+  if (!parts.length || parts.some((p) => !Number.isFinite(p) || p < 0)) return null;
+  const seconds = parts.reduce((total, part) => total * 60 + part, 0);
+  return seconds > 0 ? Math.round(seconds) : null;
+}
+
 export function demandOf(sessionType: string): Demand {
   return DEMAND_OF[sessionType] ?? "load";
 }

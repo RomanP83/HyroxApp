@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, experience_level, division, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
+      "id, experience_level, goal_race_time_sec, division, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
     )
     .eq("user_id", user.id)
     .single();
@@ -98,6 +98,7 @@ export default async function SettingsPage() {
       planStatus={plan?.status ?? "none"}
       experienceLevel={(profile.experience_level as ExperienceLevel) ?? "intermediate"}
       division={(profile.division as Division) ?? "open"}
+      goalRaceTimeSec={profile.goal_race_time_sec ?? null}
       weekShape={{
         training_days_per_week: trainingDays,
         doubles_per_week: profile.doubles_per_week ?? 0,

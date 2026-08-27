@@ -133,6 +133,7 @@ describe("intervals in a generated plan", () => {
     equipment_access: "full_gym",
   };
   const state = initialAthleteState(profile);
+  const zones = state.pace_zones;
   const plan = generatePlan({ profile, state, library: DEMO_LIBRARY, weeksToRace: 16 });
   const blocks = plan.phases
     .flatMap((ph) => ph.weeks)
@@ -147,10 +148,32 @@ describe("intervals in a generated plan", () => {
     for (const b of blocks) expect(own.has(b.slug!), b.slug).toBe(true);
   });
 
-  it("carries the target pace and the reason onto the card", () => {
+  it("carries the reason onto the card, and the pace of the zone it is run at", () => {
     for (const b of blocks) {
-      expect(b.load_adjustments.pace_sec_km ?? 0).toBeGreaterThan(0);
       expect(b.load_adjustments.variant_why?.length ?? 0).toBeGreaterThan(30);
+      const session = INTERVAL_SESSIONS.find((s) => s.slug === b.slug)!;
+      if (session.pace_zone === "mixed") {
+        // No single number describes an alternation or a progression, so the
+        // card shows none rather than one that is wrong.
+        expect(b.load_adjustments.pace_sec_km).toBeUndefined();
+      } else {
+        expect(b.load_adjustments.pace_sec_km ?? 0).toBeGreaterThan(0);
+        expect(b.load_adjustments.pace_zone).toBe(session.pace_zone);
+      }
+    }
+  });
+
+  it("shows a threshold session the threshold pace, not the interval pace", () => {
+    // The bug this whole field exists for: every session in the catalogue
+    // inherited one zone from its session TYPE, so a 25-minute block at LT2
+    // was prescribed at 3 k-rep pace.
+    const lt2 = blocks.filter(
+      (b) => INTERVAL_SESSIONS.find((s) => s.slug === b.slug)?.pace_zone === "tempo_sec_km",
+    );
+    expect(lt2.length).toBeGreaterThan(0);
+    for (const b of lt2) {
+      expect(b.load_adjustments.pace_sec_km).toBe(zones.tempo_sec_km);
+      expect(b.load_adjustments.pace_sec_km).not.toBe(zones.interval_sec_km);
     }
   });
 });

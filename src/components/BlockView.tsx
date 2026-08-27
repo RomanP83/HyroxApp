@@ -1,5 +1,5 @@
 import type { RenderedBlock, Division, StationAlternative } from "@/lib/engine";
-import { fmtPace, titleCase } from "@/lib/format";
+import { fmtPace, PACE_ZONE_LABEL, titleCase } from "@/lib/format";
 import { SwapIcon } from "./icons";
 
 interface ContentItem {
@@ -69,7 +69,12 @@ export function BlockView({
           <span className="pill text-amber">tier {block.load_adjustments.station_tier}</span>
         )}
         {block.load_adjustments.pace_sec_km != null && (
-          <span className="pill text-amber">{fmtPace(block.load_adjustments.pace_sec_km)}</span>
+          <span className="pill text-amber">
+            {block.load_adjustments.pace_zone
+              ? `${PACE_ZONE_LABEL[block.load_adjustments.pace_zone]} · `
+              : ""}
+            {fmtPace(block.load_adjustments.pace_sec_km)}
+          </span>
         )}
         {block.load_adjustments.opening_pace_sec_km != null && (
           <span className="pill">

@@ -99,6 +99,20 @@ export function parseClock(text: string): number | null {
   return seconds > 0 ? Math.round(seconds) : null;
 }
 
+/**
+ * What a pace zone is called on a card.
+ *
+ * A bare "4:42/km" on an interval session reads as "the interval pace" whatever
+ * it actually is — which is how a threshold block spent months displaying a
+ * number nobody could place. The zone is named next to it now.
+ */
+export const PACE_ZONE_LABEL: Record<string, string> = {
+  easy_sec_km: "easy",
+  tempo_sec_km: "threshold",
+  interval_sec_km: "intervals",
+  race_sec_km: "race pace",
+};
+
 export function demandOf(sessionType: string): Demand {
   return DEMAND_OF[sessionType] ?? "load";
 }

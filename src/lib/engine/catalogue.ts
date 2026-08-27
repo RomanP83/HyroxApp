@@ -11,6 +11,7 @@
 import type {
   EquipmentAccess,
   ExperienceLevel,
+  PaceZones,
   PhaseType,
   Station,
   StationTiers,
@@ -58,6 +59,17 @@ export interface CatalogueSession {
   station?: Station;
   /** Needs a SkiErg / RowErg to run at all. */
   needs_erg?: boolean;
+  /**
+   * The pace zone this session is actually run at.
+   *
+   * Without it a catalogue inherits one zone for its whole session type, and
+   * the interval catalogue spans three: a 25-minute LT2 block and a set of
+   * 400s at 3 k pace are not the same effort at the same number. "mixed" means
+   * no single zone describes it — an alternation, a progression, strides off a
+   * race-pace rep — and the card then shows no target pace rather than a wrong
+   * one. Undefined falls back to the session type's own zone.
+   */
+  pace_zone?: keyof PaceZones | "mixed";
   lines: SessionLine[];
 }
 

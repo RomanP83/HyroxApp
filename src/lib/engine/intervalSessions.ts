@@ -48,6 +48,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "50e38da6-c91c-55f2-a409-7407ffe60520",
     slug: "ri_b1_lt1_blocks",
+    pace_zone: "mixed",
     level: "beginner",
     phase: "base",
     name: "First Threshold Blocks",
@@ -58,6 +59,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "497c185d-4fae-521f-89b0-726fc68123b9",
     slug: "ri_b1_controlled_tempo",
+    pace_zone: "tempo_sec_km",
     level: "beginner",
     phase: "base",
     name: "Controlled Tempo",
@@ -68,6 +70,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "9d9f536f-3de5-51c4-b607-975727b64dd2",
     slug: "ri_b1_progression_run",
+    pace_zone: "mixed",
     level: "beginner",
     phase: "base",
     name: "Fifteen-Minute Progression",
@@ -81,6 +84,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "6adf727b-11ae-5e33-84f3-bafd773ddfdf",
     slug: "ri_b1_aerobic_400s",
+    pace_zone: "mixed",
     level: "beginner",
     phase: "base",
     name: "Aerobic 400s",
@@ -91,6 +95,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "799f0786-922b-563c-bdc9-44455d962b16",
     slug: "ri_b2_lt2_cruise",
+    pace_zone: "tempo_sec_km",
     level: "beginner",
     phase: "build",
     name: "LT2 Cruise Intervals",
@@ -101,6 +106,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "66db52fe-378e-5632-a472-4bef9c4d0dd2",
     slug: "ri_b2_vo2_short",
+    pace_zone: "interval_sec_km",
     level: "beginner",
     phase: "build",
     name: "VO2max Short Intervals",
@@ -111,6 +117,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "902a1b95-6562-512b-8291-0bce3fa10a1a",
     slug: "ri_b2_threshold_1500s",
+    pace_zone: "tempo_sec_km",
     level: "beginner",
     phase: "build",
     name: "Threshold 1500s",
@@ -121,6 +128,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "7a19da05-8f96-5a73-a055-f6fe1ed56883",
     slug: "ri_b2_pyramid",
+    pace_zone: "interval_sec_km",
     level: "beginner",
     phase: "build",
     name: "Pyramid",
@@ -137,6 +145,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "9f7288b5-35cb-5916-bfef-dd963fce6ced",
     slug: "ri_b3_race_pace_1000s",
+    pace_zone: "race_sec_km",
     level: "beginner",
     phase: "peak",
     name: "Race-Pace Kilometres",
@@ -147,6 +156,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "41ea9551-8806-59d5-8851-f37606819129",
     slug: "ri_b3_vo2_threes",
+    pace_zone: "interval_sec_km",
     level: "beginner",
     phase: "peak",
     name: "VO2max Threes",
@@ -157,6 +167,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "4ca0a167-380c-5a67-bbbd-a482cee70a7b",
     slug: "ri_b3_lt2_doubles",
+    pace_zone: "tempo_sec_km",
     level: "beginner",
     phase: "peak",
     name: "LT2 Doubles",
@@ -167,6 +178,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "57974083-6a41-585b-814a-4fd15425ed72",
     slug: "ri_b3_over_race_pace_500s",
+    pace_zone: "interval_sec_km",
     level: "beginner",
     phase: "peak",
     name: "Faster Than Race Pace",
@@ -177,6 +189,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "8297c1a5-86a0-5f9f-a4b6-7f352c5ad619",
     slug: "ri_b4_race_pace_800s",
+    pace_zone: "race_sec_km",
     level: "beginner",
     phase: "taper",
     name: "Race-Pace 800s",
@@ -187,6 +200,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "2a616402-8995-5edc-8809-3e44dcd3b6ed",
     slug: "ri_b4_sharpening_400s",
+    pace_zone: "interval_sec_km",
     level: "beginner",
     phase: "taper",
     name: "Sharpening 400s",
@@ -197,6 +211,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "aaab7dd5-0c32-5171-8478-cabbf4fc8321",
     slug: "ri_b4_rhythm_kilometres",
+    pace_zone: "race_sec_km",
     level: "beginner",
     phase: "taper",
     name: "Rhythm Kilometres",
@@ -207,6 +222,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "ce552df9-70c2-5fbf-8611-78d016e8aa10",
     slug: "ri_b4_strides_200s",
+    pace_zone: "mixed",
     level: "beginner",
     phase: "taper",
     name: "Brisk 200s",
@@ -219,6 +235,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "e821ad47-66d3-5567-aec5-e812edb5c48f",
     slug: "ri_i1_lt2_eights",
+    pace_zone: "tempo_sec_km",
     level: "intermediate",
     phase: "base",
     name: "LT2 Eights",
@@ -229,6 +246,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "75265ce7-f5d4-52a5-be84-30bbfdd2699b",
     slug: "ri_i1_tempo_twenty",
+    pace_zone: "tempo_sec_km",
     level: "intermediate",
     phase: "base",
     name: "Twenty-Minute Tempo",
@@ -239,6 +257,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "73bccf8c-c91e-5ebc-b7a0-7a0ab0bd7384",
     slug: "ri_i1_tenk_800s",
+    pace_zone: "tempo_sec_km",
     level: "intermediate",
     phase: "base",
     name: "10 k Pace 800s",
@@ -249,6 +268,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "766951b8-4cc6-5d97-a018-f2e7b34d7975",
     slug: "ri_i1_minute_alternations",
+    pace_zone: "mixed",
     level: "intermediate",
     phase: "base",
     name: "Minute Alternations",
@@ -259,6 +279,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "c2ae3c70-7c4d-52a5-af9d-5a20813e4aaf",
     slug: "ri_i2_classic_vo2",
+    pace_zone: "interval_sec_km",
     level: "intermediate",
     phase: "build",
     name: "Classic VO2max",
@@ -269,6 +290,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "3ceec6b8-2f24-5282-ad95-fcf9428b890a",
     slug: "ri_i2_lt2_kilometres",
+    pace_zone: "tempo_sec_km",
     level: "intermediate",
     phase: "build",
     name: "LT2 Kilometres",
@@ -279,6 +301,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "7d6d6247-075d-5f9c-a073-d7d22a687fdd",
     slug: "ri_i2_threshold_1500s",
+    pace_zone: "tempo_sec_km",
     level: "intermediate",
     phase: "build",
     name: "Threshold 1500s",
@@ -289,6 +312,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "e8265db1-b732-56c6-b108-0723ab016846",
     slug: "ri_i2_vo2_600s",
+    pace_zone: "interval_sec_km",
     level: "intermediate",
     phase: "build",
     name: "VO2max 600s",
@@ -299,6 +323,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "d8954bc0-edc3-5d39-a712-19540881f392",
     slug: "ri_i3_race_pace_density",
+    pace_zone: "race_sec_km",
     level: "intermediate",
     phase: "peak",
     name: "Race-Pace Density",
@@ -309,6 +334,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "04bf4d09-b143-5ebb-9288-ccf00a15342d",
     slug: "ri_i3_threshold_2000s",
+    pace_zone: "tempo_sec_km",
     level: "intermediate",
     phase: "peak",
     name: "Threshold 2000s",
@@ -319,6 +345,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "18c03bb6-6b9e-5f7a-94b2-aa23d300c931",
     slug: "ri_i3_threek_400s",
+    pace_zone: "interval_sec_km",
     level: "intermediate",
     phase: "peak",
     name: "3 k Pace 400s",
@@ -329,6 +356,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "6e8ab61b-6f94-5235-a75a-158f0cf2a53e",
     slug: "ri_i3_negative_split_1200s",
+    pace_zone: "mixed",
     level: "intermediate",
     phase: "peak",
     name: "Negative-Split 1200s",
@@ -343,6 +371,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "b2f868ff-1382-5ed1-a208-eed43f740a42",
     slug: "ri_i4_race_pace_kilometres",
+    pace_zone: "race_sec_km",
     level: "intermediate",
     phase: "taper",
     name: "Race-Pace Kilometres",
@@ -353,6 +382,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "6e132174-dbc9-5088-be76-e177adf9fd0f",
     slug: "ri_i4_over_pace_500s",
+    pace_zone: "interval_sec_km",
     level: "intermediate",
     phase: "taper",
     name: "Slightly Over Pace",
@@ -363,6 +393,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "0895eba0-86c1-5e99-9ff4-2271b8813f0a",
     slug: "ri_i4_dynamic_300s",
+    pace_zone: "mixed",
     level: "intermediate",
     phase: "taper",
     name: "Dynamic 300s",
@@ -373,6 +404,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "949340c7-1c92-59a2-9d64-05b661ec797a",
     slug: "ri_i4_race_pace_strides",
+    pace_zone: "mixed",
     level: "intermediate",
     phase: "taper",
     name: "Race Pace & Strides",
@@ -388,6 +420,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "422f5075-bcb9-5684-b6ea-c2705a00349f",
     slug: "ri_a1_lt2_volume",
+    pace_zone: "tempo_sec_km",
     level: "advanced",
     phase: "base",
     name: "LT2 Volume",
@@ -398,6 +431,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "36b26aaa-237c-5dc4-a74b-b965a62687ff",
     slug: "ri_a1_continuous_threshold",
+    pace_zone: "tempo_sec_km",
     level: "advanced",
     phase: "base",
     name: "Continuous Threshold",
@@ -408,6 +442,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "1ccc2621-f493-5788-aa3a-0256b0b5343b",
     slug: "ri_a1_tenk_1500s",
+    pace_zone: "tempo_sec_km",
     level: "advanced",
     phase: "base",
     name: "10 k Pace 1500s",
@@ -418,6 +453,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "fc339a7d-4665-5f99-8192-f787fb4b535f",
     slug: "ri_a1_fivek_400s",
+    pace_zone: "interval_sec_km",
     level: "advanced",
     phase: "base",
     name: "5 k Pace 400s",
@@ -428,6 +464,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "7634f911-e898-50be-8f54-1a3ba04c0c7a",
     slug: "ri_a2_vo2_density",
+    pace_zone: "interval_sec_km",
     level: "advanced",
     phase: "build",
     name: "VO2max Density",
@@ -438,6 +475,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "f394df47-29bf-50a9-b3c5-77ff198d0464",
     slug: "ri_a2_even_kilometres",
+    pace_zone: "tempo_sec_km",
     level: "advanced",
     phase: "build",
     name: "Even Kilometres",
@@ -448,6 +486,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "0e31ce35-e299-51e6-81f2-7e4954860671",
     slug: "ri_a2_lactate_shuttle",
+    pace_zone: "mixed",
     level: "advanced",
     phase: "build",
     name: "Lactate Shuttle",
@@ -462,6 +501,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "95a00750-1ee3-5ca6-82a9-0ab3aec19dd6",
     slug: "ri_a2_vo2_800s",
+    pace_zone: "interval_sec_km",
     level: "advanced",
     phase: "build",
     name: "VO2max 800s",
@@ -472,6 +512,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "324b65fd-f6cd-5e49-b7ad-91399584c5ee",
     slug: "ri_a3_race_pace_sevens",
+    pace_zone: "race_sec_km",
     level: "advanced",
     phase: "peak",
     name: "Seven at Race Pace",
@@ -482,6 +523,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "794badc4-d585-5fc0-a045-3d076853071d",
     slug: "ri_a3_threshold_2500s",
+    pace_zone: "tempo_sec_km",
     level: "advanced",
     phase: "peak",
     name: "Threshold 2500s",
@@ -492,6 +534,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "430bb3bf-9699-5582-ab31-dd9de980acda",
     slug: "ri_a3_threek_dozen",
+    pace_zone: "interval_sec_km",
     level: "advanced",
     phase: "peak",
     name: "Twelve at 3 k Pace",
@@ -502,6 +545,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "f235115a-7d47-5cd4-8f15-e7cc41157fd4",
     slug: "ri_a3_kick_1200s",
+    pace_zone: "mixed",
     level: "advanced",
     phase: "peak",
     name: "Kick 1200s",
@@ -516,6 +560,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "05078d1f-c23c-591b-8e79-8e6e52579778",
     slug: "ri_a4_race_pace_800s",
+    pace_zone: "race_sec_km",
     level: "advanced",
     phase: "taper",
     name: "Race-Pace 800s",
@@ -526,6 +571,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "3ddfdf73-2037-5520-9474-ea4f7ad34ec4",
     slug: "ri_a4_race_pace_kilometres",
+    pace_zone: "race_sec_km",
     level: "advanced",
     phase: "taper",
     name: "Race-Pace Kilometres",
@@ -536,6 +582,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "613b113f-5e63-5aa8-9681-80be589e3150",
     slug: "ri_a4_activation_300s",
+    pace_zone: "interval_sec_km",
     level: "advanced",
     phase: "taper",
     name: "Activation 300s",
@@ -546,6 +593,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "73971e83-03d7-5e62-8018-1b66883474f0",
     slug: "ri_a4_race_pace_strides",
+    pace_zone: "mixed",
     level: "advanced",
     phase: "taper",
     name: "Race Pace & Dynamic Strides",
@@ -561,6 +609,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "310a7dd8-36ce-5347-9bbc-a63832498a54",
     slug: "ri_e1_lt2_2000s",
+    pace_zone: "tempo_sec_km",
     level: "elite",
     phase: "base",
     name: "LT2 2000s",
@@ -571,6 +620,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "1ec824a4-5374-58ac-be74-fdb037730c55",
     slug: "ri_e1_tempo_thirty",
+    pace_zone: "tempo_sec_km",
     level: "elite",
     phase: "base",
     name: "Thirty-Minute Tempo",
@@ -581,6 +631,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "6802ff95-7591-552b-a0b3-d650707dd3db",
     slug: "ri_e1_tenk_1600s",
+    pace_zone: "tempo_sec_km",
     level: "elite",
     phase: "base",
     name: "10 k Pace 1600s",
@@ -591,6 +642,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "2c6d8e30-e347-5a9a-8222-06b5c093d780",
     slug: "ri_e1_fifteen_400s",
+    pace_zone: "interval_sec_km",
     level: "elite",
     phase: "base",
     name: "Fifteen 400s",
@@ -601,6 +653,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "d3289d90-b202-5699-b297-b911145237de",
     slug: "ri_e1_lt2_tens",
+    pace_zone: "tempo_sec_km",
     level: "elite",
     phase: "base",
     name: "LT2 Ten-Minute Blocks",
@@ -611,6 +664,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "e07b63bc-d802-55b1-8e99-aa676bcf333a",
     slug: "ri_e2_norwegian_sixes",
+    pace_zone: "tempo_sec_km",
     level: "elite",
     phase: "build",
     name: "Norwegian Sixes",
@@ -621,6 +675,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "3aff06bd-ae40-54d3-aa74-8e8dc461896a",
     slug: "ri_e2_vo2_peak_kilometres",
+    pace_zone: "interval_sec_km",
     level: "elite",
     phase: "build",
     name: "VO2max Peak Kilometres",
@@ -631,6 +686,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "8b560283-256c-53af-8fc6-2c87b13fc96c",
     slug: "ri_e2_alternating_threshold",
+    pace_zone: "mixed",
     level: "elite",
     phase: "build",
     name: "Alternating Threshold",
@@ -644,6 +700,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "4518e51f-d84b-5602-aa3d-fc4190f1aace",
     slug: "ri_e2_vo2_800s",
+    pace_zone: "interval_sec_km",
     level: "elite",
     phase: "build",
     name: "VO2max 800s",
@@ -654,6 +711,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "fce0ca6e-cfd0-56ce-8d2b-5f058e2a9633",
     slug: "ri_e2_allout_500s",
+    pace_zone: "interval_sec_km",
     level: "elite",
     phase: "build",
     name: "All-Out 500s",
@@ -664,6 +722,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "d2444c30-c1cf-57fa-a56d-831184b2abd5",
     slug: "ri_e3_eight_at_race_pace",
+    pace_zone: "race_sec_km",
     level: "elite",
     phase: "peak",
     name: "Eight at Race Pace",
@@ -674,6 +733,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "50616117-23af-53df-ab10-6b79bc3d0677",
     slug: "ri_e3_negative_2000s",
+    pace_zone: "mixed",
     level: "elite",
     phase: "peak",
     name: "Negative-Split 2000s",
@@ -688,6 +748,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "c746fe41-87ac-56b6-9c40-b0d036bec401",
     slug: "ri_e3_sixteen_400s",
+    pace_zone: "interval_sec_km",
     level: "elite",
     phase: "peak",
     name: "Sixteen 400s",
@@ -698,6 +759,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "68a79d52-3e5d-5257-b95b-f5e939a2c13e",
     slug: "ri_e3_over_pace_1200s",
+    pace_zone: "interval_sec_km",
     level: "elite",
     phase: "peak",
     name: "Over-Pace 1200s",
@@ -708,6 +770,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "ad13dad9-1302-5832-bd50-d9beb8c9f0f3",
     slug: "ri_e3_threshold_3000s",
+    pace_zone: "tempo_sec_km",
     level: "elite",
     phase: "peak",
     name: "Threshold 3000s",
@@ -718,6 +781,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "3eed8f4d-b297-5a55-99cf-61f4768e7586",
     slug: "ri_e4_race_pace_kilometres",
+    pace_zone: "race_sec_km",
     level: "elite",
     phase: "taper",
     name: "Race-Pace Kilometres",
@@ -728,6 +792,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "464bb5b9-4c5e-5ff2-855b-fb65de4ec385",
     slug: "ri_e4_threek_400s",
+    pace_zone: "interval_sec_km",
     level: "elite",
     phase: "taper",
     name: "3 k Pace 400s",
@@ -738,6 +803,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "15f54eeb-fd82-56c0-9700-30fe61edc500",
     slug: "ri_e4_full_recovery_1200s",
+    pace_zone: "race_sec_km",
     level: "elite",
     phase: "taper",
     name: "Full-Recovery 1200s",
@@ -748,6 +814,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "dbdf6bf2-7e31-57c1-ae13-eb2429bd3941",
     slug: "ri_e4_cns_sprints",
+    pace_zone: "mixed",
     level: "elite",
     phase: "taper",
     name: "CNS Activation Sprints",
@@ -760,6 +827,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "555c08ee-652f-5e5c-857c-bd7c62e8e37c",
     slug: "ri_w1_lt2_2000s",
+    pace_zone: "tempo_sec_km",
     level: "world_class",
     phase: "base",
     name: "LT2 2000s",
@@ -770,6 +838,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "34ca8b4c-e0da-58dc-9898-a79dc6f35be9",
     slug: "ri_w1_tempo_thirtyfive",
+    pace_zone: "tempo_sec_km",
     level: "world_class",
     phase: "base",
     name: "Thirty-Five Minute Tempo",
@@ -780,6 +849,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "829f6f8b-62c1-55a2-af7d-9d1c0786c277",
     slug: "ri_w1_tenk_1500s",
+    pace_zone: "tempo_sec_km",
     level: "world_class",
     phase: "base",
     name: "10 k Pace 1500s",
@@ -790,6 +860,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "a77396c3-89f2-5998-ac81-201fe212c835",
     slug: "ri_w1_twenty_400s",
+    pace_zone: "interval_sec_km",
     level: "world_class",
     phase: "base",
     name: "Twenty 400s",
@@ -800,6 +871,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "0db3eb55-ffe5-52c1-a997-9503234907fb",
     slug: "ri_w1_threshold_blocks",
+    pace_zone: "tempo_sec_km",
     level: "world_class",
     phase: "base",
     name: "Threshold Blocks",
@@ -810,6 +882,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "ee3701a6-999c-594e-9d87-9be19db6085d",
     slug: "ri_w2_threek_kilometres",
+    pace_zone: "interval_sec_km",
     level: "world_class",
     phase: "build",
     name: "3 k Pace Kilometres",
@@ -820,6 +893,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "cc6670a1-9e36-54ca-86df-4a0990a3cfec",
     slug: "ri_w2_double_threshold",
+    pace_zone: "tempo_sec_km",
     level: "world_class",
     phase: "build",
     name: "Double-Threshold Stimulus",
@@ -830,6 +904,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "8b6c3b51-6666-5ca9-8223-4f6fcec5ef1b",
     slug: "ri_w2_lactate_washout",
+    pace_zone: "mixed",
     level: "world_class",
     phase: "build",
     name: "Lactate Washout",
@@ -843,6 +918,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "25824129-246f-5555-8c84-0b28e1fe4ed3",
     slug: "ri_w2_ten_800s",
+    pace_zone: "interval_sec_km",
     level: "world_class",
     phase: "build",
     name: "Ten 800s",
@@ -853,6 +929,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "7bd7428d-5628-511c-bb28-0ba194688fb2",
     slug: "ri_w2_twelve_600s",
+    pace_zone: "interval_sec_km",
     level: "world_class",
     phase: "build",
     name: "Twelve 600s",
@@ -863,6 +940,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "8ce47eb9-1b95-5ff3-aea7-82559f51b6ea",
     slug: "ri_w3_precision_kilometres",
+    pace_zone: "race_sec_km",
     level: "world_class",
     phase: "peak",
     name: "Precision Kilometres",
@@ -879,6 +957,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "ef3d1957-11e1-5646-b1f6-52e5515b1b45",
     slug: "ri_w3_lt2_2500s",
+    pace_zone: "tempo_sec_km",
     level: "world_class",
     phase: "peak",
     name: "LT2 2500s",
@@ -889,6 +968,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "f5a12fed-5acc-5a5c-b1ba-5c4c713f5b5d",
     slug: "ri_w3_twenty_400s",
+    pace_zone: "interval_sec_km",
     level: "world_class",
     phase: "peak",
     name: "Twenty at 3 k Pace",
@@ -899,6 +979,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "6cfd3a3b-f355-55ea-87a4-4ccabd799f85",
     slug: "ri_w3_progressive_1500s",
+    pace_zone: "mixed",
     level: "world_class",
     phase: "peak",
     name: "Progressive 1500s",
@@ -913,6 +994,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "1dea9e19-3dc5-5955-8fad-0a394f34d03d",
     slug: "ri_w3_ten_threshold_kilometres",
+    pace_zone: "tempo_sec_km",
     level: "world_class",
     phase: "peak",
     name: "Ten Threshold Kilometres",
@@ -923,6 +1005,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "f5a00925-6b50-53c0-976c-b6faabef1b0b",
     slug: "ri_w4_race_pace_800s",
+    pace_zone: "race_sec_km",
     level: "world_class",
     phase: "taper",
     name: "Race-Pace 800s",
@@ -933,6 +1016,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "893f3cb4-7526-5246-8a2f-f3c2e83353b8",
     slug: "ri_w4_race_pace_kilometres",
+    pace_zone: "race_sec_km",
     level: "world_class",
     phase: "taper",
     name: "Race-Pace Kilometres",
@@ -943,6 +1027,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "6361febe-748b-51af-b1ce-843293307e77",
     slug: "ri_w4_fast_300s",
+    pace_zone: "mixed",
     level: "world_class",
     phase: "taper",
     name: "Fast 300s",
@@ -953,6 +1038,7 @@ export const INTERVAL_SESSIONS: IntervalSession[] = [
   {
     block_id: "0cdf0adf-746d-5e9d-bc37-e86852183e1f",
     slug: "ri_w4_explosive_finish",
+    pace_zone: "mixed",
     level: "world_class",
     phase: "taper",
     name: "Explosive Finish",

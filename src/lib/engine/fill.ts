@@ -9,6 +9,7 @@ import type {
   AthleteProfile,
   AthleteState,
   EquipmentVariant,
+  PaceZones,
   PhaseType,
   RenderedBlock,
   SessionType,
@@ -41,6 +42,28 @@ export function stationForWeek(weekNumber: number): Station {
 function paceForSession(state: AthleteState, type: SessionType): number | undefined {
   const spec = runSpec(type);
   return spec ? state.pace_zones[spec.pace_zone] : undefined;
+}
+
+/**
+ * The pace a catalogue session is actually run at, and the zone it belongs to.
+ *
+ * A session type carries one zone, and the interval catalogue spans three: a
+ * 25-minute block at LT2 and a set of 400s at 3 k pace both used to display the
+ * interval pace, which was wrong for two thirds of the catalogue. Where a
+ * session names its own zone, that wins; "mixed" means no single number
+ * describes it, and the card is better off showing none than showing one that
+ * is wrong.
+ */
+function paceForCatalogueSession(
+  state: AthleteState,
+  session: { pace_zone?: keyof PaceZones | "mixed" },
+  fallback: number | undefined,
+): { pace_sec_km?: number; pace_zone?: keyof PaceZones } {
+  if (session.pace_zone === "mixed") return {};
+  if (session.pace_zone) {
+    return { pace_sec_km: state.pace_zones[session.pace_zone], pace_zone: session.pace_zone };
+  }
+  return fallback != null ? { pace_sec_km: fallback } : {};
 }
 
 interface PickOpts {
@@ -254,7 +277,7 @@ export function fillSession(
         sort_order: order++,
         load_adjustments: {
           division: profile.division,
-          ...(pace != null ? { pace_sec_km: pace } : {}),
+          ...paceForCatalogueSession(state, chosen.session, pace),
           variant_name: chosen.session.name,
           variant_why: chosen.session.why,
           variant_targeted: chosen.targeted,

@@ -160,6 +160,13 @@ export interface RenderedBlock {
     division: Division;
     station_tier?: number;
     pace_sec_km?: number;
+    /**
+     * Which zone that pace came from. Recorded so a logged session calibrates
+     * the zone it was actually run at: the interval catalogue spans threshold,
+     * VO₂max and race pace, and without this every one of them nudged the
+     * interval zone.
+     */
+    pace_zone?: keyof PaceZones;
     /** Multiplier on the block's template loads (strength calibration, A6). */
     strength_modifier?: number;
     /** Which shape of the core session this is, and why (runVariants.ts). */

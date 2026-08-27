@@ -73,6 +73,42 @@ describe("micro-calibration — step rules", () => {
     expect(second.adjustments.some((a) => a.action_taken.type === "tier_up")).toBe(true);
   });
 
+  it("calibrates the zone the session was run at, not the one its type implies", () => {
+    // The interval catalogue spans threshold, VO₂max and race pace. Before the
+    // block recorded its zone, a 25-minute LT2 block reported as too hard eased
+    // the INTERVAL pace — the one number that session never touched.
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "run_intervals", paceZone: "tempo_sec_km",
+      rpeTarget: 7, rpeActual: 10, durationActualMin: 45,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.pace_zones.tempo_sec_km).not.toBe(state.pace_zones.tempo_sec_km);
+    expect(res.state.pace_zones.interval_sec_km).toBe(state.pace_zones.interval_sec_km);
+  });
+
+  it("calibrates nothing from a session that names no single pace", () => {
+    // An alternation or a progression has no one pace it was run at, so there
+    // is no zone to move. Guessing one is how the wrong number drifts.
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "run_intervals", paceZone: null,
+      rpeTarget: 7, rpeActual: 10, durationActualMin: 45, actualPaceSecKm: 240,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.pace_zones).toEqual(state.pace_zones);
+  });
+
+  it("still falls back to the session type when no zone was recorded", () => {
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "run_intervals",
+      rpeTarget: 7, rpeActual: 10, durationActualMin: 45,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.pace_zones.interval_sec_km).not.toBe(state.pace_zones.interval_sec_km);
+  });
+
   it("steps DOWN immediately when a session is too hard", () => {
     const state = base();
     const start = state.station_tiers.ski_erg;

@@ -345,7 +345,16 @@ export function SessionCard({
                       </p>
                     )}
                     <p>
-                      <b>{spec.focus}</b> {spec.pace_note}
+                      <b>{spec.focus}</b>{" "}
+                      {/* The type's pace note describes the category — "reps at
+                          3k–5k effort" for intervals. When the session names
+                          its own zone the note can flatly contradict it, and a
+                          card that argues with itself is worse than a quiet
+                          one: the variant's own `why` above already says what
+                          this session is for. */}
+                      {session.blocks.some((b) => b.load_adjustments.pace_zone)
+                        ? null
+                        : spec.pace_note}
                     </p>
                     {variant?.fallback && <p className="italic">{variant.fallback}</p>}
                   </div>

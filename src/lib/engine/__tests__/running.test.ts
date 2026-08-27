@@ -7,6 +7,7 @@ import {
   fillSession,
   generatePlan,
   initialAthleteState,
+  INTERVAL_SESSIONS,
   plannedDistanceKm,
   POLARISATION_BY_PHASE,
   RUN_SPECS,
@@ -197,6 +198,13 @@ describe("generated plans", () => {
       for (const session of w.sessions) {
         const spec = runSpec(session.session_type);
         if (!spec || !session.blocks.length) continue;
+        // Interval sessions whose catalogue entry is "mixed" carry no single
+        // pace on purpose — an alternation or a progression has no one number,
+        // and a wrong one is worse than none. Everything else must be paced.
+        const mixed = session.blocks.some(
+          (b) => INTERVAL_SESSIONS.find((i) => i.slug === b.slug)?.pace_zone === "mixed",
+        );
+        if (mixed) continue;
         const paced = session.blocks.some((b) => b.load_adjustments.pace_sec_km != null);
         expect(paced, `${session.session_type} has no pace`).toBe(true);
       }

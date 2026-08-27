@@ -168,6 +168,28 @@ physiologischen Zielbereich. Ein Beginner läuft 3× 6 Min an der unteren Schwel
 World-Class-Athlet 8× 1000 m im Renntempo bei 30 s Pause und maximal 1–2 s Split-Varianz. Nichts
 davon braucht ein Gerät — die Einheit funktioniert auch ohne Gym.
 
+**Jede dieser 86 Sessions nennt ihre eigene Pace-Zone.** Der Katalog spannt drei Intensitäten, und
+sie sind nicht dieselbe Zahl:
+
+| Vorgabe der Session | Angezeigte Zone |
+|---|---|
+| LT2, Schwelle, anaerobe Schwelle, 10-km-Pace | **threshold** (`tempo`) |
+| VO₂max, 3-km-Pace, 5-km-Pace, 95–100 % HFmax | **intervals** (`interval`) |
+| Hyrox-Renntempo | **race pace** |
+| Wechselläufe, Progressionen, Steigerungen nach einem Rep | **keine** — siehe unten |
+
+Die Pace-Kachel auf dem Block nennt die Zone mit („threshold · 4:06/km"), damit eine Zahl nicht als
+etwas anderes gelesen werden kann, als sie ist. Bei **gemischten** Einheiten — 1 Min schnell /
+1 Min locker, ein Progressionslauf, ein Rep plus Steigerung — steht **gar keine Zielpace**: Es gibt
+keine einzelne Zahl, die sie beschreibt, und eine falsche ist schlechter als keine.
+
+*Bis vor Kurzem erbte jede Intervall-Session eine einzige Zone von ihrem Session-Typ.* Eine
+25-Minuten-Einheit an der LT2 wurde damit im Intervalltempo ausgeschrieben — bei einem Athleten mit
+19:00 auf 5 km 3:37/km statt 4:06/km, also **29 Sekunden pro Kilometer zu schnell.** Das galt für
+rund zwei Drittel des Katalogs. Dasselbe traf die Kalibrierung: Eine geloggte Schwellen-Einheit
+verschob die Intervall-Zone — die einzige Zahl, die diese Einheit nie berührt hat. Beides zieht
+jetzt an der Zone, an der die Session tatsächlich gelaufen wurde.
+
 Alle drei Kataloge rotieren durch die Sessions einer Phase. Steht eine Station als Schwäche
 fest, gehört ihr jede zweite Woche; die Wochen dazwischen rotieren weiter durch den Rest, sodass
 keine Session ungenutzt liegen bleibt. Solange alle Stationen auf derselben Stufe stehen — der
@@ -878,6 +900,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Fehler behoben:** Schwellen- und Renntempo-Intervalle zeigten die Intervall-Pace (bei 19:00-5k-Niveau 29 s/km zu schnell) und kalibrierten beim Loggen die falsche Zone. Jede der 86 Sessions nennt jetzt ihre eigene Zone; gemischte Einheiten zeigen bewusst keine | [4](#4-plan--die-trainingswoche) |
 | Stationen tauschen, wenn das Gerät nicht frei ist: 2–3 Alternativen je Station, jede mit „Behält" und „Kostet". Gilt pro Station, bleibt bis zum Zurücktauschen, ändert den Plan nicht | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Das Pacing-Blatt teilt die acht Läufe entlang einer Ermüdungskurve auf (Lauf 1 schneller als Lauf 8) statt achtmal derselben Pace. Verteilt nur um — die Prognose ändert sich dadurch nicht | [12](#12-race--renntag-pacing-und-ergebnis) |
 | Zielzeit als eigene Zahl, getrennt vom Level (Level = was du tragen kannst, Ziel = was du anstrebst). Auf `/plan` steht der Abstand zum Ziel, aufgeteilt in Stationen und Beine; das Pacing-Blatt öffnet auf dem Ziel statt auf der Prognose. Nur die Zielzeit zu ändern baut keine Woche neu | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |

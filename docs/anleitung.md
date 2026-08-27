@@ -23,13 +23,14 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 9. [`/strength` — eigenes Kraftprogramm](#9-strength--eigenes-kraftprogramm)
 10. [`/benchmarks` — Tests eintragen](#10-benchmarks--tests-eintragen)
 11. [`/progress` — Auswertungen](#11-progress--auswertungen)
-12. [Verbindungen: Strava, Garmin, Telegram](#12-verbindungen-strava-garmin-telegram)
-13. [Automatische Abläufe im Hintergrund](#13-automatische-abläufe-im-hintergrund)
-14. [Bezahlung und was frei ist](#14-bezahlung-und-was-frei-ist)
-15. [`/demo` — ausprobieren ohne Konto](#15-demo--ausprobieren-ohne-konto)
-16. [Betreiber-Oberflächen](#16-betreiber-oberflächen)
-17. [Begriffe](#17-begriffe)
-18. [Änderungsprotokoll](#18-änderungsprotokoll)
+12. [`/race` — Renntag: Pacing und Ergebnis](#12-race--renntag-pacing-und-ergebnis)
+13. [Verbindungen: Strava, Garmin, Telegram](#13-verbindungen-strava-garmin-telegram)
+14. [Automatische Abläufe im Hintergrund](#14-automatische-abläufe-im-hintergrund)
+15. [Bezahlung und was frei ist](#15-bezahlung-und-was-frei-ist)
+16. [`/demo` — ausprobieren ohne Konto](#16-demo--ausprobieren-ohne-konto)
+17. [Betreiber-Oberflächen](#17-betreiber-oberflächen)
+18. [Begriffe](#18-begriffe)
+19. [Änderungsprotokoll](#19-änderungsprotokoll)
 
 ---
 
@@ -57,13 +58,14 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 | `/strength` | Eigene Kraftprogramme, Sätze protokollieren | nein |
 | `/benchmarks` | Testergebnisse eintragen | nein |
 | `/progress` | Verlauf und Auswertungen | nein |
+| `/race` | Renntag: Pacing-Blatt, Stationskosten, Rennergebnis | nein |
 | `/settings` | Setup & Tools: Wochenform, Laufvolumen, Verbindungen, Verletzung | nein |
 | `/de/…` | Deutsche Landingpages (8/12/16 Wochen) | ja |
+| `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
 
 Alle eingeloggten Seiten teilen sich **eine Kopfzeile**: das Logo führt immer zurück auf `/plan`
-(die Wochenansicht), daneben stehen die fünf Bereiche als Tabs, der aktuelle ist markiert. Auch die
+(die Wochenansicht), daneben stehen die sechs Bereiche als Tabs, der aktuelle ist markiert. Auch die
 Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
-| `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
 
 ---
 
@@ -268,7 +270,7 @@ Zwei Grenzen, die du kennen solltest: Enthält die neu gebaute Woche die Einheit
 weil ein Deload sie gestrichen hat), verfällt die Verschiebung. Und ein **Renntag** hat Vorrang —
 er ist eine Tatsache im Kalender, deine Verschiebung eine Präferenz.
 
-Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#15-demo--ausprobieren-ohne-konto)
+Verschieben gilt innerhalb der Woche; gesperrte Wochen bieten es nicht an. Im [Demo](#16-demo--ausprobieren-ohne-konto)
 funktioniert es genauso, nur ohne Konto.
 
 ---
@@ -636,7 +638,66 @@ Schicht benutzt — Diagramm und Engine können nicht auseinanderlaufen.
 
 ---
 
-## 12. Verbindungen: Strava, Garmin, Telegram
+## 12. `/race` — Renntag: Pacing und Ergebnis
+
+Zwei Blicke auf dasselbe Rennen: nach vorne die Zielzeit, aufgeteilt in die Minuten, aus denen sie
+besteht — nach hinten das Rennen, das gelaufen wurde, und was die App daraus lernt.
+
+### Das Pacing-Blatt
+
+Oben steht ein Feld für die **Zielzeit** (`1:25:00`). Daraus rechnet die App die siebzehn Abschnitte
+eines Hyrox-Rennens: acht Läufe, acht Roxzone-Wechsel und acht Stationen, in Rennreihenfolge,
+jeweils mit Teilzeit und aufgelaufener Uhrzeit.
+
+**Die Reihenfolge des Abzugs ist die eigentliche Aussage.** Stationen und Roxzone werden zuerst
+abgezogen — sie sind am Renntag, was sie sind; niemand schiebt den Schlitten schneller, weil die Uhr
+es verlangt. Was übrig bleibt, ist das Laufbudget, und daraus fällt die einzige Zahl, die man mit an
+den Start nimmt: **die geforderte Pace pro Kilometer.**
+
+Die Stationszeiten kommen aus deinen Tiers und deiner Division, nach einem geloggten Rennen aus den
+gemessenen Zeiten. Die Roxzone wird aus deinem Level geschätzt (Einsteiger 60 s pro Wechsel, World
+Class 25 s). Die Restsekunden der Aufteilung liegen auf den letzten Läufen — der Split, den man
+ohnehin abgibt —, damit das Blatt auf die Sekunde genau auf der Zielzeit endet.
+
+Unter den Kennzahlen steht ein Satz zur **Lücke**: verlangt die Zielzeit eine Pace, die schneller
+ist als deine aktuelle Rennpace, nennt er den Rückstand über die acht Kilometer; reicht die Pace
+bereits, sagt er, dass jetzt die Stationen entscheiden. Sind Stationen und Roxzone zusammen schon
+länger als die Zielzeit, sagt die App das — statt eine unmögliche Pace auszurechnen.
+
+### Was jede Station kostet
+
+Statt „Tier 1 bis 3" steht hier eine Zeit: **wie viele Sekunden dich eine Station gegenüber der
+Version von dir kostet, die sie beherrscht.** Sortiert, teuerste zuerst, mit Balken und mit der
+Summe über alle acht — die Zahl, die sagt, wie viel in der Halle noch zu holen ist. Solange kein
+Rennen geloggt ist, sind das Schätzungen aus den Tiers; danach echte Messwerte. Dieselben Kosten
+erscheinen als Kachel `+m:ss` neben den teuren Stationen im Pacing-Blatt.
+
+### Ein Rennergebnis eintragen
+
+Ganz unten öffnet **„Log a race"** ein Formular: Renndatum, **Endzeit**, acht Laufsplits und acht
+Stationszeiten. Pflicht ist nur die Endzeit; jeder weitere Split macht das Bild schärfer. Zeiten als
+`mm:ss` oder `h:mm:ss`.
+
+Beim Speichern:
+
+- Die **Roxzone** wird abgeleitet, wenn sie nicht dabeisteht: Endzeit minus Läufe minus Stationen.
+- Die **Stationstiers werden neu gesetzt**, aus Zeiten, die unter Rennbedingungen gemessen wurden.
+  Das ist die beste Kalibrierung, die die App je bekommt: sie steuert danach die Sessionauswahl, die
+  Gewichtung deiner schwächsten Station und die Zielzeit-Prognose. Die Rückmeldung nennt, wie viele
+  Stationen dadurch neu eingestuft wurden.
+- Die **Pace-Zonen bleiben unangetastet.** Rennpace unter Stationsermüdung ist nicht dieselbe Zahl
+  wie ein frischer 1-km-Test; sie dorthin zu schreiben würde jeden lockeren Lauf aus dem falschen
+  Grund verlangsamen. Die Benchmarks führen die Zonen, das Rennen führt die Stationen.
+- Ergeben Läufe und Stationen zusammen **mehr als die Endzeit**, wird der Eintrag abgelehnt, mit dem
+  Hinweis, was nicht zusammenpasst.
+
+Die letzten zehn Rennen stehen als Liste über dem Formular, mit Endzeit und Roxzone. Ein
+gespeichertes Ergebnis lässt sich in der Oberfläche derzeit **nicht ändern und nicht löschen** — ein
+Tippfehler bleibt stehen, bis er in der Datenbank korrigiert wird.
+
+---
+
+## 13. Verbindungen: Strava, Garmin, Telegram
 
 **Strava / Garmin.** Einmal verbinden; danach werden Läufe automatisch der passenden geplanten
 Einheit zugeordnet und geloggt. Die tatsächlich gelaufene Pace fließt direkt in die
@@ -647,7 +708,7 @@ die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-M
 
 ---
 
-## 13. Automatische Abläufe im Hintergrund
+## 14. Automatische Abläufe im Hintergrund
 
 | Wann | Was passiert |
 |---|---|
@@ -659,7 +720,7 @@ Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht vo
 
 ---
 
-## 14. Bezahlung und was frei ist
+## 15. Bezahlung und was frei ist
 
 **Woche 1 ist dauerhaft kostenlos** — vollständig, mit allen Blöcken, Gewichten und Paces. Ab Woche 2
 ist der Plan gesperrt, bis der Rennzyklus freigeschaltet ist (einmalig oder als Abo).
@@ -670,7 +731,7 @@ bezahlt.
 
 ---
 
-## 15. `/demo` — ausprobieren ohne Konto
+## 16. `/demo` — ausprobieren ohne Konto
 
 Ein kompletter Durchlauf mit Beispieldaten: Plan erzeugen, eine Einheit loggen, die Feedback-Karte
 und den Anpassungs-Feed sehen. Dieselbe Engine wie in der echten App, nur mit einer
@@ -679,7 +740,7 @@ Schicht zu zeigen.
 
 ---
 
-## 16. Betreiber-Oberflächen
+## 17. Betreiber-Oberflächen
 
 Nicht verlinkt, per `robots.txt` ausgeschlossen, durch das Betreiber-Secret geschützt.
 
@@ -709,7 +770,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 
 ---
 
-## 17. Begriffe
+## 18. Begriffe
 
 | Begriff | Bedeutung |
 |---|---|
@@ -721,18 +782,20 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **RPE** | Subjektives Anstrengungsempfinden, 1–10. |
 | **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. Die Session ist **level- und phasenabhängig**: 60 Vorgaben über fünf Level und vier Phasen, siehe [Abschnitt 4](#4-plan--die-trainingswoche). |
 | **Polarisiert** | 75–85 % der Laufdistanz locker, der Rest wirklich hart. Gemessen an der **Distanz je Zone**, nicht an der Zahl der Einheiten. |
-| **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. |
+| **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. Ein geloggtes Rennen setzt sie neu, siehe [Abschnitt 12](#12-race--renntag-pacing-und-ergebnis). |
+| **Roxzone** | Der Weg zwischen Laufende und Station. Achtmal im Rennen, und in Summe eine der größten stillen Zeitreserven — im Pacing-Blatt eigene Zeilen. |
 | **Rebase** | Neuberechnung des Plans ab heute statt nachträglicher Änderung. |
 | **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 5 Kraftformen). Kompromittiertes Laufen, Stationsarbeit und Intervalle kommen aus eigenen Katalogen nach Level und Phase (60 / 60 / 86 Sessions). |
 
 ---
 
-## 18. Änderungsprotokoll
+## 19. Änderungsprotokoll
 
 Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie beschrieben ist.
 
 | Änderung | Abschnitt |
 |---|---|
+| Neue Seite `/race`: Pacing-Blatt aus der Zielzeit (17 Abschnitte, Stationen zuerst abgezogen), Stationskosten in Sekunden statt Tiers, und ein Rennergebnis mit Laufsplits und Stationszeiten, das die Tiers neu kalibriert | [12](#12-race--renntag-pacing-und-ergebnis) |
 | Ohne Rennen läuft der Übergangsblock offen (20 Wochen, Verlängerung ab Off-Season statt neuem Reset) und wird nicht mehr als Rennzyklus angezeigt | [6](#6-wie-sich-der-plan-anpasst) |
 | Nach dem Renntag: Plan wird abgeschlossen statt weiter angepasst; Übergangsblock in vier Modulen (Reset → Re-Introduction → Volume Reload → Off-Season), Länge aus dem Abstand zum nächsten Rennen | [6](#6-wie-sich-der-plan-anpasst) |
 | Laufvolumen gipfelt jetzt in der Basis und fällt bis zum Rennen (100/90/80/40 % statt 85/100/90/50 %) | [6](#6-wie-sich-der-plan-anpasst) |
@@ -759,14 +822,14 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 | Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Rennkalender mit Haupt-/Nebenrennen wirkt bis in die einzelnen Trainingstage; Kalenderansicht auf `/season`; Plan direkt aus dem Kalender bauen | [7](#7-season--rennkalender-und-jahresplanung) |
 | Trainingsstruktur nachgeschärft: max. zwei harte Tage, eine Simulation pro Zyklus, Plyometrie und Griffkraft als Finisher, Frequenzberatung nach Level | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
-| 11 Stationsvarianten nach Phase | [17](#17-begriffe) |
+| 11 Stationsvarianten nach Phase | [18](#18-begriffe) |
 | 14 Varianten der vier Kernlaufeinheiten, rotierend, jede zweite Woche auf die Schwachstelle | [4](#4-plan--die-trainingswoche) |
 | Laufvolumen selbst steuern: Peak-km pro Zyklus und Läufe pro Woche | [4](#4-plan--die-trainingswoche) |
-| Laufarchitektur: HF-Zonen, Paces, polarisierte Fenster, Eröffnungspuffer nach der Station | [4](#4-plan--die-trainingswoche), [17](#17-begriffe) |
+| Laufarchitektur: HF-Zonen, Paces, polarisierte Fenster, Eröffnungspuffer nach der Station | [4](#4-plan--die-trainingswoche), [18](#18-begriffe) |
 | Eigenes Kraftprogramm aus Excel importieren, Sätze protokollieren, Progression als Vorschlag | [9](#9-strength--eigenes-kraftprogramm) |
 | Quick-Log-Knöpfe umbenannt: „Felt harder / Felt easier" beschreiben, wie es *war* | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Doppeltage (AM/PM) | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
-| AI-Zusammenfassungen statt PDFs einspeisbar | [16](#16-betreiber-oberflächen) |
+| AI-Zusammenfassungen statt PDFs einspeisbar | [17](#17-betreiber-oberflächen) |
 | Jahresperiodisierung mit Makrozyklen, Deloads und Mehrrennen-Logik | [7](#7-season--rennkalender-und-jahresplanung) |
-| Wissenspipeline für eigene PDFs (Vorschläge mit Freigabe) | [16](#16-betreiber-oberflächen) |
+| Wissenspipeline für eigene PDFs (Vorschläge mit Freigabe) | [17](#17-betreiber-oberflächen) |
 | Einzelne Tage zurücksetzen — Undo nimmt auch die Kalibrierung zurück | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

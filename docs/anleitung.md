@@ -636,6 +636,17 @@ eine Woche zurück — zwei Rennleistungen in sieben Tagen sind eine zu viel.
 Die ACWR-Kurve wird Tag für Tag mit **derselben** Funktion nachgerechnet, die auch die adaptive
 Schicht benutzt — Diagramm und Engine können nicht auseinanderlaufen.
 
+**Woraus die Zielzeit-Prognose gerechnet wird.** Aus denselben Zahlen wie das Pacing-Blatt auf
+[`/race`](#12-race--renntag-pacing-und-ergebnis): acht Kilometer zu deiner Rennpace, plus was deine
+acht Stationen kosten, plus die Roxzone deines Levels. Wo ein Rennen geloggt ist, zählen die
+gemessenen Stationszeiten statt der Schätzung aus den Tiers. Prognose und Pacing-Blatt sind damit
+zwei Ansichten **einer** Rechnung — die Zielzeit, die auf `/race` vorbelegt ist, verlangt genau die
+Pace, aus der sie gebaut wurde.
+
+Die Benchmarks bewegen jeweils das, wovon sie sprechen: der Wall-Ball-Test die Wall-Ball-Station,
+der 1-km-Test die Laufannahme (anteilig — ein frisch gelaufener Test ist kein Rennkilometer).
+Gegen eine im Rennen gemessene Stationszeit kommt ein Gym-Test nicht an.
+
 ---
 
 ## 12. `/race` — Renntag: Pacing und Ergebnis
@@ -682,9 +693,15 @@ Beim Speichern:
 
 - Die **Roxzone** wird abgeleitet, wenn sie nicht dabeisteht: Endzeit minus Läufe minus Stationen.
 - Die **Stationstiers werden neu gesetzt**, aus Zeiten, die unter Rennbedingungen gemessen wurden.
-  Das ist die beste Kalibrierung, die die App je bekommt: sie steuert danach die Sessionauswahl, die
-  Gewichtung deiner schwächsten Station und die Zielzeit-Prognose. Die Rückmeldung nennt, wie viele
-  Stationen dadurch neu eingestuft wurden.
+  Das ist die beste Kalibrierung, die die App je bekommt: sie steuert danach die Sessionauswahl und
+  die Gewichtung deiner schwächsten Station. Die Rückmeldung nennt, wie viele Stationen dadurch neu
+  eingestuft wurden.
+- Zusätzlich bleiben die **gemessenen Sekunden** stehen, Station für Station. Ein Tier von 1 bis 3
+  wirft weg, was die Uhr gesagt hat; die Prognose und das Pacing-Blatt rechnen ab jetzt mit den
+  echten Zeiten. Wer nur drei Stationen einträgt, behält für die anderen fünf, was zuletzt bekannt
+  war.
+- Die **Zielzeit-Prognose wird sofort neu gerechnet** — sie soll nicht auf die nächste geloggte
+  Einheit warten, um zu merken, dass gerade ein Rennen stattgefunden hat.
 - Die **Pace-Zonen bleiben unangetastet.** Rennpace unter Stationsermüdung ist nicht dieselbe Zahl
   wie ein frischer 1-km-Test; sie dorthin zu schreiben würde jeden lockeren Lauf aus dem falschen
   Grund verlangsamen. Die Benchmarks führen die Zonen, das Rennen führt die Stationen.
@@ -795,6 +812,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Zielzeit-Prognose läuft auf demselben Rennmodell wie das Pacing-Blatt (Stationen und Roxzone statt einer Divisionskonstante, gemessene Rennsplits wo vorhanden). Die Prognosen werden dadurch realistischer und rund zehn Minuten langsamer; die Pro-Referenzzeiten waren zu optimistisch und kosten jetzt die Minuten, die die schwereren Lasten wirklich kosten | [11](#11-progress--auswertungen), [12](#12-race--renntag-pacing-und-ergebnis) |
 | Neue Seite `/race`: Pacing-Blatt aus der Zielzeit (17 Abschnitte, Stationen zuerst abgezogen), Stationskosten in Sekunden statt Tiers, und ein Rennergebnis mit Laufsplits und Stationszeiten, das die Tiers neu kalibriert | [12](#12-race--renntag-pacing-und-ergebnis) |
 | Ohne Rennen läuft der Übergangsblock offen (20 Wochen, Verlängerung ab Off-Season statt neuem Reset) und wird nicht mehr als Rennzyklus angezeigt | [6](#6-wie-sich-der-plan-anpasst) |
 | Nach dem Renntag: Plan wird abgeschlossen statt weiter angepasst; Übergangsblock in vier Modulen (Reset → Re-Introduction → Volume Reload → Off-Season), Länge aus dem Abstand zum nächsten Rennen | [6](#6-wie-sich-der-plan-anpasst) |

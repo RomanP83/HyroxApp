@@ -1,29 +1,52 @@
 // ============================================================================
-// Goal-time prognosis v1 (Implementation Plan §2 Must-Have)
-// Weighted benchmark formula. Deliberately labelled an ESTIMATE until beta
-// logs calibrate the weights (§2). Cheap because athlete_state already exists.
+// Goal-time prognosis.
+//
+// v1 modelled the race as "8 km at race pace, plus a per-division constant for
+// the stations". That constant was 30 minutes for an open athlete, nudged ±8%
+// by the mean station tier. It was cheap, and it was wrong by roughly ten
+// minutes: an athlete running 4:23/km came out at 1:05, an elite finish time
+// for a mid-pack runner.
+//
+// Worse, it was wrong in a way you could see. raceModel.ts gave the app a
+// second, better model of the same race — per-station reference times by
+// division and tier, a roxzone that scales with experience, and measured
+// splits once a race has been logged — and /race decomposes the prognosis
+// with it. Two models of one race, ten minutes apart, on the same screen.
+//
+// So there is one model now. This file supplies the running, raceModel.ts
+// supplies everything else, and the benchmarks nudge the piece each one
+// actually speaks to.
 // ============================================================================
 
-import type { AthleteProfile, AthleteState, Division } from "./types";
+import {
+  RACE_RUNS,
+  roxzoneSeconds,
+  stationCosts,
+} from "./raceModel";
+import type { AthleteProfile, AthleteState } from "./types";
 
 export interface BenchmarkSample {
   slug: string; // benchmark_definitions.slug
   value: number; // metric value (sec, reps, or m)
 }
 
-// Rough division-level overhead on top of pure running (transitions + stations).
-const DIVISION_STATION_OVERHEAD_SEC: Record<Division, number> = {
-  open: 1800, // ~30 min of station + roxzone work for a mid-pack open athlete
-  pro: 1500,
-  doubles: 1500,
-  masters_open: 1950,
-  masters_pro: 1650,
-};
+/** A 1 km time trial run fresh, as a fraction of the pace held under fatigue. */
+const TIME_TRIAL_TO_RACE_PACE = 1.12;
+
+/** How far the 1 km test is trusted against the calibrated race zone. */
+const TIME_TRIAL_WEIGHT = 0.3;
+
+/** Wall-ball reps in two minutes: the window, and what it is worth in seconds. */
+const WALL_BALL_REFERENCE_REPS = 65;
+const WALL_BALL_REP_WINDOW = 25;
+const WALL_BALL_MAX_SECONDS = 60;
 
 /**
  * Predict total Hyrox finish time (seconds).
- * Base model: 8 km of running at race pace + a station overhead that shrinks
- * as station tiers rise, nudged by any fresh benchmark samples.
+ *
+ * Eight kilometres at race pace, plus what the eight stations and the roxzone
+ * cost this athlete — the same numbers the pacing sheet on /race lays out, so
+ * the estimate and its own decomposition cannot disagree.
  */
 export function predictRaceTime(
   profile: AthleteProfile,
@@ -31,31 +54,44 @@ export function predictRaceTime(
   benchmarks: BenchmarkSample[] = [],
 ): number {
   const racePace = state.pace_zones.race_sec_km || 300; // sec/km fallback 5:00
-  const runningSeconds = (racePace * 8000) / 1000;
+  let runningSeconds = racePace * RACE_RUNS;
 
-  // Station overhead scaled by mean station tier (tier 3 => fitter => faster).
-  const tiers = Object.values(state.station_tiers);
-  const meanTier = tiers.length ? tiers.reduce((a, b) => a + b, 0) / tiers.length : 2;
-  const overheadBase = DIVISION_STATION_OVERHEAD_SEC[profile.division] ?? 1800;
-  const overhead = overheadBase * (1 - (meanTier - 2) * 0.08); // ±8% per tier off 2
-
-  let predicted = runningSeconds + overhead;
-
-  // Benchmark nudges: a strong 1k / wall-ball score pulls the estimate down.
-  const wallBalls = benchmarks.find((b) => b.slug === "wall_balls");
-  if (wallBalls) {
-    // >70 reps in 2 min is strong; scale ±60s across a 40..90 rep window.
-    const norm = Math.max(-1, Math.min(1, (wallBalls.value - 65) / 25));
-    predicted -= norm * 60;
-  }
+  // A fast 1 km says the race-pace zone is conservative — but a time trial is
+  // run fresh and the race is not, so it only leans on the calibrated zone.
   const run1k = benchmarks.find((b) => b.slug === "run_1k");
   if (run1k) {
-    // Fast 1k implies the race-pace assumption is conservative.
-    const impliedRacePace = run1k.value * 1.12; // 1k TT -> race pace proxy
-    predicted += ((impliedRacePace - racePace) * 8000) / 1000 * 0.3;
+    const impliedRacePace = run1k.value * TIME_TRIAL_TO_RACE_PACE;
+    runningSeconds += (impliedRacePace - racePace) * RACE_RUNS * TIME_TRIAL_WEIGHT;
   }
 
-  return Math.round(predicted);
+  // Stations: measured where a race has been logged, estimated from the tier
+  // until then. stationCosts is what /race draws its bars from.
+  const costs = stationCosts({
+    division: profile.division,
+    tiers: state.station_tiers,
+    measured: state.measured_station_seconds,
+  });
+  let stationSeconds = 0;
+  for (const cost of costs) {
+    let seconds = cost.seconds;
+    // The wall-ball test speaks to exactly one station, so it moves that one
+    // rather than the whole race. A measured race split is the better number
+    // and keeps its place: the test exists to sharpen an estimate, not to
+    // argue with something that actually happened.
+    if (cost.station === "wall_balls" && !cost.measured) {
+      const wallBalls = benchmarks.find((b) => b.slug === "wall_balls");
+      if (wallBalls) {
+        const norm = Math.max(
+          -1,
+          Math.min(1, (wallBalls.value - WALL_BALL_REFERENCE_REPS) / WALL_BALL_REP_WINDOW),
+        );
+        seconds = Math.max(1, seconds - norm * WALL_BALL_MAX_SECONDS);
+      }
+    }
+    stationSeconds += seconds;
+  }
+
+  return Math.round(runningSeconds + stationSeconds + roxzoneSeconds(profile.experience_level));
 }
 
 export function formatDuration(totalSeconds: number): string {

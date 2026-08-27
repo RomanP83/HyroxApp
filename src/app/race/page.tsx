@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { defaultPaceZones, type Division, type ExperienceLevel, type PaceZones } from "@/lib/engine";
+import {
+  defaultPaceZones,
+  type Division,
+  type ExperienceLevel,
+  type PaceZones,
+  type Station,
+} from "@/lib/engine";
 import { RaceClient, type LoggedResult } from "@/components/RaceClient";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +26,7 @@ export default async function RacePage() {
   if (!profile) redirect("/onboarding");
 
   const [{ data: state }, { data: plan }, { data: results }] = await Promise.all([
-    supabase.from("athlete_state").select("station_tiers, pace_zones, predicted_race_time_sec").eq("profile_id", profile.id).maybeSingle(),
+    supabase.from("athlete_state").select("station_tiers, measured_station_seconds, pace_zones, predicted_race_time_sec").eq("profile_id", profile.id).maybeSingle(),
     supabase
       .from("plans")
       .select("race_date, kind, total_weeks")
@@ -47,6 +53,7 @@ export default async function RacePage() {
       tiers={(state?.station_tiers as Record<string, number>) ?? {}}
       paceZones={zones}
       predictedSeconds={state?.predicted_race_time_sec ?? null}
+      measured={(state?.measured_station_seconds as Partial<Record<Station, number>>) ?? undefined}
       nextRaceDate={plan && plan.kind !== "transition" ? String(plan.race_date).slice(0, 10) : null}
       results={(results ?? []) as unknown as LoggedResult[]}
     />

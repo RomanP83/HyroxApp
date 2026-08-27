@@ -46,6 +46,12 @@ interface Props {
   tiers: Record<string, number>;
   paceZones: PaceZones;
   predictedSeconds: number | null;
+  /**
+   * The best station split known per station, merged across logged races and
+   * kept on athlete_state. The finish-time estimate runs on exactly this, so
+   * the sheet and the number it decomposes cannot drift apart.
+   */
+  measured: Partial<Record<Station, number>> | undefined;
   nextRaceDate: string | null;
   results: LoggedResult[];
 }
@@ -64,15 +70,7 @@ export function RaceClient(props: Props) {
 
   // The measured times win wherever a race has been logged; the tier estimate
   // is there to fill the gap until one is.
-  const measured = useMemo(() => {
-    if (!latest) return undefined;
-    const out: Partial<Record<Station, number>> = {};
-    for (const station of STATION_ORDER) {
-      const value = latest.station_times?.[station];
-      if (typeof value === "number" && value > 0) out[station] = value;
-    }
-    return Object.keys(out).length ? out : undefined;
-  }, [latest]);
+  const measured = props.measured && Object.keys(props.measured).length ? props.measured : undefined;
 
   const costs = useMemo(
     () => stationCosts({ division: props.division, tiers: props.tiers, measured }),

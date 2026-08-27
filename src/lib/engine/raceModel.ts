@@ -58,15 +58,28 @@ const REFERENCE_OPEN: Record<Station, number> = {
   general: 0,
 };
 
+/**
+ * The same eight stations under the pro loads.
+ *
+ * These numbers describe the WORKLOAD, not the athlete. Three stations are
+ * physically identical in both divisions — the SkiErg and RowErg are the same
+ * 1000 m, the burpee broad jumps the same 80 m — so they carry the same
+ * reference time here, and it is the tier that says whether this particular
+ * athlete is fast at them. An earlier version had them faster in pro, which
+ * quietly counted "pro athletes are fitter" twice and left the two divisions
+ * 45 seconds apart across a whole race.
+ *
+ * The five loaded stations carry the real difference, and it is a large one.
+ */
 const REFERENCE_PRO: Record<Station, number> = {
-  ski_erg: 250,
-  sled_push: 230, // 202 kg against 152
-  sled_pull: 250, // 153 kg against 103
-  burpee_broad_jump: 280,
-  row: 240,
-  farmers_carry: 115, // 2×32 kg against 2×24
-  sandbag_lunges: 260, // 30 kg against 20
-  wall_balls: 360, // 9 kg against 6, and the last station of the race
+  ski_erg: 270, // identical station
+  sled_push: 270, // 202 kg against 152 — the biggest single jump in the race
+  sled_pull: 290, // 153 kg against 103
+  burpee_broad_jump: 300, // identical station
+  row: 260, // identical station
+  farmers_carry: 150, // 2×32 kg against 2×24
+  sandbag_lunges: 330, // 30 kg against 20
+  wall_balls: 420, // 9 kg against 6, on the station that already breaks races
   run: 0,
   general: 0,
 };

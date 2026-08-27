@@ -64,6 +64,38 @@ describe("what a station costs", () => {
   });
 });
 
+describe("what the division constant is allowed to say", () => {
+  it("keeps the three identical stations identical across divisions", () => {
+    // The SkiErg and RowErg are the same 1000 m in open and pro, and the
+    // burpee broad jumps the same 80 m. Making them faster in pro would be
+    // saying "pro athletes are fitter" — which the tier already says, and
+    // saying it twice left the two divisions 45 seconds apart over a race.
+    for (const station of ["ski_erg", "row", "burpee_broad_jump"] as const) {
+      expect(stationSeconds(station, "pro", 2)).toBe(stationSeconds(station, "open", 2));
+    }
+  });
+
+  it("makes every loaded station cost more in pro", () => {
+    for (const station of [
+      "sled_push",
+      "sled_pull",
+      "farmers_carry",
+      "sandbag_lunges",
+      "wall_balls",
+    ] as const) {
+      expect(stationSeconds(station, "pro", 2)).toBeGreaterThan(
+        stationSeconds(station, "open", 2),
+      );
+    }
+  });
+
+  it("adds up to minutes over the whole race, not seconds", () => {
+    const total = (division: "open" | "pro") =>
+      STATION_ORDER.reduce((n, s) => n + stationSeconds(s, division, 2), 0);
+    expect(total("pro") - total("open")).toBeGreaterThan(4 * 60);
+  });
+});
+
 describe("a goal time, budgeted backwards", () => {
   const plan = (goalSeconds: number, tier = 2) =>
     pacingPlan({

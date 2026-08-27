@@ -15,8 +15,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
-import { roxzoneFromResult, STATION_ORDER, tiersFromRaceResult } from "@/lib/engine";
+import {
+  predictRaceTime,
+  roxzoneFromResult,
+  STATION_ORDER,
+  tiersFromRaceResult,
+  type AthleteProfile,
+} from "@/lib/engine";
 import type { Station } from "@/lib/engine";
+import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 
 export const runtime = "nodejs";
 
@@ -47,7 +54,7 @@ export async function POST(req: Request) {
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id")
+    .select("*")
     .eq("user_id", user.id)
     .single();
   if (!profile) return NextResponse.json({ error: "no_profile" }, { status: 404 });
@@ -117,19 +124,54 @@ export async function POST(req: Request) {
 
   // Recalibrate the stations from what the race actually showed. athlete_state
   // is engine-owned, so this goes through the service-role client.
+  //
+  // Both forms are kept: the tiers because the catalogues and the weakness bias
+  // speak that language, and the raw seconds because the finish-time model and
+  // the pacing sheet want the number the clock actually gave.
   const tiers = tiersFromRaceResult({ division: body.division, stationTimes });
   let recalibrated = 0;
+  let predicted: number | null = null;
   if (Object.keys(tiers).length) {
     const admin = supabaseAdmin();
-    const { data: state } = await admin
+    const { data: stateRow } = await admin
       .from("athlete_state")
-      .select("station_tiers")
+      .select("*")
       .eq("profile_id", profile.id)
       .single();
-    const merged = { ...((state?.station_tiers as Record<string, number>) ?? {}), ...tiers };
-    await admin.from("athlete_state").update({ station_tiers: merged }).eq("profile_id", profile.id);
+    const merged = {
+      ...((stateRow?.station_tiers as Record<string, number>) ?? {}),
+      ...tiers,
+    };
+    const measured = {
+      ...((stateRow?.measured_station_seconds as Record<string, number>) ?? {}),
+      ...stationTimes,
+    };
+
+    // The estimate should not wait for the next logged session to notice that a
+    // race just happened — that is the whole point of measuring it.
+    if (stateRow) {
+      const state = stateFromRow(stateRow as AthleteStateRow);
+      state.station_tiers = merged;
+      state.measured_station_seconds = measured;
+      predicted = predictRaceTime(profile as AthleteProfile, state, []);
+    }
+
+    await admin
+      .from("athlete_state")
+      .update({
+        station_tiers: merged,
+        measured_station_seconds: measured,
+        ...(predicted == null ? {} : { predicted_race_time_sec: predicted }),
+        last_recalc_at: new Date().toISOString(),
+      })
+      .eq("profile_id", profile.id);
     recalibrated = Object.keys(tiers).length;
   }
 
-  return NextResponse.json({ id: saved.id, roxzone_seconds: roxzone, recalibrated });
+  return NextResponse.json({
+    id: saved.id,
+    roxzone_seconds: roxzone,
+    recalibrated,
+    predicted_race_time_sec: predicted,
+  });
 }

@@ -102,6 +102,12 @@ export interface AthleteState {
   acwr: number;
   pace_zones: PaceZones;
   station_tiers: StationTiers;
+  /**
+   * Station splits from the athlete's last race, in seconds. The tier is an
+   * ordinal guess; this is what the clock said. Present only once a race has
+   * been logged — until then the tiers carry the estimate on their own.
+   */
+  measured_station_seconds?: Partial<Record<Station, number>>;
   predicted_race_time_sec: number | null;
   /** Persisted strength-load multiplier the ±5% calibration steps (A6). */
   strength_modifier: number;

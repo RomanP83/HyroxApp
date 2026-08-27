@@ -13,6 +13,7 @@ export interface AthleteStateRow {
   acwr: number | string;
   pace_zones: PaceZones;
   station_tiers: Record<string, number>;
+  measured_station_seconds?: Record<string, number> | null;
   predicted_race_time_sec: number | null;
   strength_modifier?: number | string | null;
   pace_zones_ref?: PaceZones | null;
@@ -27,6 +28,10 @@ export function stateFromRow(row: AthleteStateRow): AthleteState {
     acwr: Number(row.acwr),
     pace_zones: row.pace_zones,
     station_tiers: row.station_tiers,
+    measured_station_seconds:
+      row.measured_station_seconds && Object.keys(row.measured_station_seconds).length
+        ? row.measured_station_seconds
+        : undefined,
     predicted_race_time_sec: row.predicted_race_time_sec,
     strength_modifier: Number(row.strength_modifier ?? 1),
     pace_zones_ref:

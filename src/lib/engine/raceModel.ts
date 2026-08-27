@@ -117,6 +117,49 @@ export const ROXZONE_SEC_PER_TRANSITION: Record<ExperienceLevel, number> = {
   world_class: 25,
 };
 
+/**
+ * How the eight kilometres actually come apart.
+ *
+ * Nobody runs a Hyrox at one pace. Run 1 goes out fresh, run 8 goes out on
+ * legs that have been through eight stations, and the spread between them is
+ * about twelve per cent. A sheet that says "run every km at 4:23" is telling
+ * an athlete to do something no athlete does.
+ *
+ * These weights MUST average exactly 1. race_sec_km is already the average
+ * pace held IN A RACE — fatigue and all — so a curve that added time on top
+ * would count the same fatigue twice and quietly slow every prediction in the
+ * app for the second time in a week. This redistributes; it never adds.
+ */
+export const RUN_FATIGUE_CURVE: readonly number[] = [
+  0.94, 0.96, 0.978, 0.994, 1.008, 1.022, 1.043, 1.055,
+];
+
+/**
+ * The eight run splits a running budget comes apart into, in seconds.
+ *
+ * Largest-remainder rounding, so the eight integers add back to exactly the
+ * budget they were given: a pacing sheet is read against a stadium clock and
+ * a second of drift is a second of argument.
+ */
+export function runSplits(runningSeconds: number): number[] {
+  if (runningSeconds <= 0) return new Array(RACE_RUNS).fill(0);
+  const exact = RUN_FATIGUE_CURVE.map((w) => (runningSeconds * w) / RACE_RUNS);
+  const floors = exact.map((v) => Math.floor(v));
+  let remainder = runningSeconds - floors.reduce((a, b) => a + b, 0);
+  // The leftover seconds go to the runs with the largest fractional part, and
+  // ties break late — the closing kilometres are where a race gives time away.
+  const order = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac || b.i - a.i);
+  const out = [...floors];
+  for (const { i } of order) {
+    if (remainder <= 0) break;
+    out[i] += 1;
+    remainder -= 1;
+  }
+  return out;
+}
+
 /** The reference time for one station in one division, at a given tier. */
 export function stationSeconds(station: Station, division: Division, tier = 2): number {
   const spec = DIVISION_FACTOR[division] ?? DIVISION_FACTOR.open;
@@ -299,24 +342,20 @@ export function pacingPlan(input: {
     racePaceWithBenchmarks(input.paceZones.race_sec_km || 300, input.benchmarks),
   );
 
-  // Eight runs at one rounded pace do not add up to the running budget, and a
-  // sheet whose last line reads a second past the goal is a sheet you stop
-  // trusting. The leftover seconds go onto the closing runs — the split you
-  // actually give away — so the clock lands exactly on the time asked for.
-  const baseRun = impossible ? 0 : Math.floor(runningTotal / RACE_RUNS);
-  const slowRuns = impossible ? 0 : runningTotal - baseRun * RACE_RUNS;
-  const runSeconds = (i: number) => baseRun + (i >= RACE_RUNS - slowRuns ? 1 : 0);
+  // The budget comes apart along the fatigue curve rather than into eight equal
+  // splits: same total, but splits an athlete can actually run to.
+  const runs = runSplits(impossible ? 0 : runningTotal);
 
   const segments: PacingSegment[] = [];
   let elapsed = 0;
   const perTransition = ROXZONE_SEC_PER_TRANSITION[input.level];
 
   STATION_ORDER.forEach((station, i) => {
-    elapsed += runSeconds(i);
+    elapsed += runs[i];
     segments.push({
       kind: "run",
       label: `Run ${i + 1}`,
-      seconds: runSeconds(i),
+      seconds: runs[i],
       cumulative_seconds: elapsed,
     });
     elapsed += perTransition;

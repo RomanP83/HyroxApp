@@ -16,6 +16,7 @@ export * from "./micro";
 export * from "./fill";
 export * from "./weeklyGoal";
 export * from "./raceModel";
+export * from "./stationAlternatives";
 export * from "./prognosis";
 export * from "./generate";
 export * from "./adaptive";

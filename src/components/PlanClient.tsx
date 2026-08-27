@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { readApi } from "@/lib/apiResult";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,13 +18,16 @@ import {
 } from "@/lib/format";
 import { PHASE_NUTRITION } from "@/lib/nutrition";
 import type {
+  EquipmentAccess,
   FrequencyAdvice,
   GoalCheck,
   PhaseType,
+  Station,
+  StationAlternative,
   VolumeAssessment,
   WeeklyRunSummary,
 } from "@/lib/engine";
-import { STATION_LABELS } from "@/lib/engine";
+import { alternativesFor, resolveSubstitutions, STATION_LABELS } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
   LeafIcon,
@@ -83,6 +86,9 @@ interface Props {
   subscriptionAvailable: boolean;
   /** Goal against prediction — null until the athlete has set a goal. */
   goalCheck: GoalCheck | null;
+  /** What the athlete swaps each station for, and what their gym has. */
+  substitutions: Record<string, string>;
+  equipment: EquipmentAccess;
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
@@ -91,6 +97,38 @@ export function PlanClient(props: Props) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<{ sessionId: string; action: LogAction } | null>(null);
+  // Which station's alternatives are open, and what is currently swapped.
+  const [swapStation, setSwapStation] = useState<Station | null>(null);
+  const [subs, setSubs] = useState<Record<string, string>>(props.substitutions);
+  const substitutions = useMemo(() => resolveSubstitutions(subs), [subs]);
+
+  async function swap(station: Station, slug: string | null) {
+    haptic("confirm");
+    // Optimistic: the athlete is standing at a busy sled, not waiting on us.
+    setSubs((prev) => {
+      const next = { ...prev };
+      if (slug) next[station] = slug;
+      else delete next[station];
+      return next;
+    });
+    setSwapStation(null);
+    const res = await fetch("/api/sessions/substitution", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ station, alternative_slug: slug }),
+    });
+    const result = await readApi(res);
+    if (!result.ok) {
+      setSubs(props.substitutions);
+      setToast(result.message);
+      return;
+    }
+    setToast(
+      slug
+        ? "Swapped. It stays swapped until you put it back — your gym, your call."
+        : `${STATION_LABELS[station]} is back.`,
+    );
+  }
   const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
   // Perceived speed (#6): flip the card state the instant the tap lands;
   // the server round-trip only confirms (or reverts on error).
@@ -490,6 +528,8 @@ export function PlanClient(props: Props) {
               strength={cs.strength ?? null}
               onReset={props.locked ? undefined : () => reset(cs.id)}
               resetting={resetting === cs.id}
+              substitutions={substitutions}
+              onSwap={props.locked ? undefined : (station) => setSwapStation(station)}
               showSlot={doubleDays.has(cs.session.day_hint)}
               onMove={
                 props.locked ? undefined : (day, slot) => void move(cs.id, day, slot)
@@ -590,6 +630,16 @@ export function PlanClient(props: Props) {
         </div>
       )}
 
+      {swapStation && (
+        <SwapSheet
+          station={swapStation}
+          equipment={props.equipment}
+          current={subs[swapStation] ?? null}
+          onPick={(slug) => void swap(swapStation, slug)}
+          onClose={() => setSwapStation(null)}
+        />
+      )}
+
       {toast && (
         <div
           className="fixed bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-edge bg-lane px-4 py-2 text-base shadow-lg animate-fade-up"
@@ -667,6 +717,96 @@ function GoalLine({ check }: { check: GoalCheck }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The alternatives for one station, as a sheet.
+ *
+ * The order is the honest one: the real station first — putting it back is a
+ * tap, not a settings trip — then the substitutes best-first, each stating what
+ * it keeps and what it costs. Nobody should have to guess whether swapping the
+ * sled for a leg press changed what the session was for.
+ */
+function SwapSheet({
+  station,
+  equipment,
+  current,
+  onPick,
+  onClose,
+}: {
+  station: Station;
+  equipment: EquipmentAccess;
+  current: string | null;
+  onPick: (slug: string | null) => void;
+  onClose: () => void;
+}) {
+  const options: StationAlternative[] = alternativesFor(station, equipment);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-void/70 p-0 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-panel border border-edge bg-lane p-5 shadow-lg animate-fade-up sm:rounded-panel"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="text-lead font-semibold text-chalk">
+            {STATION_LABELS[station]} not free?
+          </h3>
+          <button className="text-meta text-ash hover:text-bone" onClick={onClose}>
+            close
+          </button>
+        </div>
+        <p className="mt-1 max-w-[52ch] text-meta leading-relaxed text-ash">
+          A session you skip because the corner was busy costs more than any substitute. This
+          sticks until you put it back.
+        </p>
+
+        <div className="mt-4 space-y-2">
+          <button
+            type="button"
+            onClick={() => onPick(null)}
+            className={`w-full rounded-control border p-3 text-left transition-colors duration-150 ease-out ${
+              current === null
+                ? "border-flame/70 bg-flame/10"
+                : "border-edge bg-well hover:border-edge-strong"
+            }`}
+          >
+            <div className="text-base font-semibold text-chalk">
+              {STATION_LABELS[station]} <span className="text-ash">— as prescribed</span>
+            </div>
+          </button>
+
+          {options.map((alt) => (
+            <button
+              key={alt.slug}
+              type="button"
+              onClick={() => onPick(alt.slug)}
+              className={`w-full rounded-control border p-3 text-left transition-colors duration-150 ease-out ${
+                current === alt.slug
+                  ? "border-flame/70 bg-flame/10"
+                  : "border-edge bg-well hover:border-edge-strong"
+              }`}
+            >
+              <div className="text-base font-semibold text-chalk">{alt.name}</div>
+              <p className="mt-0.5 text-meta leading-relaxed text-bone">{alt.prescription}</p>
+              <p className="mt-1.5 text-micro leading-relaxed text-ash">
+                <b className="text-go">Keeps:</b> {alt.keeps} <b className="text-amber">Costs:</b>{" "}
+                {alt.costs}
+              </p>
+            </button>
+          ))}
+
+          {options.length === 0 && (
+            <p className="text-meta leading-relaxed text-ash">
+              Nothing here needs equipment you might not have — this one is yours to improvise.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -173,3 +173,11 @@ export const SpinnerIcon = ({ size = 18, className }: IconProps) => (
     <path d="M21 12a9 9 0 1 1-6.2-8.56" />
   </svg>
 );
+
+/** Two arrows trading places — swapping one exercise for another. */
+export const SwapIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8h13l-3.5-3.5" />
+    <path d="M20 16H7l3.5 3.5" />
+  </Svg>
+);

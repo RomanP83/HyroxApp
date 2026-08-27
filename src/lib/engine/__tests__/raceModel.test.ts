@@ -8,6 +8,8 @@ import {
   RACE_RUNS,
   roxzoneFromResult,
   roxzoneSeconds,
+  RUN_FATIGUE_CURVE,
+  runSplits,
   stationCosts,
   stationSeconds,
   STATION_ORDER,
@@ -129,12 +131,41 @@ describe("a goal time, budgeted backwards", () => {
     }
   });
 
-  it("gives away the leftover seconds late, and never more than one per run", () => {
+  it("slows the runs down across the race instead of pretending they are equal", () => {
     const runs = plan(5405).segments.filter((s) => s.kind === "run").map((s) => s.seconds);
-    expect(Math.max(...runs) - Math.min(...runs)).toBeLessThanOrEqual(1);
-    // Whatever slack there is sits in the closing kilometres, not the opening
-    // ones — which is the direction a race actually drifts.
-    expect(runs[RACE_RUNS - 1]).toBeGreaterThanOrEqual(runs[0]);
+    // Monotonic: every kilometre is at least as slow as the one before it.
+    for (let i = 1; i < runs.length; i++) {
+      expect(runs[i]).toBeGreaterThanOrEqual(runs[i - 1]);
+    }
+    // And the spread is a real one — about twelve per cent, not a rounding
+    // artifact. "Run every km at 4:23" is a sheet nobody can run to.
+    expect(runs[RACE_RUNS - 1] / runs[0]).toBeGreaterThan(1.08);
+    expect(runs[RACE_RUNS - 1] / runs[0]).toBeLessThan(1.16);
+  });
+
+  it("redistributes the running budget without adding to it", () => {
+    // The curve MUST average one: race_sec_km is already the pace held in a
+    // race, fatigue included, so a curve that added time would count the same
+    // fatigue twice and slow every prediction in the app.
+    expect(RUN_FATIGUE_CURVE.reduce((a, b) => a + b, 0)).toBeCloseTo(RACE_RUNS, 10);
+    expect(RUN_FATIGUE_CURVE).toHaveLength(RACE_RUNS);
+    for (const goal of [4500, 5400, 5405, 6000]) {
+      const p = plan(goal);
+      const runs = p.segments.filter((s) => s.kind === "run");
+      expect(runs.reduce((n, r) => n + r.seconds, 0)).toBe(p.running_seconds);
+      // The mean split is the pace the athlete is told to carry.
+      const mean = p.running_seconds / RACE_RUNS;
+      expect(Math.abs(mean - p.required_pace_sec_km)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("splits a budget into eight integers that add back to it exactly", () => {
+    for (const budget of [0, 1, 7, 1600, 2101, 2400]) {
+      const splits = runSplits(budget);
+      expect(splits).toHaveLength(RACE_RUNS);
+      expect(splits.reduce((a, b) => a + b, 0)).toBe(budget);
+      expect(splits.every((n) => Number.isInteger(n) && n >= 0)).toBe(true);
+    }
   });
 
   it("subtracts the stations first, because they are what they are on the day", () => {

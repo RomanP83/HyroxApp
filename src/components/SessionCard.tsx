@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { DaySlot, GeneratedSession } from "@/lib/engine";
+import type { DaySlot, GeneratedSession, Station, StationAlternative } from "@/lib/engine";
 import { DOUBLE_DAY_GAP_HOURS, runSpec } from "@/lib/engine";
 import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace } from "@/lib/format";
 import { BlockView } from "./BlockView";
@@ -87,6 +87,10 @@ interface Props {
   focal?: boolean;
   /** Start expanded — the details are the point, not a tap away. */
   defaultOpen?: boolean;
+  /** The athlete's standing station substitutions, resolved. */
+  substitutions?: Partial<Record<Station, StationAlternative>>;
+  /** Open the swap list for a station. Omitted where swapping is not offered. */
+  onSwap?: (station: Station) => void;
 }
 
 /** The variant the engine chose for this week's core session, if any. */
@@ -131,6 +135,8 @@ export function SessionCard({
   occupied,
   focal,
   defaultOpen,
+  substitutions,
+  onSwap,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -316,7 +322,16 @@ export function SessionCard({
                 </div>
               )}
               {session.blocks.map((b) => (
-                <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />
+                <BlockView
+                  key={`${b.block_id}-${b.sort_order}`}
+                  block={b}
+                  substitution={b.station ? substitutions?.[b.station] : null}
+                  onSwap={
+                    onSwap && b.station && b.station !== "general"
+                      ? () => onSwap(b.station as Station)
+                      : undefined
+                  }
+                />
               ))}
               {(() => {
                 const spec = runSpec(session.session_type);

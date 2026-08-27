@@ -247,6 +247,34 @@ diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
 Die **Form deiner Woche** — feste Wochentage für Long Run, Kraft und Ruhe — legst du auf der
 [Setup-Seite](#8-settings--setup--tools) fest.
 
+### Tauschen — wenn das Gerät nicht frei ist
+
+Der Schlitten ist besetzt, in der Wall-Ball-Ecke steht ein Kurs, das Seil ist in Benutzung. Bisher
+fiel die Einheit dann aus, und **eine ausgefallene Einheit kostet mehr als jeder Ersatz.**
+
+Auf jedem Block, der eine Station nennt, sitzt oben rechts **Swap**. Ein Tap öffnet die Alternativen
+für genau diese Station — die echte Station zuoberst (zurücktauschen ist derselbe eine Tap), darunter
+die Ersatzübungen, beste zuerst.
+
+**Jede Alternative sagt, was sie *nicht* ersetzt.** Zu jeder steht ein Satz „Behält" und ein Satz
+„Kostet": Der Schlittenschub gegen die Beinpresse behält die Quadrizeps-Last und den Brand, der über
+den Lauf danach entscheidet — er kostet die Ganzkörperspannung und den Puls. Ein Tausch, der seinen
+Preis verschweigt, ändert lautlos, wofür die Einheit da war.
+
+Was der Tausch tut und was nicht:
+
+- Der getauschte Block zeigt die Ersatzübung, darunter durchgestrichen die ursprüngliche Vorgabe.
+- **Laufzeilen im selben Block bleiben stehen.** Der 400-m-Lauf in einem kompromittierten Block ist
+  weiter der Lauf — der besetzte Schlitten streicht nicht die halbe Einheit.
+- Der Tausch gilt **pro Station, nicht pro Einheit**, und **bleibt stehen, bis du ihn zurücknimmst.**
+  „In meinem Studio gibt es keinen Schlitten" ist eine Tatsache über das Studio, nicht über Dienstag.
+  Ist die Ecke nur heute belegt, sind es dieselben zwei Taps zurück.
+- **Der Plan ändert sich nicht.** Der Tausch ist eine Sicht auf den Plan, keine Änderung an ihm: Die
+  Engine bleibt deterministisch, und der Tausch übersteht jeden Neuaufbau, weil er gar nicht Teil des
+  Plans ist.
+- Trainierst du zu Hause (`home_minimal`), erscheinen nur Alternativen, die ohne Studiogeräte gehen.
+  Jede Station hat mindestens eine.
+
 ### Verschieben
 
 Für eine **einzelne** Woche abweichen — ohne den Standard zu ändern — geht weiterhin über Move:
@@ -691,8 +719,22 @@ den Start nimmt: **die geforderte Pace pro Kilometer.**
 
 Die Stationszeiten kommen aus deinen Tiers und deiner Division, nach einem geloggten Rennen aus den
 gemessenen Zeiten. Die Roxzone wird aus deinem Level geschätzt (Einsteiger 60 s pro Wechsel, World
-Class 25 s). Die Restsekunden der Aufteilung liegen auf den letzten Läufen — der Split, den man
-ohnehin abgibt —, damit das Blatt auf die Sekunde genau auf der Zielzeit endet.
+Class 25 s).
+
+**Die acht Läufe sind nicht gleich schnell.** Niemand läuft ein Hyrox in einer Pace: Lauf 1 geht
+frisch raus, Lauf 8 auf Beinen, die durch acht Stationen sind — dazwischen liegen rund zwölf
+Prozent. Das Blatt teilt das Laufbudget deshalb entlang einer Ermüdungskurve auf, statt achtmal
+dieselbe Zahl hinzuschreiben. Ein Ziel von 1:20 kommt so heraus:
+
+| Lauf | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Split | 4:49 | 4:55 | 5:01 | 5:06 | 5:10 | 5:14 | 5:21 | 5:24 |
+
+Die Kurve **verteilt um, sie addiert nicht.** Ihr Mittel ist exakt 1, denn deine Rennpace ist bereits
+die Pace, die du *im Rennen inklusive Ermüdung* hältst — eine Kurve, die oben drauf käme, würde
+dieselbe Ermüdung zweimal zählen und jede Prognose der App ein zweites Mal verlangsamen. Die
+Gesamtzeit ändert sich dadurch nicht, das Blatt endet weiter auf die Sekunde genau auf der
+Zielzeit; die genannte Pace pro Kilometer ist das Mittel der acht.
 
 Unter den Kennzahlen steht ein Satz zur **Lücke**: verlangt die Zielzeit eine Pace, die schneller
 ist als deine aktuelle Rennpace, nennt er den Rückstand über die acht Kilometer; reicht die Pace
@@ -836,6 +878,8 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Stationen tauschen, wenn das Gerät nicht frei ist: 2–3 Alternativen je Station, jede mit „Behält" und „Kostet". Gilt pro Station, bleibt bis zum Zurücktauschen, ändert den Plan nicht | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
+| Das Pacing-Blatt teilt die acht Läufe entlang einer Ermüdungskurve auf (Lauf 1 schneller als Lauf 8) statt achtmal derselben Pace. Verteilt nur um — die Prognose ändert sich dadurch nicht | [12](#12-race--renntag-pacing-und-ergebnis) |
 | Zielzeit als eigene Zahl, getrennt vom Level (Level = was du tragen kannst, Ziel = was du anstrebst). Auf `/plan` steht der Abstand zum Ziel, aufgeteilt in Stationen und Beine; das Pacing-Blatt öffnet auf dem Ziel statt auf der Prognose. Nur die Zielzeit zu ändern baut keine Woche neu | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
 | Zielzeit-Prognose läuft auf demselben Rennmodell wie das Pacing-Blatt (Stationen und Roxzone statt einer Divisionskonstante, gemessene Rennsplits wo vorhanden). Die Prognosen werden dadurch realistischer und rund zehn Minuten langsamer; die Pro-Referenzzeiten waren zu optimistisch und kosten jetzt die Minuten, die die schwereren Lasten wirklich kosten | [11](#11-progress--auswertungen), [12](#12-race--renntag-pacing-und-ergebnis) |
 | Neue Seite `/race`: Pacing-Blatt aus der Zielzeit (17 Abschnitte, Stationen zuerst abgezogen), Stationskosten in Sekunden statt Tiers, und ein Rennergebnis mit Laufsplits und Stationszeiten, das die Tiers neu kalibriert | [12](#12-race--renntag-pacing-und-ergebnis) |

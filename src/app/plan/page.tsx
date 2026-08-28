@@ -15,6 +15,7 @@ import {
 } from "@/lib/engine";
 import type { AthleteProfile, AthleteState } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
+import { withPersonalStrengthDay } from "@/lib/strength/personalDay";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
 import { currentWeekNumber, raceIsBehind, weekStartOf } from "@/lib/planWeek";
 import { PlanFinished } from "@/components/PlanFinished";
@@ -206,27 +207,24 @@ export default async function PlanPage({
       blocks,
     };
     // A strength session shows the athlete's own exercises instead of the
-    // library block — warm-up and mobility around it stay as generated.
+    // library block — warm-up, finisher and mobility around it stay as
+    // generated, and stay around it.
     if (strengthTemplate && s.session_type === "strength" && !locked) {
-      session.blocks = [
-        ...blocks.filter((b) => b.block_type !== "main"),
-        {
-          block_id: strengthTemplate.id,
-          slug: "personal_strength_day",
-          block_type: "main",
-          station: null,
-          sort_order: 1,
-          content: strengthExercises.map((e) => ({
-            exercise: e.name,
-            sets: e.sets,
-            rep_min: e.rep_min,
-            rep_max: e.rep_max,
-            load_kg: e.load_kg,
-            superset_group: e.superset_group,
-          })),
-          load_adjustments: { division: profile.division as Division },
-        },
-      ];
+      session.blocks = withPersonalStrengthDay(blocks, {
+        block_id: strengthTemplate.id,
+        slug: "personal_strength_day",
+        block_type: "main",
+        station: null,
+        content: strengthExercises.map((e) => ({
+          exercise: e.name,
+          sets: e.sets,
+          rep_min: e.rep_min,
+          rep_max: e.rep_max,
+          load_kg: e.load_kg,
+          superset_group: e.superset_group,
+        })),
+        load_adjustments: { division: profile.division as Division },
+      });
       return {
         id: s.id,
         session,

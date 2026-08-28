@@ -345,7 +345,13 @@ export function SessionCard({
                   </p>
                 </div>
               )}
-              {session.blocks.map((b) => (
+              {/* By sort_order, never by array order. That field is what says
+                  which block comes when, and a caller that rebuilds the list —
+                  swapping in an imported strength day, say — should not be able
+                  to put the finisher before the work it finishes. */}
+              {[...session.blocks]
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((b) => (
                 <BlockView
                   key={`${b.block_id}-${b.sort_order}`}
                   block={b}
@@ -355,8 +361,8 @@ export function SessionCard({
                       ? () => onSwap(b.station as Station)
                       : undefined
                   }
-                />
-              ))}
+                  />
+                ))}
               {(() => {
                 const spec = runSpec(session.session_type);
                 const variant = variantOf(session);

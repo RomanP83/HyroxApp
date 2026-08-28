@@ -131,8 +131,11 @@ export default async function PlanPage({
     weekList.find((w) => w.week_number === thisWeek) ??
     weekList[0];
 
-  // Load sessions + blocks for the selected week.
-  const { data: sessionRows } = await supabase
+  // Load sessions + blocks for the selected week. The error is kept: an empty
+  // week and a week that failed to load look identical downstream, and since
+  // the week now fills its gaps with rest days, a failed load would otherwise
+  // render as seven confident "nothing scheduled" tiles.
+  const { data: sessionRows, error: sessionsError } = await supabase
     .from("sessions")
     .select(
       "id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))",
@@ -271,6 +274,7 @@ export default async function PlanPage({
       goalCheck={goal}
       weekStart={weekStartOf(String(plan.starts_on).slice(0, 10), current.week_number)}
       restDays={(profile.preferred_rest_days as number[] | null) ?? []}
+      sessionsFailed={Boolean(sessionsError)}
       substitutions={(profile.station_substitutions as Record<string, string>) ?? {}}
       equipment={(profile.equipment_access as EquipmentAccess) ?? "full_gym"}
       planId={plan.id}

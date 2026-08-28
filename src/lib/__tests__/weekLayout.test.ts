@@ -53,3 +53,22 @@ describe("laying a training week out as seven days", () => {
     expect(shape(out)).toEqual(["1", "rest2", "3", "rest4", "rest5", "6", "rest7"]);
   });
 });
+
+describe("what must never happen to a session", () => {
+  it("keeps a session whose day falls outside the week rather than dropping it", () => {
+    // The database checks day_hint between 1 and 7, so this cannot arrive from
+    // there — but the helper is exported and generic, and a week view losing a
+    // training day without a word is the one failure it must not have.
+    const out = weekItemsOf([on(3), { id: "stray", session: { day_hint: 0, day_slot: null } }]);
+    const ids = shape(out);
+    expect(ids).toContain("stray");
+    expect(ids).toContain("3");
+    expect(out.filter((i) => i.kind === "session")).toHaveLength(2);
+  });
+
+  it("never loses a session, whatever the input", () => {
+    const sessions = [on(1), on(1, "pm"), on(4), on(7)];
+    const kept = weekItemsOf(sessions).filter((i) => i.kind === "session");
+    expect(kept).toHaveLength(sessions.length);
+  });
+});

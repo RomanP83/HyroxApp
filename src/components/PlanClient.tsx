@@ -15,6 +15,7 @@ import {
   DEMAND_LABELS,
   fmtClock,
   fmtDayDate,
+  WEEKDAY_LABELS,
   fmtPace,
   PHASE_COLORS,
   titleCase,
@@ -93,6 +94,8 @@ interface Props {
   weekStart: string;
   /** Weekdays the athlete pinned as rest days, 1 = Monday. */
   restDays: number[];
+  /** The week's sessions could not be read. Not the same thing as a rest week. */
+  sessionsFailed: boolean;
   /** What the athlete swaps each station for, and what their gym has. */
   substitutions: Record<string, string>;
   equipment: EquipmentAccess;
@@ -515,13 +518,31 @@ export function PlanClient(props: Props) {
             </div>
           </div>
 
-          {weekItems.map((item) =>
+          {props.sessionsFailed && (
+            <div className="card border-stop/40 flex items-start gap-3 text-base">
+              <MedicalIcon size={18} className="mt-0.5 shrink-0 text-stop" />
+              <span>
+                <b>This week could not be loaded.</b> Nothing is wrong with your plan — the
+                sessions just did not come back. Reload the page; if it keeps happening, the
+                adaptations and logs you have made are all still saved.
+              </span>
+            </div>
+          )}
+
+          {!props.sessionsFailed &&
+            weekItems.map((item) =>
             item.kind === "rest" ? (
               <RestCard
                 key={`rest-${item.day}`}
                 day={item.day}
                 date={dayDateOf(props.weekStart, item.day)}
-                pinned={props.restDays.includes(item.day)}
+                // A pin is a setting as it stands today. Claiming it about a
+                // week that was built before the pin existed would put words in
+                // the athlete's past mouth, so past weeks get the neutral line.
+                pinned={
+                  props.restDays.includes(item.day) &&
+                  props.currentWeek.week_number >= props.thisWeekNumber
+                }
                 today={
                   props.currentWeek.week_number === props.thisWeekNumber &&
                   today?.weekday === item.day
@@ -835,8 +856,6 @@ function SwapSheet({
   );
 }
 
-const REST_DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 /**
  * A day with nothing on it — shown, because it is part of the plan.
  *
@@ -862,15 +881,24 @@ function RestCard({
 }) {
   return (
     <div
-      className={`group relative flex gap-3.5 rounded-panel border border-dashed p-4 ${
-        today ? "border-edge-strong bg-rack/40" : "border-edge/60 bg-lane/25"
+      className={`flex gap-3.5 rounded-panel border border-dashed p-4 ${
+        today ? "border-edge-strong bg-rack/40" : "border-edge bg-lane/25"
       }`}
     >
-      <span className="rail self-stretch text-edge-strong" aria-hidden="true" />
+      {/* The rail takes its colour from the same table the session cards use.
+          `text-edge-strong` looked right and generated nothing: edge lives
+          under borderColor, never under colors, so the rail fell back to the
+          body's near-white and made the quietest card the loudest thing in the
+          week. */}
+      <span
+        className="rail self-stretch"
+        style={{ color: DEMAND_COLORS.recovery }}
+        aria-hidden="true"
+      />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
           <span className="font-mono text-micro font-bold uppercase tracking-widest text-smoke">
-            {REST_DAY_LABELS[day] ?? `D${day}`}
+            {WEEKDAY_LABELS[day]}
             <span className="ml-1.5 font-normal">{fmtDayDate(date)}</span>
           </span>
           <span className="text-lead font-semibold leading-tight text-ash">Rest day</span>

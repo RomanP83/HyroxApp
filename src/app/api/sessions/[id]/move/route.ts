@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, plan_id, day_hint, day_slot, title, session_type, plan_weeks!inner(week_number), plans!inner(profile_id, generated_at)",
+      "id, plan_id, day_hint, day_slot, title, session_type, plan_weeks!inner(week_number), plans!inner(profile_id, starts_on)",
     )
     .eq("id", sessionId)
     .single();
@@ -67,9 +67,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // Remember the decision against the CALENDAR week, so a later rebase can put
   // it back: plan week numbers shift when a plan is rebuilt, Mondays do not.
   const week = (session as unknown as { plan_weeks: { week_number: number } }).plan_weeks;
-  const plan = (session as unknown as { plans: { profile_id: string; generated_at: string } }).plans;
+  const plan = (session as unknown as { plans: { profile_id: string; starts_on: string } }).plans;
   if (week && plan) {
-    const weekStart = weekStartOf(plan.generated_at, week.week_number);
+    // Anchored on starts_on, which is the grid generatePlan replays overrides
+    // against. It used to anchor on generated_at, and those are the same Monday
+    // only when a plan was built on a Monday: starts_on defaults to NEXT
+    // Monday, so every move made on a plan generated any other day was filed a
+    // week early, matched nothing on the next rebase, and was silently lost.
+    const weekStart = weekStartOf(plan.starts_on, week.week_number);
     const moves = [
       { session_type: String(session.session_type), day_hint: parsed.data.day_hint, day_slot: daySlot },
     ];

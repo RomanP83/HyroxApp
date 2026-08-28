@@ -127,6 +127,13 @@ export const PACE_ZONE_HR: Record<string, string> = {
   race_sec_km: "Zone 4 · race effort",
 };
 
+/**
+ * Weekday labels, 1 = Monday. One array, because four of them side by side is
+ * how two lists rendering in the same column drift apart without a test
+ * noticing.
+ */
+export const WEEKDAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",

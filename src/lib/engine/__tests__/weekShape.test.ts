@@ -182,3 +182,52 @@ describe("weekStartOf", () => {
     expect(weekStartOf("2026-08-27T09:12:00Z", 4)).toBe(weekStartOf("2026-09-17T08:00:00Z", 1));
   });
 });
+
+describe("which Monday an override is filed under", () => {
+  // The bug: the move endpoint anchored an override on plans.generated_at while
+  // generatePlan replays it against the grid derived from plans.starts_on. Those
+  // are the same Monday only when the plan was generated ON a Monday — and
+  // starts_on defaults to NEXT Monday, so in the normal case every recorded move
+  // was filed a week early, matched nothing on the next rebase, and vanished.
+  const generatedAt = "2026-03-04T18:20:00Z"; // a Wednesday
+  const startsOn = "2026-03-09"; // nextMonday(generatedAt)
+
+  it("is a different Monday for the two anchors whenever a plan is not built on a Monday", () => {
+    expect(weekStartOf(generatedAt, 1)).toBe("2026-03-02");
+    expect(weekStartOf(startsOn, 1)).toBe("2026-03-09");
+    expect(weekStartOf(generatedAt, 1)).not.toBe(weekStartOf(startsOn, 1));
+  });
+
+  it("only replays when the override was filed on the grid the plan is built on", () => {
+    const slots = BUILD.map((t, i) => ({
+      session_type: t,
+      day_hint: i + 1,
+      day_slot: "am" as const,
+      intensity_rpe_target: 7,
+      planned_duration_min: 60,
+      sort_order: i,
+    }));
+    const onStartsOn = {
+      week_start: weekStartOf(startsOn, 3),
+      session_type: "strength" as SessionType,
+      day_hint: 5,
+      day_slot: "am" as const,
+    };
+    // The plan's own week 3 Monday — what generatePlan looks the override up by.
+    const planWeek3 = weekStartOf(startsOn, 3);
+    const replayed = applyDayOverrides(
+      slots,
+      [onStartsOn].filter((o) => o.week_start === planWeek3),
+    );
+    expect(replayed.find((s) => s.session_type === "strength")?.day_hint).toBe(5);
+
+    // The same move, filed the way it used to be: it never matches, so the
+    // athlete's decision is silently dropped.
+    const onGeneratedAt = { ...onStartsOn, week_start: weekStartOf(generatedAt, 3) };
+    const dropped = applyDayOverrides(
+      slots,
+      [onGeneratedAt].filter((o) => o.week_start === planWeek3),
+    );
+    expect(dropped.find((s) => s.session_type === "strength")?.day_hint).not.toBe(5);
+  });
+});

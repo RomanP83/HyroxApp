@@ -23,16 +23,23 @@ export type WeekItem<T extends DayPlaced> =
  * its sort_order, so a week could otherwise read Mon, Thu, Tue after one move.
  * On a double day the morning session comes first.
  */
+/** Morning before evening. Two values, so rank them rather than collate them. */
+const slotRank = (slot?: "am" | "pm" | null) => (slot === "pm" ? 1 : 0);
+
 export function weekItemsOf<T extends DayPlaced>(sessions: T[]): WeekItem<T>[] {
   const items: WeekItem<T>[] = [];
   for (let day = 1; day <= 7; day++) {
     const onDay = sessions
       .filter((cs) => cs.session.day_hint === day)
-      .sort((a, b) =>
-        (a.session.day_slot ?? "am").localeCompare(b.session.day_slot ?? "am"),
-      );
+      .sort((a, b) => slotRank(a.session.day_slot) - slotRank(b.session.day_slot));
     if (onDay.length) items.push(...onDay.map((cs) => ({ kind: "session" as const, cs })));
     else items.push({ kind: "rest" as const, day });
   }
-  return items;
+
+  // A day outside 1..7 cannot come from the database (sessions.day_hint is
+  // checked) — but this walks seven days and would drop such a session without
+  // a word, and losing a training day silently is the one thing a week view
+  // must not do. Anything unplaced goes at the end where it can be seen.
+  const stray = sessions.filter((cs) => cs.session.day_hint < 1 || cs.session.day_hint > 7);
+  return [...items, ...stray.map((cs) => ({ kind: "session" as const, cs }))];
 }

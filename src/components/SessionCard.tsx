@@ -11,6 +11,7 @@ import {
   fmtPace,
   PACE_ZONE_HR,
   PACE_ZONE_LABEL,
+  WEEKDAY_LABELS,
 } from "@/lib/format";
 import { BlockView } from "./BlockView";
 import {
@@ -24,8 +25,6 @@ import {
   UndoIcon,
 } from "./icons";
 import { haptic } from "@/lib/haptics";
-
-const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export type LogAction = "planned" | "harder" | "easier" | "skip";
 
@@ -248,7 +247,7 @@ export function SessionCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
             <span className="font-mono text-micro font-bold uppercase tracking-widest text-ash">
-              {DAY_LABELS[session.day_hint] ?? `D${session.day_hint}`}
+              {WEEKDAY_LABELS[session.day_hint]}
               {date && <span className="ml-1.5 font-normal text-smoke">{fmtDayDate(date)}</span>}
               {showSlot && (
                 <span className="ml-1 text-amber">{(session.day_slot ?? "am").toUpperCase()}</span>
@@ -575,8 +574,8 @@ export function SessionCard({
                         here
                           ? "This is where it already is"
                           : taken
-                            ? `${DAY_LABELS[day]} is taken — the two sessions swap days`
-                            : `Move to ${DAY_LABELS[day]}`
+                            ? `${WEEKDAY_LABELS[day]} is taken — the two sessions swap days`
+                            : `Move to ${WEEKDAY_LABELS[day]}`
                       }
                       onClick={() => {
                         haptic("confirm");
@@ -585,7 +584,7 @@ export function SessionCard({
                       }}
                     >
                       <span className={taken ? "text-amber" : undefined}>
-                        {DAY_LABELS[day].slice(0, 2)}
+                        {WEEKDAY_LABELS[day].slice(0, 2)}
                       </span>
                     </button>
                   );

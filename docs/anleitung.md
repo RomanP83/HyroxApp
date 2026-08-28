@@ -155,8 +155,14 @@ das („One of your fixed rest days") — sonst steht dort, dass nichts geplant 
 
 **Ruhetage stehen nicht im Plan, sie werden abgeleitet.** Die Engine erzeugt Einheiten nur für Tage
 mit Arbeit, und das ist richtig: Die Zahl der geplanten Einheiten fließt in Compliance und
-Belastung: erfundene Zeilen für die freien Tage würden beides aufblähen. Verschiebst du eine Einheit
-weg von einem Tag, wird dieser Tag automatisch zum Ruhetag — ohne dass irgendetwas gespeichert wird.
+Belastung — erfundene Zeilen für die freien Tage würden beides aufblähen. Die Kachel entsteht erst
+beim Anzeigen: Wird ein Tag leer, weil du seine Einheit auf einen **freien** Tag verschoben hast,
+zeigt er ab sofort einen Ruhetag. Landet die Einheit dagegen auf einem **belegten** Tag, tauschen
+die beiden ihre Tage ([Verschieben](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen)) — dann
+bleibt auf dem Ausgangstag die getauschte Einheit stehen und er wird gerade *kein* Ruhetag.
+
+Bei einer vergangenen Woche steht nie „einer deiner festen Ruhetage": Feste Ruhetage sind eine
+Einstellung von heute, und die Woche von damals wurde vielleicht ohne sie gebaut.
 
 ### Eine Einheitenkarte
 
@@ -926,6 +932,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Fehler behoben:** Von Hand verschobene Einheiten gingen beim nächsten Neuaufbau verloren — sie wurden unter der falschen Kalenderwoche abgelegt (Erstellungsdatum statt Startdatum des Plans) und passten danach auf keine Woche | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Ruhetage bekommen eine eigene Kachel: die Woche zeigt alle sieben Tage, feste Ruhetage sind als solche benannt. Die Woche liest sich jetzt auch nach einem Verschieben von Montag bis Sonntag | [4](#4-plan--die-trainingswoche) |
 | **Fehler behoben:** Bei importiertem Kraftprogramm stand der Finisher direkt nach dem Warm-up und die eigentliche Arbeit ganz unten — das eigene Programm wurde ans Ende gehängt statt an die Stelle des Bibliotheksblocks | [9](#9-strength--eigenes-kraftprogramm) |
 | Wochentag und **Datum** auf jeder Einheitenkarte; die HF-Zone der Karte folgt jetzt ebenfalls der Zone der Session statt der des Session-Typs | [4](#4-plan--die-trainingswoche) |

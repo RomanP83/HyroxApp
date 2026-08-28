@@ -16,7 +16,7 @@ import {
 import type { AthleteProfile, AthleteState } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
-import { currentWeekNumber, raceIsBehind } from "@/lib/planWeek";
+import { currentWeekNumber, raceIsBehind, weekStartOf } from "@/lib/planWeek";
 import { PlanFinished } from "@/components/PlanFinished";
 
 export const dynamic = "force-dynamic";
@@ -271,6 +271,7 @@ export default async function PlanPage({
   return (
     <PlanClient
       goalCheck={goal}
+      weekStart={weekStartOf(String(plan.starts_on).slice(0, 10), current.week_number)}
       substitutions={(profile.station_substitutions as Record<string, string>) ?? {}}
       equipment={(profile.equipment_access as EquipmentAccess) ?? "full_gym"}
       planId={plan.id}

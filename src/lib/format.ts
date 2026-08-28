@@ -113,6 +113,39 @@ export const PACE_ZONE_LABEL: Record<string, string> = {
   race_sec_km: "race pace",
 };
 
+/**
+ * The heart-rate band that belongs to each pace zone.
+ *
+ * The session TYPE carries one band — "Zone 4-5 · 88-95% HRmax" for everything
+ * filed as intervals — and that is as wrong over a 25-minute threshold block as
+ * the pace was. Where a session names its zone, the band follows it.
+ */
+export const PACE_ZONE_HR: Record<string, string> = {
+  easy_sec_km: "Zone 2 · 65-75% HRmax",
+  tempo_sec_km: "Zone 4 · 85-90% HRmax",
+  interval_sec_km: "Zone 5 · 92-100% HRmax",
+  race_sec_km: "Zone 4 · race effort",
+};
+
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/**
+ * An ISO date as "3 Mar", for sitting beside a weekday.
+ *
+ * Formatted by hand rather than through toLocaleDateString: the same string has
+ * to come out of the server render and the browser one, and a locale that
+ * differs between them is a hydration mismatch on every card.
+ */
+export function fmtDayDate(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
 export function demandOf(sessionType: string): Demand {
   return DEMAND_OF[sessionType] ?? "load";
 }

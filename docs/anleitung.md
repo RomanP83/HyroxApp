@@ -145,6 +145,13 @@ Deload- und Benchmark-Woche. Anklicken springt in die Woche.
 
 ### Eine Einheitenkarte
 
+Oben links steht **Wochentag und Datum** („MON 2 MAR"). Der Wochentag allein ist mehrdeutig, sobald
+man eine Woche zurückblättert, um zu sehen, was liegen geblieben ist — das Datum ist es nicht. Es
+wird aus dem Startdatum des Plans, der Wochennummer und dem Wochentag gerechnet, nicht gespeichert:
+Verschiebst du das Startdatum, wandern alle Datumsangaben mit.
+
+Bei Doppeltagen steht zusätzlich **AM** oder **PM** dahinter.
+
 **Kompromittierte Läufe** kommen aus einem eigenen Katalog: 60 Sessions über fünf Leistungslevel
 und vier Phasen, je drei pro Kombination. Was du bekommst, hängt an deinem Level — ein Beginner
 läuft 800 m nach leichten Lunges, ein World-Class-Athlet 1000 m in 3:45–3:55 nach dem Pro-Schlitten
@@ -900,6 +907,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Wochentag und **Datum** auf jeder Einheitenkarte; die HF-Zone der Karte folgt jetzt ebenfalls der Zone der Session statt der des Session-Typs | [4](#4-plan--die-trainingswoche) |
 | **Fehler behoben:** Schwellen- und Renntempo-Intervalle zeigten die Intervall-Pace (bei 19:00-5k-Niveau 29 s/km zu schnell) und kalibrierten beim Loggen die falsche Zone. Jede der 86 Sessions nennt jetzt ihre eigene Zone; gemischte Einheiten zeigen bewusst keine | [4](#4-plan--die-trainingswoche) |
 | Stationen tauschen, wenn das Gerät nicht frei ist: 2–3 Alternativen je Station, jede mit „Behält" und „Kostet". Gilt pro Station, bleibt bis zum Zurücktauschen, ändert den Plan nicht | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Das Pacing-Blatt teilt die acht Läufe entlang einer Ermüdungskurve auf (Lauf 1 schneller als Lauf 8) statt achtmal derselben Pace. Verteilt nur um — die Prognose ändert sich dadurch nicht | [12](#12-race--renntag-pacing-und-ergebnis) |

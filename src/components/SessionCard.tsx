@@ -3,7 +3,15 @@
 import { useState } from "react";
 import type { DaySlot, GeneratedSession, Station, StationAlternative } from "@/lib/engine";
 import { DOUBLE_DAY_GAP_HOURS, runSpec } from "@/lib/engine";
-import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace } from "@/lib/format";
+import {
+  DEMAND_COLORS,
+  DEMAND_LABELS,
+  demandOf,
+  fmtDayDate,
+  fmtPace,
+  PACE_ZONE_HR,
+  PACE_ZONE_LABEL,
+} from "@/lib/format";
 import { BlockView } from "./BlockView";
 import {
   CheckIcon,
@@ -87,6 +95,11 @@ interface Props {
   focal?: boolean;
   /** Start expanded — the details are the point, not a tap away. */
   defaultOpen?: boolean;
+  /**
+   * The calendar date this session falls on, ISO. "Wednesday" is ambiguous the
+   * moment you page back a week; the date is not.
+   */
+  date?: string | null;
   /** The athlete's standing station substitutions, resolved. */
   substitutions?: Partial<Record<Station, StationAlternative>>;
   /** Open the swap list for a station. Omitted where swapping is not offered. */
@@ -109,12 +122,14 @@ function variantOf(session: GeneratedSession) {
 /** The pace targets the plan wrote into this session's main block, if any. */
 function pacesOf(session: GeneratedSession): {
   pace?: number;
+  paceZone?: string;
   opening?: number;
   openingDistance?: number;
 } {
   const block = session.blocks.find((b) => b.load_adjustments.pace_sec_km != null);
   return {
     pace: block?.load_adjustments.pace_sec_km,
+    paceZone: block?.load_adjustments.pace_zone,
     opening: block?.load_adjustments.opening_pace_sec_km,
     openingDistance: block?.load_adjustments.opening_distance_m,
   };
@@ -135,6 +150,7 @@ export function SessionCard({
   occupied,
   focal,
   defaultOpen,
+  date,
   substitutions,
   onSwap,
 }: Props) {
@@ -233,6 +249,7 @@ export function SessionCard({
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
             <span className="font-mono text-micro font-bold uppercase tracking-widest text-ash">
               {DAY_LABELS[session.day_hint] ?? `D${session.day_hint}`}
+              {date && <span className="ml-1.5 font-normal text-smoke">{fmtDayDate(date)}</span>}
               {showSlot && (
                 <span className="ml-1 text-amber">{(session.day_slot ?? "am").toUpperCase()}</span>
               )}
@@ -267,7 +284,7 @@ export function SessionCard({
             // is for and at what pace, not just how long it is.
             const spec = runSpec(session.session_type);
             if (!spec) return null;
-            const { pace, opening, openingDistance } = pacesOf(session);
+            const { pace, paceZone, opening, openingDistance } = pacesOf(session);
             const variant = variantOf(session);
             return (
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta">
@@ -278,8 +295,15 @@ export function SessionCard({
                     {variant.targeted && <span className="ml-1 text-flame">· your weak spot</span>}
                   </span>
                 )}
-                <span className="pill text-amber">{spec.hr_zone}</span>
-                {pace != null && <span className="pill">{fmtPace(pace)}</span>}
+                <span className="pill text-amber">
+                  {(paceZone && PACE_ZONE_HR[paceZone]) ?? spec.hr_zone}
+                </span>
+                {pace != null && (
+                  <span className="pill">
+                    {paceZone ? `${PACE_ZONE_LABEL[paceZone]} · ` : ""}
+                    {fmtPace(pace)}
+                  </span>
+                )}
                 {/* Coming out of a station you run slower on purpose — that
                     belongs on the front of the card, not one tap deeper. */}
                 {opening != null && (

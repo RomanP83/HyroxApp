@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { readApi } from "@/lib/apiResult";
+import { dayDateOf } from "@/lib/planWeek";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
@@ -86,6 +87,8 @@ interface Props {
   subscriptionAvailable: boolean;
   /** Goal against prediction — null until the athlete has set a goal. */
   goalCheck: GoalCheck | null;
+  /** The Monday of the week on screen — the dates on the cards come off it. */
+  weekStart: string;
   /** What the athlete swaps each station for, and what their gym has. */
   substitutions: Record<string, string>;
   equipment: EquipmentAccess;
@@ -528,6 +531,7 @@ export function PlanClient(props: Props) {
               strength={cs.strength ?? null}
               onReset={props.locked ? undefined : () => reset(cs.id)}
               resetting={resetting === cs.id}
+              date={dayDateOf(props.weekStart, cs.session.day_hint)}
               substitutions={substitutions}
               onSwap={props.locked ? undefined : (station) => setSwapStation(station)}
               showSlot={doubleDays.has(cs.session.day_hint)}

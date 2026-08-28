@@ -28,6 +28,19 @@ export function weekStartOf(startsOn: string, weekNumber: number): string {
 }
 
 /**
+ * The calendar date a session falls on: the week's Monday plus its day hint.
+ *
+ * The plan speaks in week numbers and weekdays because that is what survives a
+ * rebuild — but "Wednesday" alone is ambiguous the moment an athlete pages back
+ * to week 2 to see what they missed. This turns the two into the one thing a
+ * calendar can be checked against.
+ */
+export function dayDateOf(weekStart: string, dayHint: number): string {
+  const clamped = Math.max(1, Math.min(7, dayHint));
+  return new Date(mondayOf(weekStart) + (clamped - 1) * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
  * The plan week that contains `today`, clamped into the plan.
  *
  * Before the start it is week 1 — the plan is waiting, not running late. After

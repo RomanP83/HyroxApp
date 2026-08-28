@@ -3,11 +3,13 @@
 import { describe, it, expect } from "vitest";
 import {
   currentWeekNumber,
+  dayDateOf,
   nextMonday,
   planIsRunning,
   raceIsBehind,
   weekStartOf,
 } from "../planWeek";
+import { fmtDayDate } from "../format";
 import { planWeeksTo } from "../seasonCalendar";
 import { splitPhases } from "@/lib/engine";
 
@@ -115,5 +117,36 @@ describe("a plan whose race is behind it", () => {
     // You train on race morning; the plan closes the day after.
     expect(raceIsBehind("2026-05-24", "2026-05-24")).toBe(false);
     expect(raceIsBehind("2026-05-24", "2026-05-25")).toBe(true);
+  });
+});
+
+describe("the calendar date behind a plan weekday", () => {
+  // Week 1 starts Monday 2 March 2026.
+  const start = "2026-03-02";
+
+  it("turns a week number and a weekday into the day it actually is", () => {
+    expect(dayDateOf(weekStartOf(start, 1), 1)).toBe("2026-03-02");
+    expect(dayDateOf(weekStartOf(start, 1), 7)).toBe("2026-03-08");
+    expect(dayDateOf(weekStartOf(start, 2), 1)).toBe("2026-03-09");
+    expect(dayDateOf(weekStartOf(start, 12), 3)).toBe("2026-05-20");
+  });
+
+  it("crosses a month and a year boundary without drifting", () => {
+    expect(dayDateOf("2026-12-28", 5)).toBe("2027-01-01");
+    expect(dayDateOf("2026-03-30", 3)).toBe("2026-04-01");
+  });
+
+  it("survives a nonsense weekday rather than producing a wrong date", () => {
+    expect(dayDateOf(weekStartOf(start, 1), 0)).toBe("2026-03-02");
+    expect(dayDateOf(weekStartOf(start, 1), 9)).toBe("2026-03-08");
+  });
+
+  it("formats a date the same way on the server and in the browser", () => {
+    // Hand-formatted rather than locale-formatted: a locale that differs
+    // between the two renders is a hydration mismatch on every card.
+    expect(fmtDayDate("2026-03-02")).toBe("2 Mar");
+    expect(fmtDayDate("2026-12-31")).toBe("31 Dec");
+    expect(fmtDayDate(null)).toBe("");
+    expect(fmtDayDate("not a date")).toBe("");
   });
 });

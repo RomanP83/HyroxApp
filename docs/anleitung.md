@@ -143,6 +143,21 @@ Deload- und Benchmark-Woche. Anklicken springt in die Woche.
   polarisierten Fenster der Phase liegt. Liegt es daneben, nennt die Karte den Hebel (meist: ein
   Doppeltag holt die Kilometer zurück).
 
+### Ruhetage
+
+Die Woche zeigt **alle sieben Tage**, nicht nur die mit Training. Ein Tag ohne Einheit bekommt eine
+eigene, ruhige Kachel mit Wochentag und Datum — gestrichelter Rand, nichts zum Antippen, nichts zu
+loggen. Vorher endete die Liste bei den Trainingstagen, und man musste rückwärts zählen, um einen
+Ruhetag von einer Einheit zu unterscheiden, die man längst geloggt hatte.
+
+Hast du den Tag im [Setup](#8-settings--setup--tools) als festen Ruhetag gesetzt, sagt die Kachel
+das („One of your fixed rest days") — sonst steht dort, dass nichts geplant ist.
+
+**Ruhetage stehen nicht im Plan, sie werden abgeleitet.** Die Engine erzeugt Einheiten nur für Tage
+mit Arbeit, und das ist richtig: Die Zahl der geplanten Einheiten fließt in Compliance und
+Belastung: erfundene Zeilen für die freien Tage würden beides aufblähen. Verschiebst du eine Einheit
+weg von einem Tag, wird dieser Tag automatisch zum Ruhetag — ohne dass irgendetwas gespeichert wird.
+
 ### Eine Einheitenkarte
 
 Oben links steht **Wochentag und Datum** („MON 2 MAR"). Der Wochentag allein ist mehrdeutig, sobald
@@ -911,6 +926,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Ruhetage bekommen eine eigene Kachel: die Woche zeigt alle sieben Tage, feste Ruhetage sind als solche benannt. Die Woche liest sich jetzt auch nach einem Verschieben von Montag bis Sonntag | [4](#4-plan--die-trainingswoche) |
 | **Fehler behoben:** Bei importiertem Kraftprogramm stand der Finisher direkt nach dem Warm-up und die eigentliche Arbeit ganz unten — das eigene Programm wurde ans Ende gehängt statt an die Stelle des Bibliotheksblocks | [9](#9-strength--eigenes-kraftprogramm) |
 | Wochentag und **Datum** auf jeder Einheitenkarte; die HF-Zone der Karte folgt jetzt ebenfalls der Zone der Session statt der des Session-Typs | [4](#4-plan--die-trainingswoche) |
 | **Fehler behoben:** Schwellen- und Renntempo-Intervalle zeigten die Intervall-Pace (bei 19:00-5k-Niveau 29 s/km zu schnell) und kalibrierten beim Loggen die falsche Zone. Jede der 86 Sessions nennt jetzt ihre eigene Zone; gemischte Einheiten zeigen bewusst keine | [4](#4-plan--die-trainingswoche) |

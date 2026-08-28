@@ -36,7 +36,7 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, experience_level, goal_race_time_sec, equipment_access, station_substitutions, subscription_status, training_days_per_week",
+      "id, division, experience_level, goal_race_time_sec, equipment_access, station_substitutions, preferred_rest_days, subscription_status, training_days_per_week",
     )
     .eq("user_id", user.id)
     .single();
@@ -270,6 +270,7 @@ export default async function PlanPage({
     <PlanClient
       goalCheck={goal}
       weekStart={weekStartOf(String(plan.starts_on).slice(0, 10), current.week_number)}
+      restDays={(profile.preferred_rest_days as number[] | null) ?? []}
       substitutions={(profile.station_substitutions as Record<string, string>) ?? {}}
       equipment={(profile.equipment_access as EquipmentAccess) ?? "full_gym"}
       planId={plan.id}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { readApi } from "@/lib/apiResult";
 import { dayDateOf } from "@/lib/planWeek";
+import { weekItemsOf } from "@/lib/weekLayout";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
@@ -13,6 +14,7 @@ import {
   DEMAND_COLORS,
   DEMAND_LABELS,
   fmtClock,
+  fmtDayDate,
   fmtPace,
   PHASE_COLORS,
   titleCase,
@@ -89,6 +91,8 @@ interface Props {
   goalCheck: GoalCheck | null;
   /** The Monday of the week on screen — the dates on the cards come off it. */
   weekStart: string;
+  /** Weekdays the athlete pinned as rest days, 1 = Monday. */
+  restDays: number[];
   /** What the athlete swaps each station for, and what their gym has. */
   substitutions: Record<string, string>;
   equipment: EquipmentAccess;
@@ -163,6 +167,9 @@ export function PlanClient(props: Props) {
       .filter((day, i, all) => all.indexOf(day) !== i),
   );
   const currentPhase = phaseOf(props.currentWeek.week_number);
+
+  // Seven days, with the days off derived rather than stored — see weekLayout.
+  const weekItems = useMemo(() => weekItemsOf(props.sessions), [props.sessions]);
   // Which halves of the week are already occupied. The card only sees itself,
   // so the page — which sees the whole week — hands it the map.
   const occupied = new Set(
@@ -508,40 +515,53 @@ export function PlanClient(props: Props) {
             </div>
           </div>
 
-          {props.sessions.map((cs) => (
+          {weekItems.map((item) =>
+            item.kind === "rest" ? (
+              <RestCard
+                key={`rest-${item.day}`}
+                day={item.day}
+                date={dayDateOf(props.weekStart, item.day)}
+                pinned={props.restDays.includes(item.day)}
+                today={
+                  props.currentWeek.week_number === props.thisWeekNumber &&
+                  today?.weekday === item.day
+                }
+              />
+            ) : (
             <SessionCard
-              key={cs.id}
+              key={item.cs.id}
               // Today's session — and only while the week on screen is the
               // week today is in. Without that second half the same weekday
               // lit up in every week of the plan.
               focal={
                 props.currentWeek.week_number === props.thisWeekNumber &&
-                today?.weekday === cs.session.day_hint &&
-                cs.status === "planned"
+                today?.weekday === item.cs.session.day_hint &&
+                item.cs.status === "planned"
               }
-              session={cs.session}
-              status={optimistic[cs.id] ?? cs.status}
+              session={item.cs.session}
+              status={optimistic[item.cs.id] ?? item.cs.status}
               locked={props.locked}
-              busyAction={busy?.sessionId === cs.id ? busy.action : null}
+              busyAction={busy?.sessionId === item.cs.id ? busy.action : null}
               onLog={
                 props.locked
                   ? undefined
-                  : (a, sets) => log(cs.id, a, cs.session.intensity_rpe_target, sets)
+                  : (a, sets) => log(item.cs.id, a, item.cs.session.intensity_rpe_target, sets)
               }
-              strength={cs.strength ?? null}
-              onReset={props.locked ? undefined : () => reset(cs.id)}
-              resetting={resetting === cs.id}
-              date={dayDateOf(props.weekStart, cs.session.day_hint)}
+              strength={item.cs.strength ?? null}
+              onReset={props.locked ? undefined : () => reset(item.cs.id)}
+              resetting={resetting === item.cs.id}
+              date={dayDateOf(props.weekStart, item.cs.session.day_hint)}
               substitutions={substitutions}
               onSwap={props.locked ? undefined : (station) => setSwapStation(station)}
-              showSlot={doubleDays.has(cs.session.day_hint)}
+              showSlot={doubleDays.has(item.cs.session.day_hint)}
               onMove={
-                props.locked ? undefined : (day, slot) => void move(cs.id, day, slot)
+                props.locked ? undefined : (day, slot) => void move(item.cs.id, day, slot)
               }
-              moving={movingId === cs.id}
+              moving={movingId === item.cs.id}
               occupied={occupied}
             />
-          ))}
+            ),
+          )}
         </div>
 
         <aside className="space-y-4">
@@ -810,6 +830,56 @@ function SwapSheet({
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+const REST_DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/**
+ * A day with nothing on it — shown, because it is part of the plan.
+ *
+ * The week used to render as a list of the days that carry work, which left an
+ * athlete counting backwards from Thursday to work out whether Wednesday was a
+ * rest day or a session they had already logged away. A day off is a decision
+ * the plan made; it deserves to be visible as one.
+ *
+ * Deliberately inert: no chevron, no log buttons, nothing to tap. Adaptation
+ * happens here, and there is nothing to report about it.
+ */
+function RestCard({
+  day,
+  date,
+  pinned,
+  today,
+}: {
+  day: number;
+  date: string;
+  /** The athlete fixed this day in Setup, rather than it just falling empty. */
+  pinned: boolean;
+  today: boolean;
+}) {
+  return (
+    <div
+      className={`group relative flex gap-3.5 rounded-panel border border-dashed p-4 ${
+        today ? "border-edge-strong bg-rack/40" : "border-edge/60 bg-lane/25"
+      }`}
+    >
+      <span className="rail self-stretch text-edge-strong" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span className="font-mono text-micro font-bold uppercase tracking-widest text-smoke">
+            {REST_DAY_LABELS[day] ?? `D${day}`}
+            <span className="ml-1.5 font-normal">{fmtDayDate(date)}</span>
+          </span>
+          <span className="text-lead font-semibold leading-tight text-ash">Rest day</span>
+        </div>
+        <p className="mt-0.5 text-meta leading-relaxed text-smoke">
+          {pinned
+            ? "One of your fixed rest days. Nothing is scheduled and nothing is missing."
+            : "Nothing scheduled. This is where the last few days turn into fitness."}
+        </p>
       </div>
     </div>
   );

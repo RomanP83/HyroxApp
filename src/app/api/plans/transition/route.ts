@@ -15,11 +15,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
-import { loadLibrary, persistPlan } from "@/lib/persistPlan";
-import { loadDayOverrides } from "@/lib/dayOverrides";
+import { buildTransitionBlock } from "@/lib/transitionBlock";
 import { nextMonday, weekStartOf } from "@/lib/planWeek";
-import { generatePlan, transitionWeeksFor, type AthleteProfile } from "@/lib/engine";
-import { loadSeasonRaces, pickMainRace, planWeeksTo } from "@/lib/seasonCalendar";
+import { type AthleteProfile } from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 
 export const runtime = "nodejs";
@@ -58,48 +56,16 @@ export async function POST(req: Request) {
   const today = new Date().toISOString().slice(0, 10);
   const startsOn = weekStartOf(parsed.data.starts_on ?? nextMonday(today), 1);
 
-  // How long the block runs is a question about the next race, not a
-  // preference: the race block wants its full runway, and everything before
-  // that is where the off-season module stretches out. With a race already in
-  // the calendar the athlete does not have to work that out.
-  const calendar = await loadSeasonRaces(supabase, profile.id);
-  const nextRace = pickMainRace(calendar, startsOn);
-  const weeks =
-    parsed.data.weeks ??
-    transitionWeeksFor(nextRace ? planWeeksTo(nextRace.date, startsOn, 1) : null);
-
-  // Continuing rather than starting. When the athlete's last plan was itself a
-  // transition block, this one picks up at the off-season: the three days of
-  // nothing belong after a race, not after twenty weeks of loading.
-  const { data: previous } = await supabase
-    .from("plans")
-    .select("kind")
-    .eq("profile_id", profile.id)
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const firstModule = previous?.kind === "transition" ? ("offseason" as const) : ("reset" as const);
-  // The block's own last day stands where a race date would: the plan ends
-  // when it ends, and nothing is periodised towards it.
-  const endsOn = weekStartOf(startsOn, weeks + 1);
-
-  let planId: string;
+  let result;
   try {
-    const plan = generatePlan({
+    result = await buildTransitionBlock({
+      supabase,
       profile,
       state: stateFromRow(stateRow as AthleteStateRow),
-      library: await loadLibrary(supabase),
-      weeksToRace: weeks,
-      mode: "transition",
-      firstModule,
-      startDate: startsOn,
-      dayOverrides: await loadDayOverrides(supabase, profile.id, today),
+      startsOn,
+      today,
+      weeks: parsed.data.weeks,
     });
-    planId = await persistPlan(
-      supabase,
-      { profileId: profile.id, raceDate: endsOn, startsOn, kind: "transition" },
-      plan,
-    );
   } catch (e) {
     return NextResponse.json(
       {
@@ -112,11 +78,5 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({
-    planId,
-    weeks,
-    starts_on: startsOn,
-    ends_on: endsOn,
-    first_module: firstModule,
-  });
+  return NextResponse.json(result);
 }

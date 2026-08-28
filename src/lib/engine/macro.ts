@@ -221,6 +221,20 @@ export function transitionIsDeload(
  * never to nothing, because the week after a race is a reset whatever else is
  * true.
  */
+/**
+ * Does a race fit inside a race block, or is it still too far to periodise for?
+ *
+ * A race cycle ends in a peak and a taper, and both are promises about a date.
+ * Built for a race twenty months out, the plan was simply truncated to
+ * PLAN_MAX_WEEKS and tapered at the end of it — which put the taper forty weeks
+ * before the race it was tapering into. Everything beyond the block's own
+ * length is transition work: base volume with nothing to taper into, and the
+ * race block starts when the race is actually in range.
+ */
+export function raceBlockFits(weeksToRace: number | null): boolean {
+  return weeksToRace != null && weeksToRace <= PLAN_MAX_WEEKS;
+}
+
 export function transitionWeeksFor(weeksToNextRace: number | null): number {
   // No race in the calendar: the block has no end anyone has worked out, so it
   // runs as far as the plan format goes. Four weeks would cut the off-season —

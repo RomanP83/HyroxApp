@@ -478,6 +478,22 @@ seine volle Anlaufstrecke (16 Wochen), alles davor ist Übergang:
 
 Nie null: Die Woche nach einem Rennen ist ein Reset, egal wie eng es wird.
 
+**Der Übergangsblock steht auch *vor* dem ersten Rennen.** Ein Rennzyklus endet in Peak und Taper,
+und beides sind Versprechen an ein Datum. Liegt das Rennen weiter weg als die 20 Wochen, die ein
+Plan lang sein kann, lässt sich dafür nicht periodisieren — dann baut die App **zuerst einen
+Übergangsblock** und startet den Rennzyklus, sobald das Rennen in Reichweite ist. Das gilt im
+Onboarding wie beim Bauen aus dem Saisonkalender.
+
+*Vorher wurde in diesem Fall der Rennzyklus einfach auf 20 Wochen abgeschnitten.* Bei einem Rennen
+in 61 Wochen lag der Taper damit in Woche 20 — **41 Wochen zu früh** —, während oben der Countdown
+zum echten Renntermin lief. Wer eine 60-Wochen-Saison angelegt hatte, sah auf `/plan` trotzdem einen
+20-Wochen-Zyklus mit Peak und Taper, der nie stattfinden konnte.
+
+**Bestehende Pläne werden automatisch umgestellt.** Der nächtliche Lauf prüft jeden aktiven Plan auf
+seine Form, in beide Richtungen: Ein Rennzyklus, dessen Rennen zu weit weg ist, wird zum
+Übergangsblock; ein Übergangsblock, dessen Rennen in Reichweite gekommen ist, wird zum Rennzyklus.
+Du musst nichts anklicken.
+
 **Ohne Rennen läuft der Block offen.** Die Frage „wie lang?" hat dann keine Antwort, die jemand
 ausrechnen könnte — also bekommt er die 20 Wochen, die das Planformat hergibt: Reset,
 Re-Introduction, Volume Reload und **17 Wochen Off-Season** in Vierwochenzyklen (Deload in Woche 7,
@@ -932,6 +948,8 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Fehler behoben:** Bei einem Rennen, das weiter als 20 Wochen entfernt ist, wurde der Rennzyklus abgeschnitten und taperte Wochen bis Monate zu früh. Solche Pläne sind jetzt Übergangsblöcke, der Rennzyklus startet in Reichweite — bestehende Pläne stellt der nächtliche Lauf selbst um | [6](#6-wie-sich-der-plan-anpasst) |
+| **Fehler behoben:** Ein Übergangsblock wurde bei jedem nächtlichen Neuaufbau still zu einem Rennzyklus, der auf sein eigenes Blockende hin taperte | [6](#6-wie-sich-der-plan-anpasst) |
 | **Fehler behoben:** Von Hand verschobene Einheiten gingen beim nächsten Neuaufbau verloren — sie wurden unter der falschen Kalenderwoche abgelegt (Erstellungsdatum statt Startdatum des Plans) und passten danach auf keine Woche | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Ruhetage bekommen eine eigene Kachel: die Woche zeigt alle sieben Tage, feste Ruhetage sind als solche benannt. Die Woche liest sich jetzt auch nach einem Verschieben von Montag bis Sonntag | [4](#4-plan--die-trainingswoche) |
 | **Fehler behoben:** Bei importiertem Kraftprogramm stand der Finisher direkt nach dem Warm-up und die eigentliche Arbeit ganz unten — das eigene Programm wurde ans Ende gehängt statt an die Stelle des Bibliotheksblocks | [9](#9-strength--eigenes-kraftprogramm) |

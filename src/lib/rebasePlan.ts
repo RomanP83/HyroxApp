@@ -14,6 +14,7 @@ import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar
 import { loadDayOverrides } from "@/lib/dayOverrides";
 import { raceIsBehind, weekStartOf } from "@/lib/planWeek";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
+import { buildTransitionBlock } from "@/lib/transitionBlock";
 
 export async function rebasePlan(
   admin: SupabaseClient,
@@ -28,7 +29,7 @@ export async function rebasePlan(
 ): Promise<string | null> {
   const { data: plan } = await admin
     .from("plans")
-    .select("id, profile_id, race_id, race_date, stripe_payment_id")
+    .select("id, profile_id, race_id, race_date, kind, stripe_payment_id")
     .eq("id", planId)
     .single();
   if (!plan) return null;
@@ -48,6 +49,30 @@ export async function rebasePlan(
   const today = new Date().toISOString().slice(0, 10);
   const start = weekStartOf(startsOn?.slice(0, 10) ?? today, 1);
   const raceDate = String(plan.race_date).slice(0, 10);
+
+  // A transition block rebases into a transition block. persistPlan defaults
+  // kind to "race" and this never passed one, so every nightly rebase quietly
+  // turned a transition block into a race cycle — peaking and tapering into the
+  // block's own end date, which is not a race and was never meant to be one.
+  if (plan.kind === "transition") {
+    const block = await buildTransitionBlock({
+      supabase: admin,
+      profile,
+      state,
+      startsOn: start,
+      today,
+    });
+    // persist_plan abandons the previous active plan in the same transaction,
+    // so the old block needs no separate retirement here.
+    await admin.from("plan_adjustments").insert({
+      plan_id: block.planId,
+      layer: "macro",
+      trigger: "pause",
+      action_taken: { type: "rebase", from_plan: plan.id, kind: "transition" },
+      reason,
+    });
+    return block.planId;
+  }
 
   // Never rebase past a race that has already happened. planWeeksTo counts
   // weeks TO the race; against a date in the past it clamps to its floor and

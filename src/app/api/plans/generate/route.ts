@@ -8,8 +8,11 @@ import {
   generatePlan,
   goalSecondsForLevel,
   initialAthleteState,
+  PLAN_MAX_WEEKS,
+  raceBlockFits,
   type AthleteProfile,
 } from "@/lib/engine";
+import { buildTransitionBlock } from "@/lib/transitionBlock";
 import { nextMonday, weekStartOf } from "@/lib/planWeek";
 
 const Body = z.object({
@@ -102,6 +105,10 @@ export async function POST(req: Request) {
   // Monday the grid is counted from, and the weeks run to the race either way.
   const startsOn = weekStartOf(body.starts_on?.slice(0, 10) ?? nextMonday(today), 1);
   const weeksToRace = planWeeksTo(raceDate, startsOn);
+  // Same rule as /api/plans/from-season: a race beyond the block's own length
+  // gets transition work first rather than a cycle truncated into an early
+  // taper. See raceBlockFits.
+  const asTransition = !raceBlockFits(weeksToRace);
 
   // The target race is always in the plan, whether or not it is in the season
   // calendar yet — a plan that does not end on its race day is a plan with a
@@ -115,6 +122,38 @@ export async function POST(req: Request) {
     ? calendar
     : [...calendar, { date: raceDate, type: named ?? "Race day", priority: "A" as const, is_anchor: true }];
   const races = racesForPlan(withTarget, today, raceDate);
+
+  if (asTransition) {
+    try {
+      const block = await buildTransitionBlock({
+        supabase,
+        profile,
+        state,
+        startsOn,
+        today,
+      });
+      return NextResponse.json({
+        planId: block.planId,
+        kind: "transition",
+        weeks: block.weeks,
+        ends_on: block.ends_on,
+        weeksToRace,
+        predicted_race_time_sec: state.predicted_race_time_sec,
+        reason:
+          `${raceDate} is more than ${PLAN_MAX_WEEKS} weeks out — too far to peak and taper for. ` +
+          `You start on a ${block.weeks}-week transition block; the race cycle begins when the race is in range.`,
+      });
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: "plan_build_failed",
+          detail: `Could not build the transition block: ${e instanceof Error ? e.message : "unknown error"}`,
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   let planId: string;
   try {
     const library = await loadLibrary(supabase);

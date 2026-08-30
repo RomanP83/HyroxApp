@@ -79,6 +79,10 @@ export function SettingsClient(props: SettingsProps) {
     setSigningOut(true);
     haptic("confirm");
     await supabaseBrowser().auth.signOut();
+    // The offline cache holds rendered pages with this athlete's sessions in
+    // them. Signing out has to take them off the device with it, or "sign out"
+    // means "sign out, except for everything already on screen".
+    navigator.serviceWorker?.controller?.postMessage("clear-cache");
     // refresh() as well as push(): the session lives in a cookie the server
     // components read, so the router cache has to be dropped or the next
     // navigation still renders as the signed-in athlete.

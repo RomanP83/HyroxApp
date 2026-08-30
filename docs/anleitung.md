@@ -887,6 +887,28 @@ Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht vo
 
 ## 15. Eine App für einen Athleten
 
+### Offline in der Halle
+
+Die App lässt sich **auf dem Handy installieren** („Zum Startbildschirm hinzufügen") und startet dann
+direkt auf `/plan`.
+
+**Was du schon einmal geöffnet hast, bleibt lesbar — auch ohne Empfang.** Eine Seite wird beim
+Aufruf mitgespeichert; im Keller bekommst du die zuletzt geladene Fassung. Eine Seite, die du noch
+nie geöffnet hast, sagt das („No signal"), statt leer zu bleiben.
+
+Solange kein Netz da ist, steht oben ein **Hinweisband**. Das ist der wichtigere Teil: Eine
+Seite aus dem Cache sieht aus wie eine frische, und eine Trainingswoche, die stillschweigend den
+Stand von gestern zeigt, wäre schlimmer als gar kein Offline-Modus.
+
+**Loggen braucht Empfang — mit Absicht.** Beim Loggen läuft die Kalibrierung auf dem Server. Eine
+Warteschlange, die später nachspielt, würde Einheiten in der falschen Reihenfolge verrechnen und
+Pace-Zonen und Tiers um Beträge verschieben, die niemand angefordert hat. Ein Log ohne Netz sagt
+das und bleibt ungetippt — es kann die zwanzig Minuten bis zum Ausgang warten.
+
+**Abmelden räumt den Cache mit ab.** Die gespeicherten Seiten sind fertig gerendertes HTML mit
+deinen Einheiten darin; sonst hieße „abmelden" nur „abmelden, außer für alles, was schon da ist".
+
+
 Diese App wird von genau einer Person für ihr eigenes Training benutzt. Was nur dazu da war, sie an
 andere zu verkaufen, ist entfernt:
 
@@ -965,6 +987,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Offline nutzbar und aufs Handy installierbar: bereits geöffnete Seiten bleiben ohne Empfang lesbar, mit Hinweisband; Loggen braucht bewusst weiter Netz; Abmelden löscht den Cache | [15](#15-eine-app-für-einen-athleten) |
 | Datenexport im Setup: alles Geloggte als eine JSON-Datei, mit den Blöcken der Einheiten darin — die Sicherungskopie für ein Supabase-Projekt, das sonst allein dasteht | [8](#8-settings--setup--tools) |
 | Auf Einzelnutzung zugeschnitten: Stripe, Paywall und Wochensperre entfernt (jede Woche ist vollständig da), Pitch-Startseite und SEO-Landingpages entfernt (`/` führt auf `/plan`), Betriebs-Kennzahlen entfernt | [15](#15-eine-app-für-einen-athleten) |
 | **Fehler behoben:** Bei einem Rennen, das weiter als 20 Wochen entfernt ist, wurde der Rennzyklus abgeschnitten und taperte Wochen bis Monate zu früh. Solche Pläne sind jetzt Übergangsblöcke, der Rennzyklus startet in Reichweite — bestehende Pläne stellt der nächtliche Lauf selbst um | [6](#6-wie-sich-der-plan-anpasst) |

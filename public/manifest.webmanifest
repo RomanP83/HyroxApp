@@ -1,0 +1,16 @@
+{
+  "name": "Hyrox Hub",
+  "short_name": "Hyrox Hub",
+  "description": "Your training week, on the device you take to the gym.",
+  "start_url": "/plan",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d1114",
+  "theme_color": "#0d1114",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

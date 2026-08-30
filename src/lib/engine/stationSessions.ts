@@ -64,6 +64,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 4,
+    stations: ["ski_erg", "row"],
     lines: [
       work("SkiErg — hold one pace, do not chase it", { distance_m: 250, rest_sec: 90 }),
       work("RowErg — legs, hips, arms, in that order", { distance_m: 250, rest_sec: 90 }),
@@ -79,6 +80,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 4,
     rest_between_rounds_sec: 120,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       work("Sled push, light — low centre of gravity, small fast steps", {
         distance_m: 20,
@@ -100,6 +102,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "farmers_carry",
     rounds: 3,
     rest_between_rounds_sec: 90,
+    stations: ["farmers_carry", "sandbag_lunges"],
     lines: [
       work("Goblet squats — full depth, chest up", { reps: 12 }),
       work("Farmers carry, light", { distance_m: 40, load_by_division: { open: "2×16 kg", pro: "2×20 kg" } }),
@@ -119,6 +122,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 60,
+    stations: ["ski_erg", "wall_balls"],
     lines: [
       work("SkiErg", { distance_m: 500 }),
       work("Wall balls, light — hip crease below the knee every rep", {
@@ -136,6 +140,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "Sixteen minutes on the clock: three working minutes and one off, four times through. The clock does the pacing so the athlete does not have to.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push", "farmers_carry", "burpee_broad_jump"],
     lines: [
       work("Minute 1 — sled push, moderate", {
         distance_m: 15,
@@ -157,6 +162,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["row", "sandbag_lunges", "wall_balls"],
     lines: [
       work("RowErg", { distance_m: 500 }),
       work("Walking lunges, light", { distance_m: 20 }),
@@ -176,6 +182,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["ski_erg", "sled_push", "sled_pull"],
     lines: [
       work("SkiErg", { distance_m: 500 }),
       work("Sled push at race weight", { distance_m: 25, load_by_division: PUSH }),
@@ -193,6 +200,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["row", "farmers_carry", "burpee_broad_jump", "wall_balls"],
     lines: [
       work("RowErg", { distance_m: 500 }),
       work("Farmers carry", { distance_m: 50, load_by_division: CARRY }),
@@ -210,6 +218,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "burpee_broad_jump",
     needs_erg: true,
     rounds: 1,
+    stations: ["ski_erg", "sled_push", "sled_pull", "burpee_broad_jump"],
     lines: [
       work("SkiErg", { distance_m: 1000, rest_sec: 120 }),
       work("Sled push at race weight", { distance_m: 50, load_by_division: PUSH, rest_sec: 120 }),
@@ -230,6 +239,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 2,
     rest_between_rounds_sec: 90,
+    stations: ["ski_erg", "wall_balls"],
     lines: [
       work("SkiErg at race pace", { distance_m: 250 }),
       work("Wall balls", { reps: 10, load_by_division: BALL }),
@@ -244,6 +254,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "Half a sled length at race weight with full recovery between sets — the nervous system is reminded of the load without being asked to endure it.",
     station: "sled_push",
     rounds: 3,
+    stations: ["sled_push", "farmers_carry"],
     lines: [
       work("Sled push at race weight", { distance_m: 12.5, load_by_division: PUSH }),
       work("Farmers carry", { distance_m: 25, load_by_division: CARRY }),
@@ -260,6 +271,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "burpee_broad_jump",
     needs_erg: true,
     rounds: 2,
+    stations: ["row", "burpee_broad_jump"],
     lines: [
       work("RowErg, controlled", { distance_m: 250 }),
       work("Burpee broad jumps — clean chest-to-floor, full jump", { reps: 5 }),
@@ -278,6 +290,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 5,
     rest_between_rounds_sec: 90,
+    stations: ["ski_erg", "row"],
     lines: [
       work("500 m at threshold pace — alternate RowErg and SkiErg each round", { distance_m: 500 }),
     ],
@@ -292,6 +305,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 5,
     rest_between_rounds_sec: 120,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       work("Sled push, +20% over race weight", {
         distance_m: 25,
@@ -313,6 +327,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sandbag_lunges",
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["sandbag_lunges", "farmers_carry", "burpee_broad_jump"],
     lines: [
       work("Sandbag lunges", { distance_m: 40, load_by_division: { open: "10 kg", pro: "20 kg" } }),
       work("Farmers carry", { distance_m: 60, load_by_division: CARRY }),
@@ -330,6 +345,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["ski_erg", "sled_push", "wall_balls"],
     lines: [
       work("SkiErg under 2:00 / 500 m", { distance_m: 500 }),
       work("Sled push at race weight", { distance_m: 25, load_by_division: PUSH }),
@@ -347,6 +363,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["row", "sled_pull", "farmers_carry"],
     lines: [
       work("RowErg", { distance_m: 500 }),
       work("Sled pull at race weight", { distance_m: 50, load_by_division: PULL }),
@@ -363,6 +380,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "burpee_broad_jump",
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["burpee_broad_jump", "wall_balls"],
     lines: [
       work("Burpee broad jumps", { reps: 30 }),
       work("Wall balls at open weight", { reps: 30, load_by_division: { open: "6 kg", pro: "6 kg" } }),
@@ -379,6 +397,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 150,
+    stations: ["ski_erg", "sled_pull", "row"],
     lines: [
       work("SkiErg", { distance_m: 1000 }),
       work("Sled pull at race weight", { distance_m: 50, load_by_division: PULL }),
@@ -395,6 +414,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 3,
     rest_between_rounds_sec: 150,
+    stations: ["sled_push", "sandbag_lunges", "wall_balls"],
     lines: [
       work("Sled push at race weight", { distance_m: 50, load_by_division: PUSH }),
       work("Sandbag lunges", { distance_m: 50, load_by_division: BAG }),
@@ -410,6 +430,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "All eight stations at half distance, straight through, a minute between. The full station load of a race without a single kilometre of impact.",
     needs_erg: true,
     rounds: 1,
+    stations: ["ski_erg", "sled_push", "sled_pull", "burpee_broad_jump", "row", "farmers_carry", "sandbag_lunges", "wall_balls"],
     lines: [
       work("SkiErg", { distance_m: 500, rest_sec: 60 }),
       work("Sled push at race weight", { distance_m: 25, load_by_division: PUSH, rest_sec: 60 }),
@@ -432,6 +453,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["ski_erg", "sled_push"],
     lines: [
       work("SkiErg at race pace", { distance_m: 250 }),
       work("Sled push, explosive — accelerate, do not grind", {
@@ -450,6 +472,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "wall_balls",
     needs_erg: true,
     rounds: 2,
+    stations: ["row", "wall_balls"],
     lines: [
       work("RowErg", { distance_m: 200 }),
       work("Wall balls, unbroken", { reps: 15, load_by_division: BALL }),
@@ -464,6 +487,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "Four jumps per set, chasing distance rather than count — the nervous system stays sharp while the legs stay fresh.",
     station: "farmers_carry",
     rounds: 3,
+    stations: ["farmers_carry", "burpee_broad_jump"],
     lines: [
       work("Farmers carry, brisk", { distance_m: 20, load_by_division: CARRY }),
       work("Burpee broad jumps — maximum distance per jump", { reps: 4 }),
@@ -482,6 +506,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 6,
     rest_between_rounds_sec: 60,
+    stations: ["ski_erg"],
     lines: [work("SkiErg, sub 1:55 / 500 m", { distance_m: 500 })],
   },
   {
@@ -494,6 +519,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 5,
     rest_between_rounds_sec: 120,
+    stations: ["sled_push", "sled_pull", "farmers_carry"],
     lines: [
       work("Sled push, race weight +30 kg", {
         distance_m: 25,
@@ -517,6 +543,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 120,
+    stations: ["row", "burpee_broad_jump"],
     lines: [
       work("RowErg", { distance_m: 500 }),
       work("Burpee broad jumps — hold the distance per jump", { reps: 20 }),
@@ -533,6 +560,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "wall_balls",
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["sled_push", "wall_balls"],
     lines: [
       work("Sled push at race weight", { distance_m: 50, load_by_division: PUSH }),
       work("Wall balls, unbroken", { reps: 30, load_by_division: BALL }),
@@ -549,6 +577,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["row", "sled_pull", "farmers_carry"],
     lines: [
       work("RowErg, sub 1:45 / 500 m", { distance_m: 500 }),
       work("Sled pull at race weight", { distance_m: 50, load_by_division: PULL }),
@@ -565,6 +594,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sandbag_lunges",
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["sandbag_lunges", "burpee_broad_jump"],
     lines: [
       work("Sandbag lunges", { distance_m: 60, load_by_division: BAG }),
       work("Burpee broad jumps", { reps: 25 }),
@@ -581,6 +611,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 180,
+    stations: ["ski_erg", "row"],
     lines: [
       work("SkiErg at 3:45–3:55 / 1000 m", { distance_m: 1000 }),
       work("RowErg at 3:45–3:55 / 1000 m", { distance_m: 1000 }),
@@ -596,6 +627,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["sled_push", "sled_pull", "sandbag_lunges"],
     lines: [
       work("Sled push at race weight", { distance_m: 50, load_by_division: PUSH }),
       work("Sled pull at race weight", { distance_m: 50, load_by_division: PULL }),
@@ -612,6 +644,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "wall_balls",
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["burpee_broad_jump", "wall_balls"],
     lines: [
       work("Burpee broad jumps", { reps: 25 }),
       work("Wall balls at race weight, unbroken", { reps: 35, load_by_division: BALL }),
@@ -628,6 +661,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["ski_erg", "sled_push"],
     lines: [
       work("SkiErg at race pace", { distance_m: 250 }),
       work("Sled push at race weight", { distance_m: 12.5, load_by_division: PUSH }),
@@ -643,6 +677,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "wall_balls",
     needs_erg: true,
     rounds: 2,
+    stations: ["row", "wall_balls"],
     lines: [
       work("RowErg", { distance_m: 250 }),
       work("Wall balls at match speed", { reps: 15, load_by_division: BALL }),
@@ -657,6 +692,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "Four jumps, a short carry, three times through. Enough to wake the nervous system, far too little to tire anything.",
     station: "burpee_broad_jump",
     rounds: 3,
+    stations: ["burpee_broad_jump", "farmers_carry"],
     lines: [
       work("Burpee broad jumps, explosive", { reps: 4 }),
       work("Farmers carry", { distance_m: 20, load_by_division: CARRY }),
@@ -674,6 +710,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 1,
+    stations: ["ski_erg", "row"],
     lines: [
       work("SkiErg, strictly below LT1 — 10 min"),
       work("RowErg, strictly below LT1 — 10 min"),
@@ -691,6 +728,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 6,
     rest_between_rounds_sec: 120,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       work("Sled push, race weight +30 kg", {
         distance_m: 25,
@@ -712,6 +750,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "farmers_carry",
     rounds: 5,
     rest_between_rounds_sec: 90,
+    stations: ["farmers_carry", "sandbag_lunges"],
     lines: [
       work("Farmers carry, heavy", { distance_m: 100, load_by_division: { open: "2×32 kg", pro: "2×32 kg" } }),
       work("Sandbag lunges", { distance_m: 40, load_by_division: { open: "30 kg", pro: "30 kg" } }),
@@ -728,6 +767,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["ski_erg", "sled_push", "sled_pull", "sandbag_lunges"],
     lines: [
       work("SkiErg, sub 1:48 / 500 m", { distance_m: 500 }),
       work("Sled push at race weight — 25 m out, 25 m back", { distance_m: 50, load_by_division: PUSH }),
@@ -746,6 +786,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["row", "burpee_broad_jump", "farmers_carry", "wall_balls"],
     lines: [
       work("RowErg, sub 1:45 / 500 m", { distance_m: 500 }),
       work("Burpee broad jumps — keep one rhythm", { reps: 25 }),
@@ -764,6 +805,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 5,
     rest_between_rounds_sec: 120,
+    stations: ["ski_erg", "sled_push", "row", "sled_pull"],
     lines: [
       work("SkiErg, all out", { distance_m: 250 }),
       work("Sled push at race pace", { distance_m: 25, load_by_division: PUSH }),
@@ -782,6 +824,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["ski_erg", "row", "wall_balls"],
     lines: [
       work("SkiErg at race pace, 3:45–3:55 / 1000 m", { distance_m: 1000 }),
       work("RowErg at race pace, 3:45–3:55 / 1000 m", { distance_m: 1000 }),
@@ -798,6 +841,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_pull",
     rounds: 2,
     rest_between_rounds_sec: 180,
+    stations: ["sled_push", "sled_pull", "sandbag_lunges", "farmers_carry"],
     lines: [
       work("Sled push at race weight", { distance_m: 50, load_by_division: PUSH, rest_sec: 15 }),
       work("Sled pull at race weight", { distance_m: 50, load_by_division: PULL, rest_sec: 15 }),
@@ -815,6 +859,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "burpee_broad_jump",
     rounds: 3,
     rest_between_rounds_sec: 180,
+    stations: ["burpee_broad_jump", "wall_balls"],
     lines: [
       work("Burpee broad jumps", { distance_m: 80 }),
       work("Wall balls at race weight, unbroken", { reps: 50, load_by_division: BALL }),
@@ -831,6 +876,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 90,
+    stations: ["ski_erg", "sled_push"],
     lines: [
       work("SkiErg at race pace", { distance_m: 250 }),
       work("Sled push at race weight", { distance_m: 12.5, load_by_division: PUSH }),
@@ -846,6 +892,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "wall_balls",
     needs_erg: true,
     rounds: 2,
+    stations: ["row", "wall_balls"],
     lines: [
       work("RowErg, smooth", { distance_m: 250 }),
       work("Wall balls, unbroken — breathe on the catch", { reps: 20, load_by_division: BALL }),
@@ -860,6 +907,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "Three jumps and a fast twenty metres, four times. Pure neuromuscular priming — if it feels like training, it was too much.",
     station: "burpee_broad_jump",
     rounds: 4,
+    stations: ["burpee_broad_jump", "farmers_carry"],
     lines: [
       work("Broad jumps, explosive — no burpee, full recovery", { reps: 3 }),
       work("Farmers walk, fast", { distance_m: 20, load_by_division: CARRY }),
@@ -878,6 +926,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 8,
     rest_between_rounds_sec: 45,
+    stations: ["ski_erg"],
     lines: [work("SkiErg, sub 1:42 / 500 m — active rest between", { distance_m: 500 })],
   },
   {
@@ -890,6 +939,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 6,
     rest_between_rounds_sec: 150,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       work("Sled push, at or above pro race weight", {
         distance_m: 20,
@@ -911,6 +961,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sandbag_lunges",
     rounds: 5,
     rest_between_rounds_sec: 90,
+    stations: ["sandbag_lunges", "farmers_carry"],
     lines: [
       work("Sandbag lunges", { distance_m: 60, load_by_division: { open: "30 kg", pro: "30 kg" } }),
       work("Farmers carry, heavy", { distance_m: 100, load_by_division: { open: "2×36 kg", pro: "2×36 kg" } }),
@@ -927,6 +978,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_push",
     rounds: 5,
     rest_between_rounds_sec: 60,
+    stations: ["sled_push", "sled_pull", "wall_balls"],
     lines: [
       work("Sled push at pro weight, sub 1:15", {
         distance_m: 50,
@@ -947,6 +999,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 120,
+    stations: ["ski_erg", "sled_pull", "row"],
     lines: [
       work("SkiErg, sub 1:38 / 500 m", { distance_m: 750 }),
       work("Sled pull at race weight", { distance_m: 50, load_by_division: PULL }),
@@ -963,6 +1016,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "burpee_broad_jump",
     rounds: 4,
     rest_between_rounds_sec: 120,
+    stations: ["burpee_broad_jump", "sandbag_lunges"],
     lines: [
       work("Burpee broad jumps, under 2:40", { distance_m: 80 }),
       work("Sandbag lunges, under 3:15", { distance_m: 100, load_by_division: BAG }),
@@ -979,6 +1033,7 @@ export const STATION_SESSIONS: StationSession[] = [
     needs_erg: true,
     rounds: 2,
     rest_between_rounds_sec: 120,
+    stations: ["ski_erg", "row", "wall_balls"],
     lines: [
       work("SkiErg at race pace, sub 3:35 / 1000 m", { distance_m: 1000 }),
       work("RowErg at race pace, sub 3:35 / 1000 m", { distance_m: 1000 }),
@@ -994,6 +1049,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "Every strength and carry station straight through with no rest between them at all. Transitions are timed the way the race times them: at zero.",
     station: "sled_push",
     rounds: 1,
+    stations: ["sled_push", "sled_pull", "farmers_carry", "sandbag_lunges"],
     lines: [
       work("Sled push at race weight", { distance_m: 50, load_by_division: PUSH }),
       work("Sled pull at race weight — no rest", { distance_m: 50, load_by_division: PULL }),
@@ -1010,6 +1066,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "A hundred unbroken wall balls for time, three minutes, then eighty metres of jumps all out. The hardest single session in the catalogue.",
     station: "wall_balls",
     rounds: 1,
+    stations: ["wall_balls", "burpee_broad_jump"],
     lines: [
       work("Wall balls, unbroken, for time", {
         reps: 100,
@@ -1029,6 +1086,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 2,
+    stations: ["ski_erg", "sled_push", "wall_balls"],
     lines: [
       work("SkiErg at race pace", { distance_m: 300 }),
       work("Sled push at race weight", { distance_m: 12.5, load_by_division: PUSH }),
@@ -1045,6 +1103,7 @@ export const STATION_SESSIONS: StationSession[] = [
     station: "sled_pull",
     needs_erg: true,
     rounds: 2,
+    stations: ["row", "sled_pull", "burpee_broad_jump"],
     lines: [
       work("RowErg at race pace", { distance_m: 300 }),
       work("Sled pull at race weight", { distance_m: 12.5, load_by_division: PULL }),
@@ -1060,6 +1119,7 @@ export const STATION_SESSIONS: StationSession[] = [
     why: "A fast twenty-metre carry and short reactive work, three times. Nothing here is conditioning — it is the nervous system being switched on.",
     station: "farmers_carry",
     rounds: 3,
+    stations: ["farmers_carry"],
     lines: [
       work("Farmers carry at high tempo", { distance_m: 20, load_by_division: CARRY }),
       work("Reactivity drills — pogo hops, short contacts, quick feet", { reps: 20 }),

@@ -188,10 +188,21 @@ Anteils — ungedeckelt nahm eine einzige teure Station neun von sechzehn Wochen
 auf dem obersten Tier, kostet keine etwas, und die Verteilung fällt auf einen reinen Rundlauf
 zurück.
 
-*Eine ehrliche Grenze:* Ein Katalog-Pool für ein Level und eine Phase enthält drei Sessions und
-deckt damit **drei der acht Stationen** ab. Gewichtet werden kann also immer nur unter denen, die
-diese Phase überhaupt trainiert. Über einen ganzen Zyklus folgt die Häufigkeit den Kosten deshalb
-nur grob — wer das enger haben will, braucht mehr Katalog-Sessions je Phase, nicht mehr Logik.
+**Eine Einheit trainiert selten nur eine Station.** Nur 3 der 60 Stationseinheiten trainieren genau
+eine; der Rest kommt auf zwei bis acht. „Row, Lunge, Throw" ist als *Row* überschrieben und enthält
+RowErg, Ausfallschritte und Wall Balls. Jede Session führt deshalb **alle** Stationen, die sie
+tatsächlich trainiert — die Überschrift ist nur ihr Schwerpunkt. Die Gewichtung zählt die echten,
+nicht die Überschriften; sonst würde der Farmers Carry als unterversorgt gelten, obwohl er in einem
+16-Wochen-Plan achtmal vorkommt.
+
+**Krafteinheiten zählen nicht als Stationstraining.** Sie sind da, um dich stärker zu machen. Sie
+mitzuzählen würde behaupten, der Plan decke Stationen ab, die er nicht abdeckt. Dasselbe gilt für
+den Intervall-Katalog — die einzige Laufeinheit ganz ohne Stationsarbeit, mit Absicht.
+
+*Eine ehrliche Grenze:* Ein Katalog-Pool für ein Level und eine Phase enthält drei Sessions. Über
+einen ganzen Zyklus folgt die Häufigkeit den Kosten deshalb nur grob: Gemessen an einem
+16-Wochen-Plan liegt sie zwischen 5 und 13 Einheiten je Station. Wer das enger haben will, braucht
+mehr Katalog-Sessions je Phase, nicht mehr Logik.
 
 **Stationsarbeit** hat seit demselben Prinzip einen eigenen Katalog: noch einmal 60 Sessions über
 fünf Level und vier Phasen. Isolierte Stationsarbeit trainiert Bewegungsökonomie, Kraftausdauer und
@@ -1001,6 +1012,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Jede Katalog-Einheit führt jetzt **alle** Stationen, die sie trainiert, nicht nur ihre Überschrift — 57 von 60 Stationseinheiten trainieren mehrere. Die Gewichtung rechnet damit; Kraft- und Intervalleinheiten zählen bewusst nicht als Stationstraining | [4](#4-plan--die-trainingswoche) |
 | Stationen werden nicht mehr blind rotiert: die Wochen einer Phase gehen gewichtet nach Rennkosten an die Stationen, mit Unter- und Obergrenze | [4](#4-plan--die-trainingswoche) |
 | **Fehler behoben:** Beim Loggen einer Stationseinheit wurde das Tier der Station aus der Wochenrotation verschoben statt das der tatsächlich trainierten — die stimmten in etwa einer von vier Wochen überein | [4](#4-plan--die-trainingswoche) |
 | Offline nutzbar und aufs Handy installierbar: bereits geöffnete Seiten bleiben ohne Empfang lesbar, mit Hinweisband; Loggen braucht bewusst weiter Netz; Abmelden löscht den Cache | [15](#15-eine-app-für-einen-athleten) |

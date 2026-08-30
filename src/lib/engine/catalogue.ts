@@ -56,8 +56,26 @@ export interface CatalogueSession {
   name: string;
   /** One line on the card: what this shape is for. */
   why: string;
-  /** The station this hammers — drives the weakness bias. */
+  /** The station this session is built around — its headline. */
   station?: Station;
+  /**
+   * EVERY station the session actually trains, headline included.
+   *
+   * `station` alone was a label, not a description: only 3 of the 60 station
+   * sessions train a single station, and 137 station appearances across the two
+   * catalogues went undeclared. Anything that reasons about how much a station
+   * gets trained has to read this, or it reasons about labels — the farmers
+   * carry was the headline of one session in a sixteen-week plan and appeared
+   * in eight.
+   *
+   * Empty is a real answer: goblet squats between two runs train no Hyrox
+   * station, and neither do roxzone transition drills.
+   *
+   * Strength sessions carry none of this on purpose. They are here to make the
+   * athlete stronger, not to train a station, and counting them would say the
+   * plan covers stations it does not.
+   */
+  stations?: Station[];
   /** Needs a SkiErg / RowErg to run at all. */
   needs_erg?: boolean;
   /**
@@ -130,6 +148,18 @@ function weakestStation(tiers: StationTiers): Station | null {
 }
 
 /**
+ * Every station a session trains.
+ *
+ * `stations` is authoritative where it is set; the headline is the fallback for
+ * anything that predates the field, so a catalogue without it still behaves as
+ * it did rather than silently training nothing.
+ */
+export function trainedStations(session: CatalogueSession): Station[] {
+  if (session.stations?.length) return session.stations;
+  return session.station ? [session.station] : [];
+}
+
+/**
  * The station this week should go after, chosen from what the pool can serve.
  *
  * Returns null when the caller gave no phase position or no costs — a single
@@ -141,7 +171,8 @@ function weightedFocus<T extends CatalogueSession>(
   q: CatalogueQuery,
 ): Station | null {
   if (!q.stationCosts || !q.weekInPhase || !q.phaseWeeks) return null;
-  const stations = [...new Set(eligible.map((s) => s.station).filter((s): s is Station => !!s))];
+  // Everything the pool can train, not everything it is labelled with.
+  const stations = [...new Set(eligible.flatMap((s) => trainedStations(s)))];
   if (!stations.length) return null;
   const order = weightedStationOrder(stations, q.stationCosts, q.phaseWeeks);
   return order.length ? order[(q.weekInPhase - 1) % order.length] : null;
@@ -178,11 +209,13 @@ export function pickFromCatalogue<T extends CatalogueSession>(
   // know something the tiers do not.
   const focus = scheduled ?? weakestStation(q.stationTiers);
   const words = (q.weaknesses ?? []).map((w) => w.toLowerCase());
-  const targeted = eligible.filter(
-    (s) =>
-      (focus && s.station === focus) ||
-      (s.station != null && words.some((w) => w.includes(s.station!.replace(/_/g, " ")))),
-  );
+  const targeted = eligible.filter((s) => {
+    const trains = trainedStations(s);
+    return (
+      (focus && trains.includes(focus)) ||
+      trains.some((st) => words.some((w) => w.includes(st.replace(/_/g, " "))))
+    );
+  });
 
   // With a schedule the focus changes week to week, so it fires every week.
   // WITHOUT one the focus is the weakest station and never moves, and firing it

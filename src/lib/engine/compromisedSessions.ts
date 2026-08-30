@@ -59,6 +59,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "The gentlest introduction: a light leg load between two easy runs, so the legs learn the handover before anything is heavy.",
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: [],
     lines: [
       run(400, "Zone 2 run"),
       work("Goblet squats, light", { reps: 15 }),
@@ -75,6 +76,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 4,
+    stations: ["ski_erg"],
     lines: [
       work("SkiErg, aerobic — steady, not a sprint", { distance_m: 250 }),
       run(500, "Zone 2 run, straight off the erg"),
@@ -89,6 +91,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "First contact with the sled-to-run handover, at a weight that lets the jog stay a jog.",
     station: "sled_push",
     rounds: 3,
+    stations: ["sled_push"],
     lines: [
       work("Sled push, light", {
         distance_m: 20,
@@ -106,6 +109,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two loads on top of a Zone 3-4 run: the first week the run afterwards feels like someone else's legs.",
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["burpee_broad_jump"],
     lines: [
       run(500, "Run, Zone 3-4"),
       work("Kettlebell deadlifts", { reps: 12, load_by_division: { open: "24 kg", pro: "32 kg" } }),
@@ -122,6 +126,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sandbag_lunges",
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges, light", {
         distance_m: 40,
@@ -140,6 +145,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 4,
+    stations: ["row", "sandbag_lunges"],
     lines: [
       work("Row", { distance_m: 250 }),
       work("Walking lunges", { distance_m: 20 }),
@@ -156,6 +162,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "wall_balls",
     needs_erg: true,
     rounds: 2,
+    stations: ["ski_erg", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("SkiErg", { distance_m: 500 }),
@@ -172,6 +179,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Grip and explosive work stacked in front of a full race-pace kilometre — the hardest handover in the race.",
     station: "burpee_broad_jump",
     rounds: 3,
+    stations: ["farmers_carry", "burpee_broad_jump"],
     lines: [
       work("Farmers carry", {
         distance_m: 50,
@@ -190,6 +198,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Four kilometres, four stations, race order. The dress rehearsal that costs a day instead of three.",
     needs_erg: true,
     rounds: 1,
+    stations: ["ski_erg", "sled_push", "sled_pull", "burpee_broad_jump"],
     lines: [
       work("Four runs, each broken by the next station in race order"),
       run(1000, "Run 1 → SkiErg 1000 m"),
@@ -207,6 +216,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Race pace touched, nothing emptied. Race week is for reminding the legs, not teaching them.",
     station: "wall_balls",
     rounds: 2,
+    stations: ["wall_balls"],
     lines: [
       run(400, "Run at race pace"),
       work("Wall balls", { reps: 10, load_by_division: { open: "6 kg", pro: "9 kg" } }),
@@ -223,6 +233,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg"],
     lines: [
       work("SkiErg", { distance_m: 200 }),
       run(500, "Run at race pace — focus on how fast you get moving"),
@@ -237,6 +248,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "One kilometre at race pace, one light sled, done. The last quality touch before the start.",
     station: "sled_push",
     rounds: 1,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push, light", {
@@ -258,6 +270,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 4,
+    stations: ["row"],
     lines: [
       run(800, "Zone 2 run"),
       work("Air squats", { reps: 20 }),
@@ -274,6 +287,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sled_push",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg", "sled_push"],
     lines: [
       work("SkiErg", { distance_m: 500 }),
       work("Sled push at 60% of race weight", {
@@ -292,6 +306,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A full kilometre before every carry — grip endurance built on top of an already-working aerobic system.",
     station: "farmers_carry",
     rounds: 4,
+    stations: ["farmers_carry"],
     lines: [
       run(1000, "Run at zone 2 to low Zone 3"),
       work("Farmers walk, moderate", {
@@ -309,6 +324,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Race weight on the sled, then a threshold kilometre with no transition. This is the session that moves a sub-1:30.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push"],
     lines: [
       work("Sled push at race weight", {
         distance_m: 30,
@@ -328,6 +344,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 90,
+    stations: ["row", "burpee_broad_jump"],
     lines: [
       work("Row", { distance_m: 500 }),
       work("Burpee broad jumps", { reps: 20 }),
@@ -343,6 +360,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Fifty metres of loaded lunges at race weight, then a race-pace kilometre — the exact handover of station seven.",
     station: "sandbag_lunges",
     rounds: 4,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges at race weight", {
         distance_m: 50,
@@ -360,6 +378,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two race-pace kilometres around a full sled push, finished on wall balls. Race density, in three rounds.",
     station: "wall_balls",
     rounds: 3,
+    stations: ["sled_push", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push", { distance_m: 50, load_by_division: { open: "152 kg", pro: "202 kg" } }),
@@ -377,6 +396,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 4,
+    stations: ["ski_erg", "farmers_carry"],
     lines: [
       run(1000, "Run at race pace"),
       work("SkiErg", { distance_m: 500 }),
@@ -395,6 +415,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Five short rounds above race pace with the two most rhythm-breaking stations. Density, not distance.",
     station: "burpee_broad_jump",
     rounds: 5,
+    stations: ["burpee_broad_jump", "wall_balls"],
     lines: [
       run(600, "Run at above race pace"),
       work("Burpee broad jumps", { reps: 15 }),
@@ -411,6 +432,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 3,
+    stations: ["row"],
     lines: [
       run(500, "Run at race pace"),
       work("Row", { distance_m: 250 }),
@@ -426,6 +448,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A short sled to wake the pattern up — stop well short of failure, this is a reminder, not a session.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push — sharpening, never to failure", {
@@ -443,6 +466,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Three fast 400s with a handful of wall balls between them: speed on race week, volume nowhere near it.",
     station: "wall_balls",
     rounds: 1,
+    stations: ["wall_balls"],
     lines: [
       work("Three efforts, full recovery between"),
       run(400, "Run at above race pace"),
@@ -464,6 +488,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 5,
+    stations: ["ski_erg", "farmers_carry"],
     lines: [
       run(1000, "Zone 2 run"),
       work("SkiErg, aerobic", { distance_m: 500 }),
@@ -482,6 +507,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Push and pull back to back, four times, with a run between. The base block is where the sled stops being frightening.",
     station: "sled_pull",
     rounds: 4,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       run(800, "Run"),
       work("Heavy sled push", {
@@ -504,6 +530,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 3,
+    stations: ["row"],
     lines: [
       run(1500, "Zone 2 run"),
       work("Goblet squats", { reps: 30, load_by_division: { open: "24 kg", pro: "32 kg" } }),
@@ -519,6 +546,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Full competition weight, then a threshold kilometre held at 4:45–5:00 min/km. The pace is the test, not the sled.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push"],
     lines: [
       work("Sled push at competition weight", {
         distance_m: 50,
@@ -538,6 +566,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["row", "sandbag_lunges"],
     lines: [
       work("Row at race pace", { distance_m: 500 }),
       work("Sandbag lunges", {
@@ -556,6 +585,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "The two stations that shred a running rhythm, then 5k pace. If the pace survives this, it survives the race.",
     station: "burpee_broad_jump",
     rounds: 4,
+    stations: ["burpee_broad_jump", "wall_balls"],
     lines: [
       work("Burpee broad jumps", { reps: 20 }),
       work("Wall balls", { reps: 25, load_by_division: { open: "6 kg", pro: "9 kg" } }),
@@ -571,6 +601,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Four rounds, two kilometres each, with push and pull between. The target is not speed — it is five seconds of variance across every run split.",
     station: "sled_pull",
     rounds: 4,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       run(1000, "Run at race pace — note the split"),
       work("Sled push", { distance_m: 50, load_by_division: { open: "152 kg", pro: "202 kg" } }),
@@ -588,6 +619,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "wall_balls",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg", "farmers_carry", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("SkiErg", { distance_m: 500 }),
@@ -610,6 +642,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Six 800s at 5-10 s per kilometre faster than race pace, alternating the two stations that take the legs. This is where pacing discipline is proved or lost.",
     station: "sandbag_lunges",
     rounds: 1,
+    stations: ["sandbag_lunges", "burpee_broad_jump"],
     lines: [
       work("Six efforts, alternating the station between them"),
       run(800, "Run 5-10 s/km faster than race pace"),
@@ -630,6 +663,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg"],
     lines: [
       run(600, "Run at race pace"),
       work("SkiErg", { distance_m: 250 }),
@@ -645,6 +679,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two clean kilometres with a short sled and a handful of wall balls. The pattern, not the fatigue.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push, short", {
@@ -662,6 +697,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     name: "Roxzone Drills",
     why: "Four accelerations and the transitions between them. Race week is the right week to shave seconds off the roxzone.",
     rounds: 1,
+    stations: [],
     lines: [
       work("Four accelerations with a full transition rehearsal after each"),
       run(300, "Run: accelerate to race pace and beyond"),
@@ -680,6 +716,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 5,
+    stations: ["ski_erg", "sled_pull"],
     lines: [
       run(1200, "Zone 2 run"),
       work("SkiErg, aerobic", { distance_m: 500 }),
@@ -695,6 +732,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Overload on both sleds behind a full kilometre. Base is where the sled stops being the limiter.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       run(1000, "Run"),
       work("Heavy sled push", {
@@ -717,6 +755,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 3,
+    stations: ["row", "farmers_carry"],
     lines: [
       run(2000, "Zone 2 run"),
       work("Row", { distance_m: 1000 }),
@@ -732,6 +771,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Maximum pressure on the sled, then a kilometre at 4:15–4:25 with no transition at all. The session exists to make lactate and run through it.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push"],
     lines: [
       work("Sled push, maximum pressure", {
         distance_m: 50,
@@ -751,6 +791,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 180,
+    stations: ["row", "burpee_broad_jump"],
     lines: [
       work("Row at race pace", { distance_m: 500 }),
       work("Burpee broad jumps", { reps: 25 }),
@@ -766,6 +807,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Eighty metres of loaded lunges before every kilometre, and the split is allowed to drift by five seconds across the whole session. That constraint is the session.",
     station: "sandbag_lunges",
     rounds: 4,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges", {
         distance_m: 80,
@@ -784,6 +826,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sled_pull",
     needs_erg: true,
     rounds: 3,
+    stations: ["row", "sled_push", "sled_pull", "burpee_broad_jump"],
     lines: [
       work("Row", { distance_m: 500 }),
       run(1000, "Run at race pace"),
@@ -805,6 +848,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "wall_balls",
     rounds: 5,
     rest_between_rounds_sec: 120,
+    stations: ["wall_balls"],
     lines: [
       run(1000, "Run at 4:05 min/km"),
       work("Wall balls, unbroken", {
@@ -823,6 +867,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 1,
+    stations: ["farmers_carry", "sandbag_lunges", "ski_erg"],
     lines: [
       work("Six efforts, the station rotates between them"),
       run(800, "Run at under 3:20"),
@@ -847,6 +892,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg", "wall_balls"],
     lines: [
       run(800, "Run at race pace, 4:15 min/km"),
       work("SkiErg", { distance_m: 250 }),
@@ -862,6 +908,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A short sled at 80% — this is a nervous-system wake-up, not a strength session. Stop while it still feels easy.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push at 80% — activation, not fatigue", {
@@ -879,6 +926,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Four 400s at race pace with five explosive jumps each. The last CNS reminder before race day.",
     station: "burpee_broad_jump",
     rounds: 1,
+    stations: ["burpee_broad_jump"],
     lines: [
       work("Four efforts, full recovery between"),
       run(400, "Run at race pace"),
@@ -897,6 +945,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 6,
+    stations: ["ski_erg", "farmers_carry"],
     lines: [
       run(1200, "Zone 2 run"),
       work("SkiErg, aerobic", { distance_m: 1000 }),
@@ -912,6 +961,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Five rounds at 150+ kg behind an aerobic-threshold kilometre. Overload now so race weight feels like nothing in March.",
     station: "sled_push",
     rounds: 5,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at aerobic threshold"),
       work("Heavy overload sled push", {
@@ -930,6 +980,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 4,
+    stations: ["row"],
     lines: [
       run(1500, "Run"),
       work("Row at LT1", { distance_m: 1000 }),
@@ -945,6 +996,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Pro weight on the sled, a transition under five seconds, then 3:45–3:55 per kilometre. Five times. Nothing about this is comfortable.",
     station: "sled_push",
     rounds: 5,
+    stations: ["sled_push"],
     lines: [
       work("Sled push at Pro weight", {
         distance_m: 50,
@@ -963,6 +1015,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A hundred metres of loaded lunges, then 3:50 per kilometre with under three seconds of split variance. The tolerance is the training stimulus.",
     station: "sandbag_lunges",
     rounds: 4,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges", { distance_m: 100, load_by_division: { open: "30 kg", pro: "30 kg" } }),
       run(1000, "Run at 3:50 min/km — split variance under 3 s"),
@@ -978,6 +1031,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "burpee_broad_jump",
     needs_erg: true,
     rounds: 5,
+    stations: ["ski_erg", "burpee_broad_jump"],
     lines: [
       work("SkiErg — under 1:40 / 500 m", { distance_m: 500 }),
       work("Burpee broad jumps", { reps: 30 }),
@@ -993,6 +1047,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Six kilometres under 3:50, each followed by a different station under competition conditions. This is the race, run in pieces.",
     needs_erg: true,
     rounds: 1,
+    stations: ["sled_push", "sled_pull", "row", "sandbag_lunges", "wall_balls"],
     lines: [
       work("Six efforts, a different station after each — race order, race conditions"),
       run(1000, "Run at sub-3:50 min/km"),
@@ -1008,6 +1063,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "3:40 per kilometre, fifty wall balls unbroken, a hundred metres of heavy carry. Four rounds. The buffer is the point.",
     station: "wall_balls",
     rounds: 4,
+    stations: ["wall_balls", "farmers_carry"],
     lines: [
       run(1000, "Run at 3:40 min/km"),
       work("Wall balls, unbroken", {
@@ -1027,6 +1083,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sled_pull",
     needs_erg: true,
     rounds: 1,
+    stations: ["sled_pull", "burpee_broad_jump", "ski_erg"],
     lines: [
       work("Eight efforts, station rotates, rest minimised to zero"),
       run(600, "Run at 3:30 min/km"),
@@ -1048,6 +1105,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 3,
+    stations: ["row", "wall_balls"],
     lines: [
       run(600, "Run at race pace, 3:45 min/km — cadence and breathing"),
       work("Row", { distance_m: 250 }),
@@ -1063,6 +1121,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two rounds, half the volume, all of the intent. Race week is for keeping the edge, not making one.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push", "farmers_carry"],
     lines: [
       run(800, "Run at race pace"),
       work("Sled push, short", {
@@ -1081,6 +1140,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Three 400s at competition tempo with five dynamic jumps each. Wake the system, spend nothing.",
     station: "burpee_broad_jump",
     rounds: 1,
+    stations: ["burpee_broad_jump"],
     lines: [
       work("Three efforts, full recovery between"),
       run(400, "Run at competition tempo"),

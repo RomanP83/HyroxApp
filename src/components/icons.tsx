@@ -181,3 +181,12 @@ export const SwapIcon = (p: IconProps) => (
     <path d="M20 16H7l3.5 3.5" />
   </Svg>
 );
+
+/** An arrow into a tray — taking your own data out. */
+export const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3v12" />
+    <path d="M7 11l5 5 5-5" />
+    <path d="M4 20h16" />
+  </Svg>
+);

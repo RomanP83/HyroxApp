@@ -677,6 +677,19 @@ Strava, Garmin und Telegram als Zeilen mit ihrem Zustand: **connected**, ein *Co
 *not configured* — Letzteres heißt, dass die Integration auf dieser Installation gar nicht
 eingerichtet ist. Ein toter Knopf wäre die schlechtere Antwort.
 
+### Deine Daten
+
+**Export.** Ein Knopf, eine Datei: Profil, alle Pläne, jede geloggte Einheit, Benchmarks,
+Rennergebnisse und deine Kraftprogramme als JSON. Die Einheiten bringen **ihre eigenen Blöcke mit**,
+die Datei ist also für sich lesbar und nicht nur gegen eine Datenbank, in der dieselbe Bibliothek
+noch steht.
+
+Nicht enthalten: der Rest der Übungsbibliothek, die statischen Benchmark-Definitionen und die
+Wissenspipeline. Nichts davon hast *du* getan, und alles davon kommt aus dem Repository zurück.
+
+**Das ist deine Sicherungskopie.** Deine gesamte Trainingshistorie liegt in genau einem
+Supabase-Projekt; eine zweite Kopie hält nichts.
+
 ### Dieses Gerät
 
 **Abmelden** beendet die Sitzung in diesem Browser. Plan und alles Geloggte bleiben, wo sie sind —
@@ -952,6 +965,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Datenexport im Setup: alles Geloggte als eine JSON-Datei, mit den Blöcken der Einheiten darin — die Sicherungskopie für ein Supabase-Projekt, das sonst allein dasteht | [8](#8-settings--setup--tools) |
 | Auf Einzelnutzung zugeschnitten: Stripe, Paywall und Wochensperre entfernt (jede Woche ist vollständig da), Pitch-Startseite und SEO-Landingpages entfernt (`/` führt auf `/plan`), Betriebs-Kennzahlen entfernt | [15](#15-eine-app-für-einen-athleten) |
 | **Fehler behoben:** Bei einem Rennen, das weiter als 20 Wochen entfernt ist, wurde der Rennzyklus abgeschnitten und taperte Wochen bis Monate zu früh. Solche Pläne sind jetzt Übergangsblöcke, der Rennzyklus startet in Reichweite — bestehende Pläne stellt der nächtliche Lauf selbst um | [6](#6-wie-sich-der-plan-anpasst) |
 | **Fehler behoben:** Ein Übergangsblock wurde bei jedem nächtlichen Neuaufbau still zu einem Rennzyklus, der auf sein eigenes Blockende hin taperte | [6](#6-wie-sich-der-plan-anpasst) |

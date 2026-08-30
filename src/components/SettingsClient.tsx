@@ -30,6 +30,7 @@ import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
   CheckIcon,
+  DownloadIcon,
   ExitIcon,
   MedicalIcon,
   RunIcon,
@@ -671,6 +672,26 @@ export function SettingsClient(props: SettingsProps) {
             </button>
           </div>
         )}
+      </section>
+
+      {/* One athlete, one Supabase project — which makes that project the single
+          point of failure for years of training. The export is the backup, so
+          it sits in Setup as a plain link rather than behind an API call: a
+          download is what the browser is already good at. */}
+      <section className="space-y-3">
+        <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">Your data</h2>
+        <div className="card flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-[52ch] text-meta leading-relaxed text-ash">
+            Download everything: profile, plans, every logged session, benchmarks, race results and
+            your strength programmes, as one JSON file. The sessions carry their own blocks, so the
+            file reads on its own. <b className="text-bone">This is your backup</b> — nothing else
+            holds a second copy.
+          </p>
+          <a className="btn-ghost" href="/api/export" download>
+            <DownloadIcon size={16} />
+            Export my data
+          </a>
+        </div>
       </section>
 
       {/* Signing out is not a breakage, and it is not global: it ends the

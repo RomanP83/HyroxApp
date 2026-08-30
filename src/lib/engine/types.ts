@@ -167,6 +167,12 @@ export interface RenderedBlock {
      * interval zone.
      */
     pace_zone?: keyof PaceZones;
+    /**
+     * Running metres this block prescribes outright. Present only where the
+     * session is written as metres (compromised runs, intervals); a long run
+     * runs for a time and is read as duration ÷ pace.
+     */
+    run_metres?: number;
     /** Multiplier on the block's template loads (strength calibration, A6). */
     strength_modifier?: number;
     /** Which shape of the core session this is, and why (runVariants.ts). */

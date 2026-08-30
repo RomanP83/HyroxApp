@@ -27,7 +27,7 @@ import {
   raceVolumeMultiplier,
   type RaceDayPlacement,
 } from "./raceCalendar";
-import { fillSession } from "./fill";
+import { fillSession, fixedRunMetres } from "./fill";
 import { weeklyGoal } from "./weeklyGoal";
 
 const SESSION_TITLES: Record<string, string> = {
@@ -211,6 +211,17 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
       }
 
       if (profile.weekly_km_peak) {
+        // What each slot prescribes outright, resolved BEFORE the durations
+        // move: the catalogue pick depends on level, phase and week, never on
+        // duration, so this is knowable now — and only the slots with nothing
+        // fixed can absorb a volume target.
+        const fixedKm = slots.map((slot) => {
+          const metres = fixedRunMetres(slot, profile, state, w, pp.phase_type, {
+            weekInPhase,
+            phaseWeeks: pp.end_week - pp.start_week + 1,
+          });
+          return metres == null ? null : metres / 1000;
+        });
         slots = scaleRunDurations(
           slots,
           state.pace_zones,
@@ -225,6 +236,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
           }) *
             raceVolumeMultiplier(w, placements) *
             (moduleSpec ? moduleSpec.volume : 1),
+          fixedKm,
         );
       }
 

@@ -696,6 +696,28 @@ Woche trotzdem nicht, gewinnt das Training den Tag zurück und sagt welchen.
 Abgleich mit dem, was deine letzten vier Wochen wirklich getragen haben. Die Obergrenze für Läufe
 folgt deinen Trainingstagen: eine Einheit pro Woche bleibt Kraft oder Stationsarbeit.
 
+**Wie die Peak-Kilometer wirken.** Die Woche zerfällt in zwei Teile:
+
+- **Fest:** Kompromittierte Läufe und Intervalle sind als *Meter* geschrieben („5× 1500 m", „4 Runden
+  à 400 m"). Diese Meter ändern sich nicht, wenn die Einheit länger geplant wird.
+- **Beweglich:** Long Run und Easy Run laufen auf *Zeit* — nur sie können ein Volumenziel tragen.
+
+Die App zieht die festen Meter vom Wochenziel ab und stellt die beweglichen Läufe auf den Rest ein.
+**Das Wachstum ist gedeckelt** (höchstens das 1,4-fache): Ohne Deckel wuchs ein 70-Minuten-Long-Run
+auf 145 Minuten, nur um eine Zahl zu erreichen.
+
+**Erreicht die Woche das Ziel nicht, sagt sie es.** Beispiel: 50 km bei fünf Einheiten, von denen
+drei Kraft, Stationsarbeit und ein kompromittierter Lauf sind — das trägt diese Zusammensetzung
+nicht. Der Hinweis nennt dann den richtigen Hebel: **ein zusätzlicher Lauftag**, nicht ein längerer
+Long Run. Umgekehrt gilt dasselbe, wenn die festen Meter allein schon über dem Ziel liegen.
+
+*Bis vor Kurzem wurde das Wochenvolumen aus Dauer × Laufanteil ÷ Pace geschätzt und nie an den
+geschriebenen Metern gemessen.* Eine 75-Minuten-Intervalleinheit las sich als 15,6 km, während
+5× 1500 m draufstand — 7,5 km. Über die Woche waren die angezeigten Kilometer das Anderthalb- bis
+Doppelte des Tatsächlichen, und der Peak-Regler stellte diese überhöhte Zahl ein. **Die angezeigten
+Kilometer sind seitdem deutlich niedriger. Gelaufen wird dieselbe Strecke wie vorher** — sie wird
+nur nicht mehr zu hoch ausgewiesen.
+
 ### Verbindungen
 
 Strava, Garmin und Telegram als Zeilen mit ihrem Zustand: **connected**, ein *Connect*-Knopf, oder
@@ -1012,6 +1034,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Fehler behoben:** Das Wochenlaufvolumen wurde aus der Dauer geschätzt statt aus den geschriebenen Metern und lag um das 1,5- bis 2-fache zu hoch; der Peak-Regler stellte diese überhöhte Zahl ein. Jetzt zählen die vorgeschriebenen Meter, feste und bewegliche Läufe werden getrennt, und eine nicht erreichbare Vorgabe wird benannt statt still verfehlt | [8](#8-settings--setup--tools) |
 | Jede Katalog-Einheit führt jetzt **alle** Stationen, die sie trainiert, nicht nur ihre Überschrift — 57 von 60 Stationseinheiten trainieren mehrere. Die Gewichtung rechnet damit; Kraft- und Intervalleinheiten zählen bewusst nicht als Stationstraining | [4](#4-plan--die-trainingswoche) |
 | Stationen werden nicht mehr blind rotiert: die Wochen einer Phase gehen gewichtet nach Rennkosten an die Stationen, mit Unter- und Obergrenze | [4](#4-plan--die-trainingswoche) |
 | **Fehler behoben:** Beim Loggen einer Stationseinheit wurde das Tier der Station aus der Wochenrotation verschoben statt das der tatsächlich trainierten — die stimmten in etwa einer von vier Wochen überein | [4](#4-plan--die-trainingswoche) |

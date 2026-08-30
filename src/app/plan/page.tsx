@@ -12,6 +12,7 @@ import {
   defaultPaceZones,
   goalCheck,
   weeklyRunSummary,
+  weeklyVolumeTarget,
 } from "@/lib/engine";
 import type { AthleteProfile, AthleteState } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
@@ -36,7 +37,7 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, experience_level, goal_race_time_sec, equipment_access, station_substitutions, preferred_rest_days, training_days_per_week",
+      "id, division, experience_level, goal_race_time_sec, equipment_access, station_substitutions, preferred_rest_days, weekly_km_peak, training_days_per_week",
     )
     .eq("user_id", user.id)
     .single();
@@ -236,12 +237,29 @@ export default async function PlanPage({
   const runSummary =
     zones && Object.keys(zones).length
       ? weeklyRunSummary(
-          (sessionRows ?? []).map((s: { session_type: GeneratedSession["session_type"]; planned_duration_min: number }) => ({
-            session_type: s.session_type,
-            planned_duration_min: s.planned_duration_min,
+          (sessionRows ?? []).map((s: any) => ({
+            session_type: s.session_type as GeneratedSession["session_type"],
+            planned_duration_min: s.planned_duration_min as number,
+            // The metres the session prescribes, where it prescribes any. A
+            // compromised run written as four rounds of 400 m runs 1.6 km
+            // whatever its duration says, and the readout has to agree with
+            // the card the athlete is looking at.
+            run_metres: ((s.session_blocks ?? []) as SessionBlockJoinRow[])
+              .map((sb) => (sb.load_adjustments as { run_metres?: number } | null)?.run_metres)
+              .find((m): m is number => typeof m === "number" && m > 0),
           })),
           zones,
           currentPhase?.phase_type as PhaseType | undefined,
+          // Judge the week against what the athlete actually asked for, not
+          // against a generic band they never set.
+          profile.weekly_km_peak
+            ? weeklyVolumeTarget({
+                peakKm: Number(profile.weekly_km_peak),
+                phase: currentPhase?.phase_type as PhaseType,
+                isDeload: Boolean(current.is_deload),
+                weekNumber: current.week_number,
+              })
+            : undefined,
         )
       : null;
 

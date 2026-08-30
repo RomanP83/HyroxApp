@@ -148,6 +148,26 @@ function weakestStation(tiers: StationTiers): Station | null {
 }
 
 /**
+ * The running metres a session actually prescribes: rounds × Σ(sets × distance)
+ * over its run lines.
+ *
+ * This is data the session was written with, not an estimate. The weekly total
+ * used to come from duration × running_fraction ÷ pace alone, which reads a
+ * 75-minute interval session as 15.6 km when what is written is 5 × 1500 m with
+ * full recovery — 7.5 km. Rest is not running, and only the session knows how
+ * much of it there is.
+ *
+ * Erg metres and carries are excluded: is_run is exactly the line that says
+ * "this counts as mileage".
+ */
+export function runMetresOf(session: CatalogueSession): number {
+  const perRound = session.lines
+    .filter((l) => l.is_run && l.distance_m)
+    .reduce((n, l) => n + (l.distance_m ?? 0) * Math.max(1, l.sets ?? 1), 0);
+  return perRound * Math.max(1, session.rounds);
+}
+
+/**
  * Every station a session trains.
  *
  * `stations` is authoritative where it is set; the headline is the fallback for

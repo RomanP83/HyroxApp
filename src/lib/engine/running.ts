@@ -354,18 +354,38 @@ export function scaleRunDurations<T extends { session_type: SessionType; planned
   slots: T[],
   zones: PaceZones,
   targetKm: number,
+  /**
+   * Metres a slot prescribes outright, by index. A compromised run written as
+   * four rounds of 400 m runs 1.6 km whatever its slot says, so stretching that
+   * slot moves the estimate and not one metre of the athlete's week. Only the
+   * slots with nothing fixed can absorb a volume target — everything else was
+   * a lever connected to nothing.
+   */
+  fixedKm?: (number | null)[],
 ): T[] {
+  const isFixed = (i: number) => (fixedKm?.[i] ?? null) !== null;
+  const fixedTotal = slots.reduce((km, _s, i) => km + (isFixed(i) ? (fixedKm![i] as number) : 0), 0);
   const baseline = slots.reduce(
-    (km, s) => km + plannedDistanceKm(s.session_type, s.planned_duration_min, zones),
+    (km, s, i) =>
+      km + (isFixed(i) ? 0 : plannedDistanceKm(s.session_type, s.planned_duration_min, zones)),
     0,
   );
   if (baseline <= 0 || targetKm <= 0) return slots;
 
-  // A single week may move the volume by half, not by a factor of five.
-  const factor = Math.max(0.5, Math.min(1.8, targetKm / baseline));
-  return slots.map((slot) => {
+  // What the flexible runs have to cover. The fixed sessions already exist:
+  // asking the long run to make up for them is the whole point, and asking it
+  // to make up for MORE than the target is not — hence the floor at zero, and
+  // the clamp below that keeps a week from moving by a factor of five.
+  const flexibleTarget = Math.max(0, targetKm - fixedTotal);
+  // Growth is capped harder than shrink. With the fixed sessions subtracted the
+  // long run is often the only thing left to absorb a target, and an uncapped
+  // factor turned a 70-minute long run into 145 minutes to chase a number. A
+  // target that needs more than this is a target this week's session mix cannot
+  // carry — the summary says so rather than the long run swallowing it.
+  const factor = Math.max(0.5, Math.min(1.4, flexibleTarget / baseline));
+  return slots.map((slot, i) => {
     const spec = runSpec(slot.session_type);
-    if (!spec) return slot;
+    if (!spec || isFixed(i)) return slot;
     const scaled = Math.round((slot.planned_duration_min * factor) / 5) * 5;
     // The floor is a floor, not a target: it stops a volume goal shrinking a
     // session to nothing, and it must never push one back ABOVE what the phase
@@ -488,10 +508,27 @@ export interface WeeklyRunSummary {
 
 /** What the week's running actually adds up to — volume and distribution. */
 export function weeklyRunSummary(
-  sessions: { session_type: SessionType; planned_duration_min: number }[],
+  sessions: {
+    session_type: SessionType;
+    planned_duration_min: number;
+    /**
+     * Metres this session prescribes outright, where it does. Written into the
+     * plan by the engine (load_adjustments.run_metres) so the readout counts
+     * what the session says rather than re-deriving it from a duration: a
+     * 75-minute interval session estimated at 15.6 km is 5 × 1500 m on paper.
+     */
+    run_metres?: number | null;
+  }[],
   zones: PaceZones,
   /** Phase-specific targets; omitted, the build-block window applies. */
   phase?: PhaseType,
+  /**
+   * The kilometres this week was actually built for, from the athlete's own
+   * peak setting. Given, the verdict is measured against it: a 41 km week reads
+   * "on target" against the generic 30-50 band while overshooting a 26 km
+   * target by half, and the athlete set the 26.
+   */
+  targetKm?: number,
 ): WeeklyRunSummary {
   let total = 0;
   let hard = 0;
@@ -499,7 +536,10 @@ export function weeklyRunSummary(
   for (const s of sessions) {
     const spec = runSpec(s.session_type);
     if (!spec) continue;
-    const km = plannedDistanceKm(s.session_type, s.planned_duration_min, zones);
+    const km =
+      s.run_metres != null && s.run_metres > 0
+        ? Math.round((s.run_metres / 1000) * 10) / 10
+        : plannedDistanceKm(s.session_type, s.planned_duration_min, zones);
     if (km <= 0) continue;
     runs += 1;
     total += km;
@@ -513,15 +553,35 @@ export function weeklyRunSummary(
   // flagged for missing a 75% floor by a rounding artefact.
   const easyShare = total > 0 ? Math.round(((total - hard) / total) * 100) / 100 : 0;
 
-  const [kmMin, kmMax] = phase
-    ? VOLUME_BY_PHASE[phase]
-    : [RUNNING_TARGETS.weekly_km_min, RUNNING_TARGETS.weekly_km_max];
+  // ±15% of the athlete's own target, when they set one — session floors and
+  // the five-minute rounding cannot land a week exactly, and a band that tight
+  // would flag every week. Otherwise the phase's generic window.
+  const [kmMin, kmMax] =
+    targetKm && targetKm > 0
+      ? [targetKm * 0.85, targetKm * 1.15]
+      : phase
+        ? VOLUME_BY_PHASE[phase]
+        : [RUNNING_TARGETS.weekly_km_min, RUNNING_TARGETS.weekly_km_max];
   const [easyMin, easyMax] = phase
     ? POLARISATION_BY_PHASE[phase]
     : [RUNNING_TARGETS.easy_share_min, RUNNING_TARGETS.easy_share_max];
 
   const volume: WeeklyRunSummary["volume"] =
     totalKm < kmMin ? "below" : totalKm > kmMax ? "above" : "on_target";
+
+  // The sessions written as metres already run further than the week was aimed
+  // at. Nothing can be scaled down to fix that — the compromised runs and the
+  // intervals are what they are — so it gets said rather than quietly missed.
+  const fixedKm =
+    Math.round(
+      sessions.reduce((n, s) => n + (s.run_metres && s.run_metres > 0 ? s.run_metres / 1000 : 0), 0) * 10,
+    ) / 10;
+  const fixedNote =
+    targetKm && fixedKm > targetKm
+      ? `The sessions written as fixed distances already add up to ${fixedKm} km — more than the ${Math.round(targetKm)} km this week was built for. Nothing here can be shortened to hit it; lower the peak volume or accept the week as it stands.`
+      : targetKm && totalKm < targetKm * 0.85
+        ? `${totalKm} km against the ${Math.round(targetKm)} km you set. The runs that can stretch are already stretched, and the compromised and interval sessions run the distance they are written for — a week reaches this target by having another running day in it, not by making one run longer.`
+        : null;
   const polarisation: WeeklyRunSummary["polarisation"] =
     easyShare < easyMin ? "too_hard" : easyShare > easyMax ? "too_easy" : "on_target";
 
@@ -533,7 +593,7 @@ export function weeklyRunSummary(
     easy_share: easyShare,
     volume,
     polarisation,
-    note: summaryNote(runs, totalKm, easyShare, volume, polarisation, [kmMin, easyMin, easyMax], phase),
+    note: fixedNote ?? summaryNote(runs, totalKm, easyShare, volume, polarisation, [kmMin, easyMin, easyMax], phase),
   };
 }
 

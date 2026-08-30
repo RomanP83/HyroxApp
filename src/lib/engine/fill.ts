@@ -24,7 +24,7 @@ import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
 import { pickStationSession, renderStation } from "./stationSessions";
 import { stationCosts } from "./raceModel";
-import type { CatalogueQuery } from "./catalogue";
+import { runMetresOf, type CatalogueQuery } from "./catalogue";
 import { pickIntervalSession, renderInterval } from "./intervalSessions";
 import type { SessionSlot } from "./micro";
 
@@ -65,6 +65,56 @@ function catalogueWeighting(
 function paceForSession(state: AthleteState, type: SessionType): number | undefined {
   const spec = runSpec(type);
   return spec ? state.pace_zones[spec.pace_zone] : undefined;
+}
+
+/**
+ * The running metres a slot's catalogue session prescribes, or null when the
+ * slot has no fixed distance.
+ *
+ * Compromised runs and intervals are written as metres — "5 × 1500 m", "4
+ * rounds of 400 m" — and those metres do not move when the slot's duration
+ * does. The long run and the easy run carry no distance at all: they run for a
+ * time, and duration ÷ pace is the right way to read them.
+ *
+ * That split is what makes a weekly volume target honest. The catalogue's
+ * metres are fixed; only the flexible runs can absorb a target, and something
+ * has to know which is which BEFORE the durations are scaled. It can: the
+ * catalogue pick depends on level, phase and week, never on duration.
+ */
+export function fixedRunMetres(
+  slot: { session_type: SessionType },
+  profile: AthleteProfile,
+  state: AthleteState,
+  weekNumber: number,
+  phase?: PhaseType,
+  phasePosition?: { weekInPhase: number; phaseWeeks: number },
+): number | null {
+  if (!phase) return null;
+  const query = {
+    level: profile.experience_level,
+    phase,
+    weekNumber,
+    equipment: profile.equipment_access,
+    stationTiers: state.station_tiers,
+    weaknesses: profile.weaknesses ?? undefined,
+    ...catalogueWeighting(profile, state, phasePosition),
+  };
+  // Zero metres is not "fixed at zero": a session written in minutes ("25 min
+  // at LT2") prescribes no distance at all, so it reads as duration ÷ pace and
+  // stays scalable like a long run. Treating it as fixed froze its duration AND
+  // counted it as no running whatsoever.
+  const metres = (n: number) => (n > 0 ? n : null);
+  if (slot.session_type === "compromised_run") {
+    const chosen = pickCompromisedSession(query);
+    return chosen ? metres(runMetresOf(chosen.session)) : null;
+  }
+  if (slot.session_type === "run_intervals") {
+    const chosen = pickIntervalSession(query);
+    return chosen ? metres(runMetresOf(chosen.session)) : null;
+  }
+  // Station work carries no running metres by design, and the long/easy runs
+  // carry no metres at all — both answer "nothing fixed here".
+  return null;
 }
 
 /**
@@ -230,6 +280,11 @@ export function fillSession(
         sort_order: order++,
         load_adjustments: {
           division: profile.division,
+          // The metres this session actually writes down — see the interval
+          // branch: the weekly readout counts the prescription, not a duration.
+          ...(runMetresOf(chosen.session) > 0
+            ? { run_metres: runMetresOf(chosen.session) }
+            : {}),
           ...(pace != null
             ? {
                 pace_sec_km: pace,
@@ -310,6 +365,11 @@ export function fillSession(
         sort_order: order++,
         load_adjustments: {
           division: profile.division,
+          // The metres this session actually writes down, so the weekly readout
+          // counts the prescription rather than re-deriving it from a duration.
+          ...(runMetresOf(chosen.session) > 0
+            ? { run_metres: runMetresOf(chosen.session) }
+            : {}),
           ...paceForCatalogueSession(state, chosen.session, pace),
           variant_name: chosen.session.name,
           variant_why: chosen.session.why,

@@ -179,6 +179,20 @@ mit unter fünf Sekunden Transition. Jede zweite Woche zielt die Auswahl auf dei
 Station. Ohne Ergometer bekommst du nie eine Erg-Session — die App weicht auf eine andere aus,
 statt die Einheit zu streichen.
 
+**Welche Station eine Woche bekommt.** Innerhalb jeder Phase werden die Wochen auf die Stationen
+verteilt, **gewichtet nach dem, was dich die Station im Rennen kostet** — dieselben Sekunden, die
+auf [`/race`](#12-race--renntag-pacing-und-ergebnis) als Stationskosten stehen. Dazu eine
+**Untergrenze** (keine Station fällt ganz durch; sie würde verkümmern, und die Kosten sind bis zum
+ersten geloggten Rennen nur geschätzt) und eine **Obergrenze** (höchstens das Doppelte des gleichen
+Anteils — ungedeckelt nahm eine einzige teure Station neun von sechzehn Wochen). Sind alle Stationen
+auf dem obersten Tier, kostet keine etwas, und die Verteilung fällt auf einen reinen Rundlauf
+zurück.
+
+*Eine ehrliche Grenze:* Ein Katalog-Pool für ein Level und eine Phase enthält drei Sessions und
+deckt damit **drei der acht Stationen** ab. Gewichtet werden kann also immer nur unter denen, die
+diese Phase überhaupt trainiert. Über einen ganzen Zyklus folgt die Häufigkeit den Kosten deshalb
+nur grob — wer das enger haben will, braucht mehr Katalog-Sessions je Phase, nicht mehr Logik.
+
 **Stationsarbeit** hat seit demselben Prinzip einen eigenen Katalog: noch einmal 60 Sessions über
 fünf Level und vier Phasen. Isolierte Stationsarbeit trainiert Bewegungsökonomie, Kraftausdauer und
 Laktattoleranz an den Geräten — ohne die muskuläre und orthopädische Rechnung, die noch ein Lauf
@@ -987,6 +1001,8 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Stationen werden nicht mehr blind rotiert: die Wochen einer Phase gehen gewichtet nach Rennkosten an die Stationen, mit Unter- und Obergrenze | [4](#4-plan--die-trainingswoche) |
+| **Fehler behoben:** Beim Loggen einer Stationseinheit wurde das Tier der Station aus der Wochenrotation verschoben statt das der tatsächlich trainierten — die stimmten in etwa einer von vier Wochen überein | [4](#4-plan--die-trainingswoche) |
 | Offline nutzbar und aufs Handy installierbar: bereits geöffnete Seiten bleiben ohne Empfang lesbar, mit Hinweisband; Loggen braucht bewusst weiter Netz; Abmelden löscht den Cache | [15](#15-eine-app-für-einen-athleten) |
 | Datenexport im Setup: alles Geloggte als eine JSON-Datei, mit den Blöcken der Einheiten darin — die Sicherungskopie für ein Supabase-Projekt, das sonst allein dasteht | [8](#8-settings--setup--tools) |
 | Auf Einzelnutzung zugeschnitten: Stripe, Paywall und Wochensperre entfernt (jede Woche ist vollständig da), Pitch-Startseite und SEO-Landingpages entfernt (`/` führt auf `/plan`), Betriebs-Kennzahlen entfernt | [15](#15-eine-app-für-einen-athleten) |

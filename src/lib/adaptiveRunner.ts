@@ -143,8 +143,26 @@ export async function applyMicroForSession(
     if (withPace) actualPaceSecKm = withPace.pace_actual_sec_km;
   }
 
-  const station: Station | undefined =
-    session.session_type === "station_work" ? stationForWeek(weekNumber) : undefined;
+  // Which station this session actually hammered, read off the block the engine
+  // recorded it on. It used to be guessed from the weekly rotation — but 59 of
+  // the 60 catalogue sessions name their own station and that one wins, so the
+  // rotation matched what was trained in about a quarter of weeks. Logging a
+  // wall-ball session as "felt easier" was stepping up some other station's
+  // tier, and the tiers steer the catalogue, the prescribed weights, the pacing
+  // sheet and the finish-time estimate.
+  let station: Station | undefined;
+  if (session.session_type === "station_work") {
+    const { data: blockRows } = await admin
+      .from("session_blocks")
+      .select("workout_blocks(station)")
+      .eq("session_id", sessionId);
+    const trained = (blockRows ?? [])
+      .map((r) => (r.workout_blocks as { station?: string | null } | null)?.station)
+      .find((s): s is string => Boolean(s) && s !== "run" && s !== "general");
+    // No block says which station it was: fall back to the rotation rather than
+    // calibrating nothing at all.
+    station = (trained as Station | undefined) ?? stationForWeek(weekNumber);
+  }
 
   // The zone this session was actually prescribed at, read back off the block
   // the engine recorded it on. Without it the session TYPE decides, and every

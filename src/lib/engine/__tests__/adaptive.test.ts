@@ -109,6 +109,27 @@ describe("micro-calibration — step rules", () => {
     expect(res.state.pace_zones.interval_sec_km).not.toBe(state.pace_zones.interval_sec_km);
   });
 
+  it("steps the tier of the station that was actually trained", () => {
+    // The runner used to guess the station from the weekly rotation, which
+    // matched what the session trained in about a quarter of weeks — so logging
+    // a wall-ball session moved some other station's tier. microCalibrate takes
+    // the station it is given; the runner now reads it off the block.
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "station_work", station: "wall_balls",
+      rpeTarget: 6, rpeActual: 9, durationActualMin: 50,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.station_tiers.wall_balls).toBe(
+      Math.max(1, state.station_tiers.wall_balls - 1),
+    );
+    // And nothing else moved.
+    for (const [station, tier] of Object.entries(state.station_tiers)) {
+      if (station === "wall_balls") continue;
+      expect(res.state.station_tiers[station], station).toBe(tier);
+    }
+  });
+
   it("steps DOWN immediately when a session is too hard", () => {
     const state = base();
     const start = state.station_tiers.ski_erg;

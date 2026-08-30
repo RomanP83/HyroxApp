@@ -16,6 +16,7 @@ import type {
   Station,
   StationTiers,
 } from "./types";
+import { weightedStationOrder } from "./stationFocus";
 
 /** One line of a session, in the shape BlockView renders. */
 export interface SessionLine {
@@ -89,6 +90,19 @@ export interface CatalogueQuery {
   stationTiers: StationTiers;
   /** Free-text weaknesses from the profile, matched against station names. */
   weaknesses?: string[];
+  /**
+   * What each station is costing this athlete, in seconds (stationCosts). The
+   * pool's own weeks are apportioned across the stations it can serve in
+   * proportion to these, floor and ceiling applied — see stationFocus.ts.
+   *
+   * A level-and-phase pool holds three sessions covering three of the eight
+   * stations, so weighting can only ever choose among those three. Weighting
+   * across all eight would need a catalogue that covers all eight per phase.
+   */
+  stationCosts?: Partial<Record<Station, number>>;
+  /** Which week of its phase this is, 1-based, and how many the phase has. */
+  weekInPhase?: number;
+  phaseWeeks?: number;
 }
 
 function hasErg(equipment: EquipmentAccess): boolean {
@@ -116,6 +130,24 @@ function weakestStation(tiers: StationTiers): Station | null {
 }
 
 /**
+ * The station this week should go after, chosen from what the pool can serve.
+ *
+ * Returns null when the caller gave no phase position or no costs — a single
+ * session built outside a plan has no phase to apportion across, and falls back
+ * to the weakest-station bias it always had.
+ */
+function weightedFocus<T extends CatalogueSession>(
+  eligible: T[],
+  q: CatalogueQuery,
+): Station | null {
+  if (!q.stationCosts || !q.weekInPhase || !q.phaseWeeks) return null;
+  const stations = [...new Set(eligible.map((s) => s.station).filter((s): s is Station => !!s))];
+  if (!stations.length) return null;
+  const order = weightedStationOrder(stations, q.stationCosts, q.phaseWeeks);
+  return order.length ? order[(q.weekInPhase - 1) % order.length] : null;
+}
+
+/**
  * One session for this athlete, this phase, this week.
  *
  * Every second week goes after the weakest station, and the weeks in between
@@ -139,16 +171,27 @@ export function pickFromCatalogue<T extends CatalogueSession>(
   }
   if (!eligible.length) return null;
 
-  const weak = weakestStation(q.stationTiers);
+  // The station this week goes after: the pool's own weeks, apportioned across
+  // the stations this pool can actually serve, weighted by what they cost.
+  const scheduled = weightedFocus(eligible, q);
+  // A weakness the athlete typed in themselves still counts either way — they
+  // know something the tiers do not.
+  const focus = scheduled ?? weakestStation(q.stationTiers);
   const words = (q.weaknesses ?? []).map((w) => w.toLowerCase());
   const targeted = eligible.filter(
     (s) =>
-      (weak && s.station === weak) ||
+      (focus && s.station === focus) ||
       (s.station != null && words.some((w) => w.includes(s.station!.replace(/_/g, " ")))),
   );
 
-  if (targeted.length && q.weekNumber % 2 === 1) {
+  // With a schedule the focus changes week to week, so it fires every week.
+  // WITHOUT one the focus is the weakest station and never moves, and firing it
+  // every week would be the same session every week — so that case keeps the
+  // alternation it was given for exactly that reason.
+  if (targeted.length && (scheduled != null || q.weekNumber % 2 === 1)) {
     return {
+      // Several sessions for one station in a phase: rotate through them so a
+      // station that comes up four times is not the same session four times.
       session: targeted[Math.floor((q.weekNumber - 1) / 2) % targeted.length],
       targeted: true,
       pool: eligible.length,

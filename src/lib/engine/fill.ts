@@ -23,6 +23,8 @@ import { pickStationVariant } from "./stationVariants";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
 import { pickStationSession, renderStation } from "./stationSessions";
+import { stationCosts } from "./raceModel";
+import type { CatalogueQuery } from "./catalogue";
 import { pickIntervalSession, renderInterval } from "./intervalSessions";
 import type { SessionSlot } from "./micro";
 
@@ -36,6 +38,27 @@ function variantFor(profile: AthleteProfile): EquipmentVariant {
  */
 export function stationForWeek(weekNumber: number): Station {
   return STATIONS[(weekNumber - 1) % STATIONS.length];
+}
+
+/**
+ * What the catalogue needs to weight its own pool: the seconds each station is
+ * costing this athlete, and where the week sits in its phase.
+ */
+function catalogueWeighting(
+  profile: AthleteProfile,
+  state: AthleteState,
+  phasePosition?: { weekInPhase: number; phaseWeeks: number },
+): Partial<CatalogueQuery> {
+  if (!phasePosition) return {};
+  const costs: Partial<Record<Station, number>> = {};
+  for (const c of stationCosts({
+    division: profile.division,
+    tiers: state.station_tiers,
+    measured: state.measured_station_seconds,
+  })) {
+    costs[c.station] = c.cost_seconds;
+  }
+  return { stationCosts: costs, ...phasePosition };
 }
 
 /** Which pace zone a session type runs at — one table, in running.ts. */
@@ -144,6 +167,13 @@ export function fillSession(
   weekNumber: number,
   /** Which phase the week belongs to — decides which variants are eligible. */
   phase?: PhaseType,
+  /**
+   * Where this week sits in its phase. The catalogue weights the stations it
+   * can actually serve across the phase's weeks, so it needs to know which of
+   * them this is. Absent for callers building a session without a plan around
+   * it — they fall back to the weekly rotation, as before.
+   */
+  phasePosition?: { weekInPhase: number; phaseWeeks: number },
 ): RenderedBlock[] {
   const variant = variantFor(profile);
   const blocks: RenderedBlock[] = [];
@@ -186,6 +216,7 @@ export function fillSession(
       equipment: profile.equipment_access,
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
     });
     if (chosen) {
       blocks.push({
@@ -229,6 +260,7 @@ export function fillSession(
       equipment: profile.equipment_access,
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
     });
     if (chosen) {
       const focus = chosen.session.station ?? station;
@@ -266,6 +298,7 @@ export function fillSession(
       equipment: profile.equipment_access,
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
     });
     if (chosen) {
       blocks.push({
@@ -302,6 +335,7 @@ export function fillSession(
       equipment: profile.equipment_access,
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
     };
     // Ergometer offloading, made real rather than mentioned. The PM session of
     // a double day is the week's extra aerobic volume — exactly the kilometres

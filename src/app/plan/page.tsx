@@ -36,7 +36,7 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, experience_level, goal_race_time_sec, equipment_access, station_substitutions, preferred_rest_days, subscription_status, training_days_per_week",
+      "id, division, experience_level, goal_race_time_sec, equipment_access, station_substitutions, preferred_rest_days, training_days_per_week",
     )
     .eq("user_id", user.id)
     .single();
@@ -44,7 +44,7 @@ export default async function PlanPage({
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, race_date, starts_on, kind, status, total_weeks, stripe_payment_id")
+    .select("id, race_date, starts_on, kind, status, total_weeks")
     .eq("profile_id", profile.id)
     // 'completed' as well: a plan whose race has been and gone is what the
     // athlete should land on the morning after, not the onboarding form.
@@ -82,16 +82,6 @@ export default async function PlanPage({
       />
     );
   }
-
-  // C4: a per-plan purchase OR an active subscription unlocks the plan.
-  // PERSONAL_MODE unlocks everything for a self-hosted, single-athlete
-  // install — no Stripe account needed to use your own plan.
-  const paid =
-    process.env.PERSONAL_MODE === "1" ||
-    Boolean(plan.stripe_payment_id) ||
-    profile.subscription_status === "active";
-
-  const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
 
   const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }] =
     await Promise.all([
@@ -143,7 +133,6 @@ export default async function PlanPage({
     .eq("week_id", current.id)
     .order("sort_order", { ascending: true });
 
-  const locked = current.week_number > 1 && !paid;
 
   // The athlete's own strength day replaces the library's main block. Several
   // days rotate by week, so Tag A / Tag B alternate the way they would in the
@@ -184,11 +173,9 @@ export default async function PlanPage({
     // A1/K1: locked weeks never ship their blocks to the browser — the lock
     // must live server-side, not as a UI overlay over fully delivered data.
     const joinRows = (s.session_blocks ?? []) as SessionBlockJoinRow[];
-    const blocks: RenderedBlock[] = locked
-      ? []
-      : joinRows
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((sb) => ({
+    const blocks: RenderedBlock[] = joinRows
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((sb) => ({
             block_id: sb.block_id,
             slug: sb.workout_blocks?.slug ?? undefined,
             block_type: (sb.workout_blocks?.block_type ?? "main") as RenderedBlock["block_type"],
@@ -212,7 +199,7 @@ export default async function PlanPage({
     // A strength session shows the athlete's own exercises instead of the
     // library block — warm-up, finisher and mobility around it stay as
     // generated, and stay around it.
-    if (strengthTemplate && s.session_type === "strength" && !locked) {
+    if (strengthTemplate && s.session_type === "strength") {
       session.blocks = withPersonalStrengthDay(blocks, {
         block_id: strengthTemplate.id,
         slug: "personal_strength_day",
@@ -279,9 +266,7 @@ export default async function PlanPage({
       equipment={(profile.equipment_access as EquipmentAccess) ?? "full_gym"}
       planId={plan.id}
       profileId={profile.id}
-      paid={paid}
       planStatus={plan.status}
-      subscriptionAvailable={subscriptionAvailable}
       raceDate={plan.race_date}
       phases={phases ?? []}
       weeks={weekList}
@@ -291,7 +276,6 @@ export default async function PlanPage({
       sessions={clientSessions}
       state={state}
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
-      locked={locked}
       runSummary={runSummary}
     />
   );

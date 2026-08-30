@@ -188,7 +188,7 @@ export default function Onboarding() {
   if (!signedIn) {
     return (
       <main className="mx-auto max-w-md space-y-4 pt-16 animate-fade-up">
-        <Link href="/" className="text-sm text-ash hover:text-chalk">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <h1 className="text-2xl font-bold">Sign in</h1>
@@ -236,7 +236,7 @@ export default function Onboarding() {
   return (
     <main className="mx-auto max-w-xl space-y-6 pt-8">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-ash hover:text-chalk">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <span className="pill">{step === 1 ? "Step 1 of 2 · About you" : "Step 2 of 2 · Your race"}</span>

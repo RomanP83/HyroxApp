@@ -301,7 +301,7 @@ export default function DemoPage() {
   return (
     <main className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-ash hover:text-chalk">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <span className="pill">Live engine · runs entirely in your browser</span>

@@ -26,7 +26,7 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 12. [`/race` — Renntag: Pacing und Ergebnis](#12-race--renntag-pacing-und-ergebnis)
 13. [Verbindungen: Strava, Garmin, Telegram](#13-verbindungen-strava-garmin-telegram)
 14. [Automatische Abläufe im Hintergrund](#14-automatische-abläufe-im-hintergrund)
-15. [Bezahlung und was frei ist](#15-bezahlung-und-was-frei-ist)
+15. [Eine App für einen Athleten](#15-eine-app-für-einen-athleten)
 16. [`/demo` — ausprobieren ohne Konto](#16-demo--ausprobieren-ohne-konto)
 17. [Betreiber-Oberflächen](#17-betreiber-oberflächen)
 18. [Begriffe](#18-begriffe)
@@ -50,7 +50,7 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 
 | Seite | Wofür | Ohne Login? |
 |---|---|---|
-| `/` | Startseite, Pitch, Einstieg | ja |
+| `/` | Leitet direkt auf `/plan` weiter | ja |
 | `/demo` | Kompletter Durchlauf mit Beispieldaten | ja |
 | `/onboarding` | Profil anlegen, Plan erzeugen | Login nötig (Magic Link) |
 | `/plan` | Die aktuelle Trainingswoche | nein |
@@ -60,7 +60,6 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 | `/progress` | Verlauf und Auswertungen | nein |
 | `/race` | Renntag: Pacing-Blatt, Stationskosten, Rennergebnis | nein |
 | `/settings` | Setup & Tools: Wochenform, Laufvolumen, Verbindungen, Verletzung | nein |
-| `/de/…` | Deutsche Landingpages (8/12/16 Wochen) | ja |
 | `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
 
 Alle eingeloggten Seiten teilen sich **eine Kopfzeile**: das Logo führt immer zurück auf `/plan`
@@ -873,14 +872,23 @@ Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht vo
 
 ---
 
-## 15. Bezahlung und was frei ist
+## 15. Eine App für einen Athleten
 
-**Woche 1 ist dauerhaft kostenlos** — vollständig, mit allen Blöcken, Gewichten und Paces. Ab Woche 2
-ist der Plan gesperrt, bis der Rennzyklus freigeschaltet ist (einmalig oder als Abo).
+Diese App wird von genau einer Person für ihr eigenes Training benutzt. Was nur dazu da war, sie an
+andere zu verkaufen, ist entfernt:
 
-Die Sperre ist keine Anzeigefrage: gesperrte Wochen werden **gar nicht erst an den Browser
-ausgeliefert**. Ein Rebase behält eine bestehende Freischaltung — ein bezahlter Rennzyklus bleibt
-bezahlt.
+- **Keine Bezahlung, keine Paywall.** Früher war Woche 1 frei und der Rest gesperrt, bis der
+  Rennzyklus freigeschaltet wurde. Stripe, die Freischaltung und die Sperre sind raus — jede Woche
+  ist vollständig da.
+- **Keine Startseite mit Pitch, keine SEO-Landingpages.** `/` führt direkt auf `/plan`; wer nicht
+  angemeldet ist, landet von dort im Onboarding.
+- **Keine Betriebs-Kennzahlen.** `/api/admin/kpis` maß Dinge wie „Anteil der Logs mit echtem RPE"
+  über alle Profile hinweg — bei einem Athleten ist das keine Kennzahl.
+
+Was bewusst **bleibt**: die Anmeldung per Magic Link (du nutzt Handy *und* PC), die Zeilen-Sicherheit
+in der Datenbank (die einzige Schicht zwischen einem geleakten Schlüssel und deinen Daten), das
+Betreiber-Secret für die Cron-Endpunkte (die sind öffentliches HTTP, egal wie viele Nutzer es gibt)
+und die fünf Level mit ihren Katalogen — du bist heute ein Level, aber nicht für immer.
 
 ---
 
@@ -917,10 +925,6 @@ Annahme ändert sich etwas am Plan.
 
 Ein „Brief" fasst zusammen, was aktuell aus eigenen Quellen im System steckt.
 
-### `/api/admin/kpis`
-
-Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
-
 ---
 
 ## 18. Begriffe
@@ -948,6 +952,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Auf Einzelnutzung zugeschnitten: Stripe, Paywall und Wochensperre entfernt (jede Woche ist vollständig da), Pitch-Startseite und SEO-Landingpages entfernt (`/` führt auf `/plan`), Betriebs-Kennzahlen entfernt | [15](#15-eine-app-für-einen-athleten) |
 | **Fehler behoben:** Bei einem Rennen, das weiter als 20 Wochen entfernt ist, wurde der Rennzyklus abgeschnitten und taperte Wochen bis Monate zu früh. Solche Pläne sind jetzt Übergangsblöcke, der Rennzyklus startet in Reichweite — bestehende Pläne stellt der nächtliche Lauf selbst um | [6](#6-wie-sich-der-plan-anpasst) |
 | **Fehler behoben:** Ein Übergangsblock wurde bei jedem nächtlichen Neuaufbau still zu einem Rennzyklus, der auf sein eigenes Blockende hin taperte | [6](#6-wie-sich-der-plan-anpasst) |
 | **Fehler behoben:** Von Hand verschobene Einheiten gingen beim nächsten Neuaufbau verloren — sie wurden unter der falschen Kalenderwoche abgelegt (Erstellungsdatum statt Startdatum des Plans) und passten danach auf keine Woche | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |

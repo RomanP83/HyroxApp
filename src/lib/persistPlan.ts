@@ -28,7 +28,6 @@ export interface PersistMeta {
    */
   kind?: "race" | "transition";
   raceId?: string | null;
-  stripePaymentId?: string | null;
   status?: "active" | "paused";
 }
 
@@ -52,7 +51,6 @@ export async function persistPlan(
     starts_on: meta.startsOn ?? null,
     kind: meta.kind ?? "race",
     status: meta.status ?? "active",
-    stripe_payment_id: meta.stripePaymentId ?? null,
     total_weeks: plan.total_weeks,
     engine_version: plan.engine_version || ENGINE_VERSION,
     phases: plan.phases,

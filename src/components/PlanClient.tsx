@@ -67,7 +67,6 @@ interface PhaseMeta {
 interface Props {
   planId: string;
   profileId: string;
-  paid: boolean;
   planStatus: string;
   raceDate: string;
   phases: PhaseMeta[];
@@ -83,11 +82,8 @@ interface Props {
   sessions: ClientSession[];
   state: any;
   adjustments: string[];
-  locked: boolean;
   /** What this week's running adds up to — volume and 80/20 distribution. */
   runSummary: WeeklyRunSummary | null;
-  /** Whether the subscription tier is configured (C4). */
-  subscriptionAvailable: boolean;
   /** Goal against prediction — null until the athlete has set a goal. */
   goalCheck: GoalCheck | null;
   /** The Monday of the week on screen — the dates on the cards come off it. */
@@ -178,27 +174,6 @@ export function PlanClient(props: Props) {
   const occupied = new Set(
     props.sessions.map((cs) => `${cs.session.day_hint}-${cs.session.day_slot ?? "am"}`),
   );
-
-  // B6: returning from Stripe — verify the checkout session server-side
-  // instead of trusting a query flag, then clean the URL.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const checkoutSession = params.get("checkout_session");
-    if (!checkoutSession) return;
-    fetch("/api/stripe/verify", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ checkout_session_id: checkoutSession }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.paid) setToast("Payment confirmed — your full race cycle is unlocked. 🎉");
-        router.replace("/plan");
-        router.refresh();
-      })
-      .catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function injury(action: "activate" | "recover") {
     const res = await fetch("/api/plans/injury", {
@@ -339,17 +314,6 @@ export function PlanClient(props: Props) {
 
   // Volume is a change to every remaining week, so saving it rebuilds the plan
   // from today (the same rebase the injury-recovery flow uses).
-  async function unlock(tier: "race_cycle" | "subscription" = "race_cycle") {
-    const res = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ planId: props.planId, tier }),
-    });
-    const out = await readApi<{ url?: string }>(res);
-    if (out.data.url) window.location.href = out.data.url;
-    else setToast(out.message || "Checkout unavailable — set STRIPE_* env vars.");
-  }
-
   return (
     <main className="space-y-6">
       <AppHeader
@@ -357,13 +321,6 @@ export function PlanClient(props: Props) {
           label: props.planKind === "transition" ? "Block ends" : "Race day",
           days: daysToRace,
         }}
-        action={
-          !props.paid ? (
-            <button className="btn-primary" onClick={() => unlock()}>
-              Unlock full plan
-            </button>
-          ) : null
-        }
       />
 
       {props.planStatus === "rehab" && (
@@ -378,23 +335,6 @@ export function PlanClient(props: Props) {
           <button className="btn-primary" onClick={() => injury("recover")}>
             I&apos;m back — rebuild my plan
           </button>
-        </div>
-      )}
-
-      {!props.paid && (
-        <div className="card border-flame/40 bg-rack flex flex-wrap items-center justify-between gap-2 text-base">
-          <span className="flex items-start gap-3">
-            <LockIcon size={18} className="mt-0.5 shrink-0 text-flame" />
-            <span>
-              <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every
-              week’s sessions, weights and paces — one-time price, for your race.
-            </span>
-          </span>
-          {props.subscriptionAvailable && (
-            <button className="btn-ghost" onClick={() => unlock("subscription")}>
-              Multi-racer? Subscribe instead
-            </button>
-          )}
         </div>
       )}
 
@@ -561,23 +501,16 @@ export function PlanClient(props: Props) {
               }
               session={item.cs.session}
               status={optimistic[item.cs.id] ?? item.cs.status}
-              locked={props.locked}
               busyAction={busy?.sessionId === item.cs.id ? busy.action : null}
-              onLog={
-                props.locked
-                  ? undefined
-                  : (a, sets) => log(item.cs.id, a, item.cs.session.intensity_rpe_target, sets)
-              }
+              onLog={(a, sets) => log(item.cs.id, a, item.cs.session.intensity_rpe_target, sets)}
               strength={item.cs.strength ?? null}
-              onReset={props.locked ? undefined : () => reset(item.cs.id)}
+              onReset={() => reset(item.cs.id)}
               resetting={resetting === item.cs.id}
               date={dayDateOf(props.weekStart, item.cs.session.day_hint)}
               substitutions={substitutions}
-              onSwap={props.locked ? undefined : (station) => setSwapStation(station)}
+              onSwap={(station) => setSwapStation(station)}
               showSlot={doubleDays.has(item.cs.session.day_hint)}
-              onMove={
-                props.locked ? undefined : (day, slot) => void move(item.cs.id, day, slot)
-              }
+              onMove={(day, slot) => void move(item.cs.id, day, slot)}
               moving={movingId === item.cs.id}
               occupied={occupied}
             />

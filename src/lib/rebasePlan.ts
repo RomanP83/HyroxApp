@@ -29,7 +29,7 @@ export async function rebasePlan(
 ): Promise<string | null> {
   const { data: plan } = await admin
     .from("plans")
-    .select("id, profile_id, race_id, race_date, kind, stripe_payment_id")
+    .select("id, profile_id, race_id, race_date, kind")
     .eq("id", planId)
     .single();
   if (!plan) return null;
@@ -109,7 +109,6 @@ export async function rebasePlan(
       profileId: plan.profile_id,
       raceDate: plan.race_date,
       raceId: plan.race_id,
-      stripePaymentId: plan.stripe_payment_id,
       startsOn: start,
     },
     generated,

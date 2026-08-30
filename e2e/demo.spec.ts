@@ -4,9 +4,11 @@ import { test, expect } from "@playwright/test";
 // end-to-end proof that generation, adaptation, and the feedback card work
 // without any backend (Roadmap B7).
 
-test("landing page carries the core pitch", async ({ page }) => {
+test("the root goes straight to the week, and the week is behind the gate", async ({ page }) => {
+  // One athlete, nothing to sell: / redirects to /plan, and /plan sends anyone
+  // without a session on to onboarding.
   await page.goto("/");
-  await expect(page.locator("h1")).toContainText("adapts after every session");
+  await expect(page).toHaveURL(/\/onboarding/);
 });
 
 test("demo: generate → log → feedback card → adaptation feed", async ({ page }) => {

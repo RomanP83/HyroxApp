@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // ACWR curve is recomputed day-by-day with the same pure engine function the
 // adaptive layer uses, so chart and engine can never disagree.
 export default async function ProgressPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

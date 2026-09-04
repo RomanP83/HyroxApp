@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 // B2: the benchmark protocol UI (start / mid / pre-race testing, plan §2).
 export default async function BenchmarksPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

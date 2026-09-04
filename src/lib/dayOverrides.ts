@@ -7,6 +7,7 @@
 // ============================================================================
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DayOverride } from "@/lib/engine";
+import { dateInTrainingZone } from "@/lib/planClock";
 
 const DAY_MS = 86_400_000;
 
@@ -18,7 +19,9 @@ function mondayOf(iso: string): number {
 
 /** The Monday a given plan week starts on. */
 export function weekStartOf(planGeneratedAt: string, weekNumber: number): string {
-  return new Date(mondayOf(planGeneratedAt) + (weekNumber - 1) * 7 * DAY_MS)
+  const generatedDate = planGeneratedAt.length > 10
+    ? dateInTrainingZone(new Date(planGeneratedAt)) : planGeneratedAt;
+  return new Date(mondayOf(generatedDate) + (weekNumber - 1) * 7 * DAY_MS)
     .toISOString()
     .slice(0, 10);
 }

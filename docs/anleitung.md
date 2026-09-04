@@ -25,7 +25,7 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 11. [`/progress` — Auswertungen](#11-progress--auswertungen)
 12. [Verbindungen: Strava, Garmin, Telegram](#12-verbindungen-strava-garmin-telegram)
 13. [Automatische Abläufe im Hintergrund](#13-automatische-abläufe-im-hintergrund)
-14. [Bezahlung und was frei ist](#14-bezahlung-und-was-frei-ist)
+14. [Persönlicher Betrieb](#14-persönlicher-betrieb)
 15. [`/demo` — ausprobieren ohne Konto](#15-demo--ausprobieren-ohne-konto)
 16. [Betreiber-Oberflächen](#16-betreiber-oberflächen)
 17. [Begriffe](#17-begriffe)
@@ -49,7 +49,7 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 
 | Seite | Wofür | Ohne Login? |
 |---|---|---|
-| `/` | Startseite, Pitch, Einstieg | ja |
+| `/` | Leitet direkt zu `/plan` weiter; ohne Login zum Onboarding | Weiterleitung |
 | `/demo` | Kompletter Durchlauf mit Beispieldaten | ja |
 | `/onboarding` | Profil anlegen, Plan erzeugen | Login nötig (Magic Link) |
 | `/plan` | Die aktuelle Trainingswoche | nein |
@@ -109,6 +109,13 @@ einer einzigen Transaktion gespeichert (`persist_plan`), damit kein halber Plan 
 ---
 
 ## 4. `/plan` — die Trainingswoche
+
+Ohne ausdrücklich gewählte Woche zeigt die App die aktuelle Kalenderwoche des Plans.
+Woche 1 ist die Montag–Sonntag-Woche der Planerstellung; montags schaltet die Ansicht weiter.
+Vergangene Wochen bleiben einsehbar und ihre Logs erhalten. Die letzte Planwoche bleibt nach
+Zyklusende auswählbar, aber alle Wochen gelten dann als abgeschlossen; Makro-Cron und Check-ins
+arbeiten nicht erneut die letzte Woche ab. `APP_TIME_ZONE` legt die Trainingszeitzone fest
+(Standard: Europe/Berlin).
 
 Die Hauptseite. Links die Einheiten der Woche, rechts die Kontextkarten.
 
@@ -173,6 +180,12 @@ Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 ---
 
 ## 5. Eine Einheit loggen (und den Fehlklick zurücknehmen)
+
+Session-Log, eingetragene Kraftsätze und der Status „done“ werden gemeinsam gespeichert oder
+gemeinsam zurückgerollt. Das gilt auch für Telegram und Wearables. Ein doppelter Klick bzw.
+erneut zugestellter Log derselben Session überschreibt nichts und kalibriert nicht erneut.
+Korrekturen laufen über **Undo** und erneutes Loggen. Feedback und die anschließende
+Engine-Kalibrierung sind separate Verarbeitungsschritte, nicht Teil dieser Log-Transaktion.
 
 Vier Knöpfe pro Einheit — **ein Tap genügt**:
 
@@ -246,6 +259,15 @@ und der Kraftfaktor in kleinen Schritten nachgeführt (±5 s/km, ±5 % Last), ge
 Woche, damit nichts davonläuft.
 
 **Schicht 2 — nachts (Makro).** Ein Hintergrundlauf prüft die Belastungsentwicklung:
+
+Eine Skalierung wird je Plan, Woche und Direktive nur einmal angewendet. Wiederholte Cron-Aufrufe
+verkürzen die gleichen Einheiten nicht Nacht für Nacht erneut. Unterschiedliche Direktiven
+(z. B. Trim und Deload) bleiben unterschiedliche Entscheidungen.
+
+**ACWR-Kaltstart:** Solange seit dem ersten verwertbaren Log noch keine 28 Beobachtungstage
+vorliegen, bleibt ACWR neutral bei 1,0; die chronische Last wird vorläufig mit der akuten Last
+angezeigt. Fehlende Historie erzeugt damit keinen künstlichen Belastungssprung. RPE- und
+Inaktivitätsregeln gelten trotzdem. Der Makro-Cron berechnet die Lastfenster vor jeder Prüfung neu.
 
 | Signal | Reaktion |
 |---|---|
@@ -434,6 +456,16 @@ Schicht benutzt — Diagramm und Engine können nicht auseinanderlaufen.
 Einheit zugeordnet und geloggt. Die tatsächlich gelaufene Pace fließt direkt in die
 Pace-Kalibrierung. Neue Aktivitäten kommen per Webhook an — kein Polling, keine manuelle Eingabe.
 
+Automatisch zugeordnet werden nur Läufe mit gültigem Startzeitpunkt nach Planerstellung, in der
+aktuellen Planwoche und im passenden Tag-/AM-PM-Slot. Alte oder nicht passende Aktivitäten werden
+nicht auf eine andere offene Einheit umgebucht. Nicht zugeordnete Läufe kannst du manuell loggen.
+
+**Garmin-Einrichtung:** Zusätzlich zu Client-ID und Client-Secret ist `GARMIN_WEBHOOK_SECRET`
+erforderlich. Die Push-URL wird mit `?token=<Secret>` registriert (alternativ Header
+`x-garmin-webhook-secret`). Ohne oder mit falschem Secret antwortet der Endpunkt mit 401, auch
+bei der Erreichbarkeitsprüfung. URL samt Token nicht teilen oder in öffentliche Logs übernehmen.
+Pro Push sind höchstens 20 Aktivitäten erlaubt; Datenbankfehler werden nicht mehr still bestätigt.
+
 **Telegram.** Abends kommt ein Check-in mit vier Knöpfen (dieselben wie in der App). Antippen loggt
 die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-Mail.
 
@@ -451,14 +483,16 @@ Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht vo
 
 ---
 
-## 14. Bezahlung und was frei ist
+## 14. Persönlicher Betrieb
 
-**Woche 1 ist dauerhaft kostenlos** — vollständig, mit allen Blöcken, Gewichten und Paces. Ab Woche 2
-ist der Plan gesperrt, bis der Rennzyklus freigeschaltet ist (einmalig oder als Abo).
+Die App ist für den persönlichen Gebrauch eingerichtet. Alle Wochen sind immer vollständig
+zugänglich; Kauf, Abo, Freischaltung und Stripe-Endpunkte sind entfernt. `PERSONAL_MODE` und
+`STRIPE_*` werden nicht mehr benötigt. Bestehende Zahlungsfelder in der Datenbank bleiben aus
+Kompatibilitätsgründen erhalten, steuern aber keinen Zugriff mehr.
 
-Die Sperre ist keine Anzeigefrage: gesperrte Wochen werden **gar nicht erst an den Browser
-ausgeliefert**. Ein Rebase behält eine bestehende Freischaltung — ein bezahlter Rennzyklus bleibt
-bezahlt.
+Die Startadresse führt direkt zum Plan. Authentifizierung und Row-Level-Security bleiben aktiv.
+Nach Anlage deines Kontos solltest du neue Registrierungen in Supabase deaktivieren (siehe
+`personal-setup.md`). Reha-Aktivierung und der Neuaufbau nach Genesung verlangen eine Bestätigung.
 
 ---
 
@@ -525,6 +559,9 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| 2026-09-04: Persönlicher Direkteinstieg, alle Wochen offen, Stripe entfernt, Reha-Bestätigung | [14](#14-persönlicher-betrieb) |
+| 2026-09-04: Wochenfortschritt nach Kalender, idempotente Makro-Skalierungen und neutraler ACWR-Kaltstart | [4](#4-plan--die-trainingswoche), [6](#6-wie-sich-der-plan-anpasst) |
+| 2026-09-04: Transaktionale Session-Logs und abgesicherter Garmin-Webhook mit engerer Laufzuordnung | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen), [12](#12-verbindungen-strava-garmin-telegram) |
 | Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |
 | Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |
 | Setup & Tools ist eine eigene Seite (`/settings`), erreichbar über „Setup" rechts oben; Verbindungen zeigen ihren Zustand | [8](#8-settings--setup--tools) |

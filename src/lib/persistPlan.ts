@@ -19,6 +19,8 @@ export interface PersistMeta {
   raceId?: string | null;
   stripePaymentId?: string | null;
   status?: "active" | "paused";
+  rebaseFrom?: string;
+  rebaseReason?: string;
 }
 
 /**
@@ -45,7 +47,11 @@ export async function persistPlan(
     phases: plan.phases,
   };
 
-  const { data, error } = await supabase.rpc("persist_plan", { p: payload });
+  const { data, error } = meta.rebaseFrom
+    ? await supabase.rpc("rebase_plan_once", {
+        p_old: meta.rebaseFrom, p_payload: payload, p_reason: meta.rebaseReason ?? "Plan rebuilt.",
+      })
+    : await supabase.rpc("persist_plan", { p: payload });
   if (error || !data) throw new Error(`persist_plan: ${error?.message ?? "no plan id returned"}`);
   return data as string;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
@@ -20,7 +20,6 @@ import type { FrequencyAdvice, PhaseType, VolumeAssessment, WeeklyRunSummary } f
 import { haptic } from "@/lib/haptics";
 import {
   LeafIcon,
-  LockIcon,
   MedicalIcon,
   SparkIcon,
   SpinnerIcon,
@@ -52,20 +51,17 @@ interface PhaseMeta {
 interface Props {
   planId: string;
   profileId: string;
-  paid: boolean;
   planStatus: string;
   raceDate: string;
+  trainingDate: string;
   phases: PhaseMeta[];
   weeks: WeekMeta[];
   currentWeek: WeekMeta;
   sessions: ClientSession[];
   state: any;
   adjustments: string[];
-  locked: boolean;
   /** What this week's running adds up to — volume and 80/20 distribution. */
   runSummary: WeeklyRunSummary | null;
-  /** Whether the subscription tier is configured (C4). */
-  subscriptionAvailable: boolean;
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
@@ -80,22 +76,11 @@ export function PlanClient(props: Props) {
   const [optimistic, setOptimistic] = useState<Record<string, "done" | "skipped" | "planned">>({});
   const [resetting, setResetting] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
-  // Today is a client fact: resolving it during render would make the server
-  // and the browser disagree about which day to highlight.
-  const [today, setToday] = useState<{ weekday: number; daysToRace: number } | null>(null);
-
-  useEffect(() => {
-    const now = new Date();
-    const weekday = now.getDay() === 0 ? 7 : now.getDay(); // Monday = 1
-    const race = new Date(`${props.raceDate.slice(0, 10)}T00:00:00Z`).getTime();
-    const midnight = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    setToday({
-      weekday,
-      daysToRace: Math.max(0, Math.round((race - midnight) / 86_400_000)),
-    });
-  }, [props.raceDate]);
-
-  const daysToRace = today?.daysToRace ?? null;
+  // Server and browser share the configured training date, including on travel.
+  const midnight = new Date(`${props.trainingDate}T00:00:00Z`);
+  const weekday = midnight.getUTCDay() || 7;
+  const race = new Date(`${props.raceDate.slice(0, 10)}T00:00:00Z`).getTime();
+  const daysToRace = Math.max(0, Math.round((race - midnight.getTime()) / 86_400_000));
 
   const phaseOf = (n: number) => props.phases.find((p) => n >= p.start_week && n <= p.end_week);
   // Days that carry an AM *and* a PM session — only there does the marker help.
@@ -111,28 +96,8 @@ export function PlanClient(props: Props) {
     props.sessions.map((cs) => `${cs.session.day_hint}-${cs.session.day_slot ?? "am"}`),
   );
 
-  // B6: returning from Stripe — verify the checkout session server-side
-  // instead of trusting a query flag, then clean the URL.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const checkoutSession = params.get("checkout_session");
-    if (!checkoutSession) return;
-    fetch("/api/stripe/verify", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ checkout_session_id: checkoutSession }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.paid) setToast("Payment confirmed — your full race cycle is unlocked. 🎉");
-        router.replace("/plan");
-        router.refresh();
-      })
-      .catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   async function injury(action: "activate" | "recover") {
+    if (action === "recover" && !window.confirm("Rebuild the remaining plan from today?")) return;
     const res = await fetch("/api/plans/injury", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -266,31 +231,9 @@ export function PlanClient(props: Props) {
     }
   }
 
-  // Volume is a change to every remaining week, so saving it rebuilds the plan
-  // from today (the same rebase the injury-recovery flow uses).
-  async function unlock(tier: "race_cycle" | "subscription" = "race_cycle") {
-    const res = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ planId: props.planId, tier }),
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else setToast(data.error ?? "Checkout unavailable — set STRIPE_* env vars.");
-  }
-
   return (
     <main className="space-y-6">
-      <AppHeader
-        countdown={{ label: "Race day", days: daysToRace }}
-        action={
-          !props.paid ? (
-            <button className="btn-primary" onClick={() => unlock()}>
-              Unlock full plan
-            </button>
-          ) : null
-        }
-      />
+      <AppHeader countdown={{ label: "Race day", days: daysToRace }} />
 
       {props.planStatus === "rehab" && (
         <div className="card border-amber/50 bg-rack flex flex-wrap items-center justify-between gap-3 animate-fade-up">
@@ -304,23 +247,6 @@ export function PlanClient(props: Props) {
           <button className="btn-primary" onClick={() => injury("recover")}>
             I&apos;m back — rebuild my plan
           </button>
-        </div>
-      )}
-
-      {!props.paid && (
-        <div className="card border-flame/40 bg-rack flex flex-wrap items-center justify-between gap-2 text-base">
-          <span className="flex items-start gap-3">
-            <LockIcon size={18} className="mt-0.5 shrink-0 text-flame" />
-            <span>
-              <b>Free preview.</b> Week 1 is fully open. Unlock the race cycle to see every
-              week’s sessions, weights and paces — one-time price, for your race.
-            </span>
-          </span>
-          {props.subscriptionAvailable && (
-            <button className="btn-ghost" onClick={() => unlock("subscription")}>
-              Multi-racer? Subscribe instead
-            </button>
-          )}
         </div>
       )}
 
@@ -447,23 +373,16 @@ export function PlanClient(props: Props) {
           {props.sessions.map((cs) => (
             <SessionCard
               key={cs.id}
-              focal={today?.weekday === cs.session.day_hint && cs.status === "planned"}
+              focal={props.currentWeek.status === "current" && weekday === cs.session.day_hint && cs.status === "planned"}
               session={cs.session}
               status={optimistic[cs.id] ?? cs.status}
-              locked={props.locked}
               busyAction={busy?.sessionId === cs.id ? busy.action : null}
-              onLog={
-                props.locked
-                  ? undefined
-                  : (a, sets) => log(cs.id, a, cs.session.intensity_rpe_target, sets)
-              }
+              onLog={(a, sets) => log(cs.id, a, cs.session.intensity_rpe_target, sets)}
               strength={cs.strength ?? null}
-              onReset={props.locked ? undefined : () => reset(cs.id)}
+              onReset={() => reset(cs.id)}
               resetting={resetting === cs.id}
               showSlot={doubleDays.has(cs.session.day_hint)}
-              onMove={
-                props.locked ? undefined : (day, slot) => void move(cs.id, day, slot)
-              }
+              onMove={(day, slot) => void move(cs.id, day, slot)}
               moving={movingId === cs.id}
               occupied={occupied}
             />

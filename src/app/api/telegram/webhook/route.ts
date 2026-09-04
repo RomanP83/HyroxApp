@@ -70,24 +70,28 @@ export async function POST(req: Request) {
     }
 
     if (action === "skip") {
-      await admin.from("sessions").update({ status: "skipped" }).eq("id", sessionId);
+      const { error } = await admin.from("sessions").update({ status: "skipped" })
+        .eq("id", sessionId).in("status", ["planned", "moved", "skipped"]);
+      if (error) return NextResponse.json({ error: "skip_failed" }, { status: 500 });
       await tgAnswerCallback(cb.id, "Skipped — noted. No make-up pile-up.");
       return NextResponse.json({ ok: true });
     }
 
     const delta = DELTA[action] ?? 0;
     const rpe = Math.max(1, Math.min(10, session.intensity_rpe_target + delta));
-    await admin.from("session_logs").upsert(
-      {
-        session_id: sessionId,
-        completed_as_planned: action === "planned",
-        rpe_actual: rpe,
-        duration_actual_min: session.planned_duration_min,
-        completed_at: new Date().toISOString(),
-      },
-      { onConflict: "session_id" },
-    );
-    await admin.from("sessions").update({ status: "done" }).eq("id", sessionId);
+    const { data: written, error } = await admin.rpc("record_session_completion", {
+      p_session: sessionId,
+      p_completed_as_planned: action === "planned",
+      p_rpe: rpe,
+      p_duration: session.planned_duration_min,
+      p_block_results: null,
+      p_notes: null,
+    });
+    if (error) return NextResponse.json({ error: "log_failed" }, { status: 500 });
+    if (!written?.created) {
+      await tgAnswerCallback(cb.id, "Already logged — no changes made.");
+      return NextResponse.json({ ok: true });
+    }
 
     const outcome = await applyMicroForSession(admin, sessionId);
     const reason = outcome?.adjustments?.[0]?.reason;

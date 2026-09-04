@@ -8,15 +8,17 @@ import {
 } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
+import { dateInTrainingZone, syncPlanWeekStatuses } from "@/lib/planClock";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: { week?: string };
+  searchParams: Promise<{ week?: string }>;
 }) {
-  const supabase = supabaseServer();
+  const query = await searchParams;
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -24,16 +26,14 @@ export default async function PlanPage({
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select(
-      "id, division, subscription_status, training_days_per_week",
-    )
+    .select("id, division, training_days_per_week")
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, race_date, status, total_weeks, stripe_payment_id")
+    .select("id, race_date, status, total_weeks, generated_at")
     .eq("profile_id", profile.id)
     .in("status", ["active", "paused", "rehab"])
     .order("generated_at", { ascending: false })
@@ -48,7 +48,7 @@ export default async function PlanPage({
         <h1 className="text-2xl font-bold">Your plan starts here</h1>
         <p className="text-ash">
           Two minutes of questions, and the engine builds a week-by-week plan backward from your
-          race date — week 1 free.
+          race date.
         </p>
         <Link href="/onboarding" className="btn-primary">
           Build my plan →
@@ -57,15 +57,7 @@ export default async function PlanPage({
     );
   }
 
-  // C4: a per-plan purchase OR an active subscription unlocks the plan.
-  // PERSONAL_MODE unlocks everything for a self-hosted, single-athlete
-  // install — no Stripe account needed to use your own plan.
-  const paid =
-    process.env.PERSONAL_MODE === "1" ||
-    Boolean(plan.stripe_payment_id) ||
-    profile.subscription_status === "active";
-
-  const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
+  const activeWeekNumber = await syncPlanWeekStatuses(supabase, plan);
 
   const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }] =
     await Promise.all([
@@ -93,9 +85,10 @@ export default async function PlanPage({
 
   const weekList = weeks ?? [];
   const current =
-    weekList.find((w) => String(w.week_number) === searchParams.week) ??
-    weekList.find((w) => w.status === "current") ??
+    weekList.find((w) => String(w.week_number) === query.week) ??
+    weekList.find((w) => w.week_number === Math.min(activeWeekNumber, plan.total_weeks)) ??
     weekList[0];
+  if (!current) throw new Error("Active plan has no weeks");
 
   // Load sessions + blocks for the selected week.
   const { data: sessionRows } = await supabase
@@ -105,8 +98,6 @@ export default async function PlanPage({
     )
     .eq("week_id", current.id)
     .order("sort_order", { ascending: true });
-
-  const locked = current.week_number > 1 && !paid;
 
   // The athlete's own strength day replaces the library's main block. Several
   // days rotate by week, so Tag A / Tag B alternate the way they would in the
@@ -144,24 +135,20 @@ export default async function PlanPage({
     }));
 
   const clientSessions: ClientSession[] = (sessionRows ?? []).map((s: any) => {
-    // A1/K1: locked weeks never ship their blocks to the browser — the lock
-    // must live server-side, not as a UI overlay over fully delivered data.
     const joinRows = (s.session_blocks ?? []) as SessionBlockJoinRow[];
-    const blocks: RenderedBlock[] = locked
-      ? []
-      : joinRows
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((sb) => ({
-            block_id: sb.block_id,
-            slug: sb.workout_blocks?.slug ?? undefined,
-            block_type: (sb.workout_blocks?.block_type ?? "main") as RenderedBlock["block_type"],
-            station: (sb.workout_blocks?.station ?? null) as RenderedBlock["station"],
-            content: sb.workout_blocks?.content ?? [],
-            sort_order: sb.sort_order,
-            load_adjustments: (sb.load_adjustments ?? {
-              division: profile.division as Division,
-            }) as RenderedBlock["load_adjustments"],
-          }));
+    const blocks: RenderedBlock[] = joinRows
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((sb) => ({
+        block_id: sb.block_id,
+        slug: sb.workout_blocks?.slug ?? undefined,
+        block_type: (sb.workout_blocks?.block_type ?? "main") as RenderedBlock["block_type"],
+        station: (sb.workout_blocks?.station ?? null) as RenderedBlock["station"],
+        content: sb.workout_blocks?.content ?? [],
+        sort_order: sb.sort_order,
+        load_adjustments: (sb.load_adjustments ?? {
+          division: profile.division as Division,
+        }) as RenderedBlock["load_adjustments"],
+      }));
     const session: GeneratedSession = {
       day_hint: s.day_hint,
       day_slot: (s.day_slot ?? "am") as GeneratedSession["day_slot"],
@@ -174,7 +161,7 @@ export default async function PlanPage({
     };
     // A strength session shows the athlete's own exercises instead of the
     // library block — warm-up and mobility around it stay as generated.
-    if (strengthTemplate && s.session_type === "strength" && !locked) {
+    if (strengthTemplate && s.session_type === "strength") {
       session.blocks = [
         ...blocks.filter((b) => b.block_type !== "main"),
         {
@@ -230,17 +217,15 @@ export default async function PlanPage({
     <PlanClient
       planId={plan.id}
       profileId={profile.id}
-      paid={paid}
       planStatus={plan.status}
-      subscriptionAvailable={subscriptionAvailable}
       raceDate={plan.race_date}
+      trainingDate={dateInTrainingZone()}
       phases={phases ?? []}
       weeks={weekList}
       currentWeek={current}
       sessions={clientSessions}
       state={state}
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
-      locked={locked}
       runSummary={runSummary}
     />
   );

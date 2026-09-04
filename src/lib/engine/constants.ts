@@ -9,6 +9,7 @@ import type { PhaseType, SessionType, PaceZones, StationTiers } from "./types";
 import { STATIONS } from "./types";
 
 export const ENGINE_VERSION = "v1.2";
+export const ACWR_MIN_HISTORY_DAYS = 28;
 
 // ── Macro phase-split lookup (weeks_to_race -> [base, build, peak, taper]) ────
 // Taper is never negotiable (PP4).

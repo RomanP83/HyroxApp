@@ -1,3 +1,4 @@
+import { dateInTrainingZone } from "@/lib/planClock";
 // ============================================================================
 // Build the detailed training plan from the athlete's race calendar.
 //
@@ -18,7 +19,7 @@ import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 export const runtime = "nodejs";
 
 export async function POST() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -32,7 +33,7 @@ export async function POST() {
   if (!profileRow) return NextResponse.json({ error: "no_profile" }, { status: 404 });
   const profile = profileRow as AthleteProfile;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateInTrainingZone();
   const calendar = await loadSeasonRaces(supabase, profile.id);
   const main = pickMainRace(calendar, today);
   if (!main) {

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   if (!stravaConfigured()) return NextResponse.json({ error: "strava_not_configured" }, { status: 404 });
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

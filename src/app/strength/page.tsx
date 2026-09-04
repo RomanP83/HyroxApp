@@ -6,7 +6,7 @@ import { StrengthClient, type StrengthTemplate } from "@/components/StrengthClie
 export const dynamic = "force-dynamic";
 
 export default async function StrengthPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -22,6 +22,72 @@ export interface StrengthRecordOutcome {
   suggestions: { exercise: string; from: number | null; to: number; reason: string }[];
 }
 
+/** Refresh progression suggestions after the set rows have been committed. */
+export async function refreshStrengthSuggestions(
+  supabase: SupabaseClient,
+  exerciseIds: string[],
+): Promise<StrengthRecordOutcome["suggestions"]> {
+  const suggestions: StrengthRecordOutcome["suggestions"] = [];
+  const uniqueIds = [...new Set(exerciseIds.filter(Boolean))];
+  if (!uniqueIds.length) return suggestions;
+
+  const { data: exercises, error } = await supabase
+    .from("strength_exercises")
+    .select("id, name, sets, rep_min, rep_max, load_kg")
+    .in("id", uniqueIds);
+  if (error) throw new Error(`strength exercises: ${error.message}`);
+
+  for (const exercise of exercises ?? []) {
+    const { data: history, error: historyError } = await supabase
+      .from("strength_set_logs")
+      .select("session_id, set_number, reps, load_kg, logged_at")
+      .eq("exercise_id", exercise.id)
+      .order("logged_at", { ascending: false })
+      .limit(40);
+    if (historyError) throw new Error(`strength history: ${historyError.message}`);
+
+    const bySession = new Map<string, LoggedSet[]>();
+    for (const row of history ?? []) {
+      const list = bySession.get(row.session_id) ?? [];
+      list.push({
+        set_number: row.set_number,
+        reps: row.reps,
+        load_kg: row.load_kg == null ? null : Number(row.load_kg),
+      });
+      bySession.set(row.session_id, list);
+    }
+    const sessionsNewestFirst = [...bySession.values()].map((list) =>
+      [...list].sort((a, b) => a.set_number - b.set_number),
+    );
+    const plan = {
+      name: exercise.name,
+      sets: exercise.sets,
+      rep_min: exercise.rep_min,
+      rep_max: exercise.rep_max,
+      load_kg: exercise.load_kg == null ? null : Number(exercise.load_kg),
+    };
+    const suggestion = suggestLoad(plan, sessionsNewestFirst);
+    if (!suggestion) continue;
+
+    const { error: updateError } = await supabase
+      .from("strength_exercises")
+      .update({
+        suggested_load_kg: suggestion.load_kg,
+        suggested_reason: suggestion.reason,
+        suggested_at: new Date().toISOString(),
+      })
+      .eq("id", exercise.id);
+    if (updateError) throw new Error(`strength suggestion: ${updateError.message}`);
+    suggestions.push({
+      exercise: exercise.name,
+      from: plan.load_kg,
+      to: suggestion.load_kg,
+      reason: suggestion.reason,
+    });
+  }
+  return suggestions;
+}
+
 /** Persist the sets of one logged session and refresh the suggestions. */
 export async function recordStrengthSets(
   supabase: SupabaseClient,
@@ -41,68 +107,12 @@ export async function recordStrengthSets(
     }));
   if (!rows.length) return { sets: 0, suggestions: [] };
 
-  await supabase
+  const { error } = await supabase
     .from("strength_set_logs")
     .upsert(rows, { onConflict: "session_id,exercise_name,set_number" });
+  if (error) throw new Error(`strength sets: ${error.message}`);
 
-  const suggestions: StrengthRecordOutcome["suggestions"] = [];
   const exerciseIds = [...new Set(rows.map((r) => r.exercise_id).filter((id): id is string => !!id))];
-  if (!exerciseIds.length) return { sets: rows.length, suggestions };
-
-  const { data: exercises } = await supabase
-    .from("strength_exercises")
-    .select("id, name, sets, rep_min, rep_max, load_kg")
-    .in("id", exerciseIds);
-
-  for (const exercise of exercises ?? []) {
-    // The last two sessions of this exercise: enough for "twice in a row".
-    const { data: history } = await supabase
-      .from("strength_set_logs")
-      .select("session_id, set_number, reps, load_kg, logged_at")
-      .eq("exercise_id", exercise.id)
-      .order("logged_at", { ascending: false })
-      .limit(40);
-
-    const bySession = new Map<string, LoggedSet[]>();
-    for (const row of history ?? []) {
-      const list = bySession.get(row.session_id) ?? [];
-      list.push({
-        set_number: row.set_number,
-        reps: row.reps,
-        load_kg: row.load_kg == null ? null : Number(row.load_kg),
-      });
-      bySession.set(row.session_id, list);
-    }
-    const sessionsNewestFirst = [...bySession.values()].map((list) =>
-      [...list].sort((a, b) => a.set_number - b.set_number),
-    );
-
-    const plan = {
-      name: exercise.name,
-      sets: exercise.sets,
-      rep_min: exercise.rep_min,
-      rep_max: exercise.rep_max,
-      load_kg: exercise.load_kg == null ? null : Number(exercise.load_kg),
-    };
-    const suggestion = suggestLoad(plan, sessionsNewestFirst);
-
-    if (suggestion) {
-      await supabase
-        .from("strength_exercises")
-        .update({
-          suggested_load_kg: suggestion.load_kg,
-          suggested_reason: suggestion.reason,
-          suggested_at: new Date().toISOString(),
-        })
-        .eq("id", exercise.id);
-      suggestions.push({
-        exercise: exercise.name,
-        from: plan.load_kg,
-        to: suggestion.load_kg,
-        reason: suggestion.reason,
-      });
-    }
-  }
-
+  const suggestions = await refreshStrengthSuggestions(supabase, exerciseIds);
   return { sets: rows.length, suggestions };
 }

@@ -4,9 +4,10 @@ import { test, expect } from "@playwright/test";
 // end-to-end proof that generation, adaptation, and the feedback card work
 // without any backend (Roadmap B7).
 
-test("landing page carries the core pitch", async ({ page }) => {
+test("personal home opens the plan or signup gate without a sales page", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("h1")).toContainText("adapts after every session");
+  await expect(page).toHaveURL(/\/(plan|onboarding)(\?.*)?$/);
+  await expect(page.getByText("Unlock full plan", { exact: true })).toHaveCount(0);
 });
 
 test("demo: generate → log → feedback card → adaptation feed", async ({ page }) => {

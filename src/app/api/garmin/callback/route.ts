@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   if (!parsed) return NextResponse.redirect(`${appUrl}/plan?garmin=error`);
 
   // The state binds the flow to a profile; the cookie session must own it.
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

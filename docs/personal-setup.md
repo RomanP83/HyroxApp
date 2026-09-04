@@ -3,7 +3,7 @@
 The fastest path to *your* plan on *your* phone: **Supabase (free) + Vercel
 (free)**. Roughly 20 minutes, no credit card, no Stripe account.
 
-Everything optional stays optional — Stripe, Telegram, Strava, Garmin, Resend
+Everything optional stays optional — Telegram, Strava, Garmin, Resend
 and Anthropic keys can all stay unset; the app degrades gracefully without them.
 
 ---
@@ -49,11 +49,10 @@ and Anthropic keys can all stay unset; the app degrades gracefully without them.
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from Supabase |
    | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase |
    | `NEXT_PUBLIC_APP_URL` | `https://<your-app>.vercel.app` |
-   | `PERSONAL_MODE` | `1` |
+   | `APP_TIME_ZONE` | `Europe/Berlin` (or your training timezone) |
    | `CRON_SECRET` | any long random string |
 
-   `PERSONAL_MODE=1` unlocks every week — the free-preview paywall exists for
-   the product, not for you.
+   Every week is available without a payment flag. Stripe and the paywall have been removed.
 
    > Chicken-and-egg on `NEXT_PUBLIC_APP_URL`: deploy once, copy the URL Vercel
    > gives you, paste it in, redeploy.
@@ -75,7 +74,7 @@ conveniences, and both do nothing anyway until Telegram or Resend is configured.
 
 ## 3. First run (~3 min)
 
-1. Open your URL → **Build my plan**.
+1. Open your URL → your plan, or onboarding if you have not signed in yet.
 2. Sign in with your email — Supabase mails you a magic link. *(The built-in
    mailer is rate-limited but fine for one person. If the mail never arrives,
    check Supabase → Authentication → Logs.)*
@@ -112,4 +111,13 @@ above.
 | **Anthropic key** | Post-session coach text gets rewritten in a warmer voice (numbers stay engine-computed). | `ANTHROPIC_API_KEY` |
 | **Resend** | Email fallback for check-ins if you skip Telegram. | `RESEND_API_KEY`, `EMAIL_FROM` |
 
-Stripe stays off entirely in personal mode.
+Garmin requires `GARMIN_WEBHOOK_SECRET` as well as OAuth credentials. Register
+`https://<your-app>/api/garmin/webhook?token=<secret>` in the Garmin portal and keep
+that URL private. No secret means the webhook rejects requests, including reachability checks.
+
+## Updating an existing install (September 2026)
+
+Back up the database. Apply migrations `0027_macro_idempotency.sql` and
+`0028_transactional_session_logging.sql` before deploying the updated app. Do not
+reset a live database. Configure the Garmin secret/Push URL and `APP_TIME_ZONE`.
+Remove unused `STRIPE_*` and `PERSONAL_MODE` variables. Authentication and RLS remain necessary.

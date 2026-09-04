@@ -9,6 +9,12 @@
 // ============================================================================
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { applyMicroForSession } from "@/lib/adaptiveRunner";
+import {
+  dateInTrainingZone,
+  dayHintForDate,
+  planWeekNumber,
+  syncPlanWeekStatuses,
+} from "@/lib/planClock";
 
 const RUN_SESSION_TYPES = ["run_easy", "run_intervals", "compromised_run"];
 
@@ -30,11 +36,17 @@ export interface RunSample {
 }
 
 /** Which half of the day a run belongs to. Before noon is the morning. */
-export function slotForRun(startedAt?: string): "am" | "pm" | null {
+export function slotForRun(
+  startedAt?: string,
+  timeZone = process.env.APP_TIME_ZONE || "Europe/Berlin",
+): "am" | "pm" | null {
   if (!startedAt) return null;
   const at = new Date(startedAt);
   if (Number.isNaN(at.getTime())) return null;
-  return at.getUTCHours() < 12 ? "am" : "pm";
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(at),
+  );
+  return hour < 12 ? "am" : "pm";
 }
 
 /**
@@ -46,60 +58,69 @@ export async function autoLogRun(
   profileId: string,
   run: RunSample,
 ): Promise<string | null> {
-  const { data: plan } = await admin
+  const { data: plan, error: planError } = await admin
     .from("plans")
-    .select("id")
+    .select("id, generated_at, total_weeks")
     .eq("profile_id", profileId)
     .eq("status", "active")
     .order("generated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (planError) throw new Error("Run plan lookup failed");
   if (!plan) return null;
+  const started = run.startedAt ? new Date(run.startedAt).getTime() : NaN;
+  if (!Number.isFinite(started) || started < new Date(plan.generated_at).getTime() || started > Date.now()) {
+    return null;
+  }
+  const today = dateInTrainingZone();
+  const activityDate = run.startedAt
+    ? dateInTrainingZone(new Date(run.startedAt))
+    : today;
+  const currentWeekNumber = await syncPlanWeekStatuses(admin, plan, today);
+  if (planWeekNumber(plan.generated_at, plan.total_weeks, activityDate) !== currentWeekNumber) {
+    return null;
+  }
 
-  const { data: week } = await admin
+  const { data: week, error: weekError } = await admin
     .from("plan_weeks")
     .select("id")
     .eq("plan_id", plan.id)
     .eq("status", "current")
     .maybeSingle();
+  if (weekError) throw new Error("Run week lookup failed");
   if (!week) return null;
 
-  const todayHint = ((new Date().getUTCDay() + 6) % 7) + 1;
-  const { data: candidates } = await admin
+  const activityDayHint = dayHintForDate(activityDate);
+  const { data: candidates, error: candidatesError } = await admin
     .from("sessions")
     .select("id, day_hint, day_slot, session_type, intensity_rpe_target")
     .eq("week_id", week.id)
     .in("session_type", RUN_SESSION_TYPES)
     .in("status", ["planned", "moved"]);
+  if (candidatesError) throw new Error("Run session lookup failed");
   if (!candidates?.length) return null;
 
   // On a double day both halves can hold a run. Prefer the one whose slot
-  // matches when the run actually started, then any session of today, then the
-  // earliest planned run of the week.
-  const today = candidates.filter((s) => s.day_hint === todayHint);
+  // matches when the run actually started. Never fall back to another half:
+  // a redelivery must not consume the second run of a double day.
+  const sameDay = candidates.filter((s) => s.day_hint === activityDayHint);
   const runSlot = slotForRun(run.startedAt);
-  const session =
-    (runSlot ? today.find((s) => (s.day_slot ?? "am") === runSlot) : undefined) ??
-    today.sort((a, b) => ((a.day_slot ?? "am") === "am" ? -1 : 1))[0] ??
-    [...candidates].sort((a, b) => a.day_hint - b.day_hint)[0];
+  const session = sameDay.find((s) => (s.day_slot ?? "am") === runSlot);
+  // A webhook arriving late must never consume an unrelated run merely
+  // because it is the earliest remaining one in the week.
+  if (!session) return null;
 
-  const { error } = await admin.from("session_logs").upsert(
-    {
-      session_id: session.id,
-      completed_as_planned: false,
-      rpe_actual: session.intensity_rpe_target, // effort unknown — pace carries the signal
-      duration_actual_min: Math.max(1, Math.round(run.durationMin)),
-      block_results: [
-        { pace_actual_sec_km: run.paceSecKm, distance_actual_m: Math.round(run.distanceM) },
-      ],
-      notes: `Auto-logged from ${run.source}: ${run.name ?? "Run"}`,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_id" },
-  );
-  if (error) return null;
-
-  await admin.from("sessions").update({ status: "done" }).eq("id", session.id);
+  const { data, error } = await admin.rpc("record_session_completion", {
+    p_session: session.id,
+    p_completed_as_planned: false,
+    p_rpe: session.intensity_rpe_target,
+    p_duration: Math.max(1, Math.round(run.durationMin)),
+    p_block_results: [{ pace_actual_sec_km: run.paceSecKm, distance_actual_m: Math.round(run.distanceM) }],
+    p_notes: `Auto-logged from ${run.source}: ${run.name ?? "Run"}`,
+    p_completed_at: run.startedAt,
+  });
+  if (error) throw new Error(`auto-log: ${error.message}`);
+  if (!data?.created) return null;
   await applyMicroForSession(admin, session.id);
   return session.id;
 }

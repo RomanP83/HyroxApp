@@ -13,6 +13,7 @@ import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { loadDayOverrides } from "@/lib/dayOverrides";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
+import { dateInTrainingZone } from "@/lib/planClock";
 
 export async function rebasePlan(
   admin: SupabaseClient,
@@ -38,7 +39,7 @@ export async function rebasePlan(
 
   // A rebase must not lose the race calendar: the B and C races the athlete
   // entered are part of the plan, not decoration on the season page.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateInTrainingZone();
   const raceDate = String(plan.race_date).slice(0, 10);
   const calendar = await loadSeasonRaces(admin, plan.profile_id);
   const races = racesForPlan(
@@ -70,17 +71,11 @@ export async function rebasePlan(
       raceDate: plan.race_date,
       raceId: plan.race_id,
       stripePaymentId: plan.stripe_payment_id,
+      rebaseFrom: planId,
+      rebaseReason: reason,
     },
     generated,
   );
-
-  await admin.from("plan_adjustments").insert({
-    plan_id: newPlanId,
-    layer: "macro",
-    trigger: "pause",
-    action_taken: { type: "rebase", from_plan: planId },
-    reason,
-  });
 
   return newPlanId;
 }

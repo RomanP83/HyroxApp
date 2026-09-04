@@ -6,13 +6,14 @@ import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { signDeepLink } from "@/lib/telegram";
 import { stravaConfigured } from "@/lib/strava";
 import { garminConfigured } from "@/lib/garmin";
+import { syncPlanWeekStatuses } from "@/lib/planClock";
 
 export const dynamic = "force-dynamic";
 
 // Setup & tools. Reachable without a plan: the week shape and the volume are
 // exactly what someone wants to set BEFORE generating one.
 export default async function SettingsPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -29,7 +30,7 @@ export default async function SettingsPage() {
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, status, total_weeks")
+    .select("id, status, total_weeks, generated_at")
     .eq("profile_id", profile.id)
     .in("status", ["active", "paused", "rehab"])
     .order("generated_at", { ascending: false })
@@ -44,6 +45,7 @@ export default async function SettingsPage() {
   // needs the athlete's pace zones and where the plan currently stands.
   let assessment = null;
   if (peakKm && plan) {
+    await syncPlanWeekStatuses(supabase, plan);
     const [{ data: state }, { data: phases }, { data: current }] = await Promise.all([
       supabase.from("athlete_state").select("pace_zones").eq("profile_id", profile.id).maybeSingle(),
       supabase.from("plan_phases").select("phase_type, end_week").eq("plan_id", plan.id),

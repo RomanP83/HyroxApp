@@ -20,13 +20,14 @@ export function generateStaticParams() {
   return Object.keys(WEEKS_BY_SLUG).map((slug) => ({ slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const weeks = WEEKS_BY_SLUG[params.slug];
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const weeks = WEEKS_BY_SLUG[slug];
   if (!weeks) return {};
   return {
     title: `Hyrox Trainingsplan ${weeks} Wochen — mit Phasenstruktur & Adaption`,
     description: `So ist ein ${weeks}-Wochen-Hyrox-Trainingsplan richtig aufgebaut: Base, Build, Peak und Taper mit Deloads — und warum ein Plan sich nach jedem Training anpassen sollte.`,
-    alternates: { canonical: `/de/${params.slug}` },
+    alternates: { canonical: `/de/${slug}` },
   };
 }
 
@@ -59,8 +60,9 @@ const FAQ = (weeks: number) => [
   },
 ];
 
-export default function SeoPage({ params }: { params: { slug: string } }) {
-  const weeks = WEEKS_BY_SLUG[params.slug];
+export default async function SeoPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const weeks = WEEKS_BY_SLUG[slug];
   if (!weeks) notFound();
 
   const split = splitPhases(weeks);

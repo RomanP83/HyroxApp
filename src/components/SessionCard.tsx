@@ -11,7 +11,6 @@ import {
   FeatherIcon,
   MoveIcon,
   SkipIcon,
-  LockIcon,
   SpinnerIcon,
   UndoIcon,
 } from "./icons";
@@ -50,7 +49,6 @@ interface Props {
    */
   strength?: { templateName: string; exercises: StrengthExerciseInput[] } | null;
   status?: "planned" | "done" | "skipped" | "moved";
-  locked?: boolean;
   /** Which action is in flight — shows a spinner on that button (speed #6). */
   busyAction?: LogAction | null;
   /**
@@ -120,7 +118,6 @@ export function SessionCard({
   session,
   onLog,
   status = "planned",
-  locked,
   busyAction,
   onReset,
   resetting,
@@ -286,49 +283,37 @@ export function SessionCard({
 
       {open && !isRest && (
         <div className="mt-4 space-y-2 animate-fade-up">
-          {locked ? (
-            <div className="flex items-start gap-3 rounded-lg border border-dashed border-edge p-4 text-sm text-ash">
-              <LockIcon size={18} className="mt-0.5 shrink-0" />
-              <span>
-                This week is part of your full race cycle. Unlock it to see every block, weight
-                and pace — week 1 stays free forever.
-              </span>
+          {session.session_type === "race_day" && (
+            <div className="rounded-lg border border-dashed border-edge p-4 text-sm">
+              <div className="font-semibold">Race day.</div>
+              <p className="mt-1 text-ash">
+                No prescription here — the event is the session. Warm up the way you always do,
+                hold your opening pace out of the first station, and log it afterwards so the
+                plan can recalibrate on it.
+              </p>
             </div>
-          ) : (
-            <>
-              {session.session_type === "race_day" && (
-                <div className="rounded-lg border border-dashed border-edge p-4 text-sm">
-                  <div className="font-semibold">Race day.</div>
-                  <p className="mt-1 text-ash">
-                    No prescription here — the event is the session. Warm up the way you always do,
-                    hold your opening pace out of the first station, and log it afterwards so the
-                    plan can recalibrate on it.
-                  </p>
-                </div>
-              )}
-              {session.blocks.map((b) => (
-                <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />
-              ))}
-              {(() => {
-                const spec = runSpec(session.session_type);
-                const variant = variantOf(session);
-                if (!spec) return null;
-                return (
-                  <div className="space-y-1 px-1 text-meta text-ash">
-                    {variant?.why && (
-                      <p>
-                        <b className="text-chalk">{variant.name}:</b> {variant.why}
-                      </p>
-                    )}
-                    <p>
-                      <b>{spec.focus}</b> {spec.pace_note}
-                    </p>
-                    {variant?.fallback && <p className="italic">{variant.fallback}</p>}
-                  </div>
-                );
-              })()}
-            </>
           )}
+          {session.blocks.map((b) => (
+            <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />
+          ))}
+          {(() => {
+            const spec = runSpec(session.session_type);
+            const variant = variantOf(session);
+            if (!spec) return null;
+            return (
+              <div className="space-y-1 px-1 text-meta text-ash">
+                {variant?.why && (
+                  <p>
+                    <b className="text-chalk">{variant.name}:</b> {variant.why}
+                  </p>
+                )}
+                <p>
+                  <b>{spec.focus}</b> {spec.pace_note}
+                </p>
+                {variant?.fallback && <p className="italic">{variant.fallback}</p>}
+              </div>
+            );
+          })()}
         </div>
       )}
 

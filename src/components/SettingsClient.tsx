@@ -133,6 +133,11 @@ export function SettingsClient(props: SettingsProps) {
   }
 
   async function injury(action: "activate" | "recover") {
+    const message =
+      action === "activate"
+        ? "Switch the active plan to low-impact rehab mode?"
+        : "Rebuild the remaining plan from today?";
+    if (!window.confirm(message)) return;
     const res = await fetch("/api/plans/injury", {
       method: "POST",
       headers: { "content-type": "application/json" },

@@ -25,6 +25,41 @@ function profile(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
 const p = profile();
 
 describe("computeLoadState (ACWR)", () => {
+  it("does not restart warm-up when the oldest log leaves the rolling window", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    const history = [
+      { at: new Date(now.getTime() - 40 * 86_400_000), srpe: 300 },
+      { at: now, srpe: 300 },
+    ];
+    expect(computeLoadState(history, now).acwr).toBe(4);
+  });
+
+  it("excludes future logs and invalid loads", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    expect(computeLoadState([
+      { at: new Date(now.getTime() + 86_400_000), srpe: 900 },
+      { at: now, srpe: NaN },
+      { at: now, srpe: -1 },
+    ], now)).toEqual({ acute_load_7d: 0, chronic_load_28d: 0, acwr: 1 });
+  });
+
+  it("keeps ACWR neutral for a first logged session", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    const s = computeLoadState([{ at: now, srpe: 420 }], now);
+    expect(s.acute_load_7d).toBe(420);
+    expect(s.chronic_load_28d).toBe(420);
+    expect(s.acwr).toBe(1);
+  });
+
+  it("keeps ACWR neutral until a complete 28-day baseline exists", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    const history = Array.from({ length: 14 }, (_, d) => ({
+      at: new Date(now.getTime() - d * 86_400_000),
+      srpe: 300,
+    }));
+    expect(computeLoadState(history, now).acwr).toBe(1);
+  });
+
   it("computes acute/chronic/acwr from sRPE history", () => {
     const now = new Date("2026-07-04T12:00:00Z");
     const history: LoadEntry[] = [];

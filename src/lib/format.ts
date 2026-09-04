@@ -1,3 +1,8 @@
+/** Display an ISO calendar date without converting it to the browser timezone. */
+export function fmtCalendarDate(isoDate: string): string {
+  return isoDate.slice(0, 10).split("-").reverse().join(".");
+}
+
 export function fmtPace(secKm?: number): string {
   if (!secKm) return "—";
   const m = Math.floor(secKm / 60);

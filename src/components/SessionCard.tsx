@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { DaySlot, GeneratedSession } from "@/lib/engine";
 import { runSpec } from "@/lib/engine";
-import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace } from "@/lib/format";
+import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace, fmtCalendarDate } from "@/lib/format";
 import { BlockView } from "./BlockView";
 import {
   CheckIcon,
@@ -41,6 +41,7 @@ export interface StrengthSetInput {
 
 interface Props {
   session: GeneratedSession;
+  calendarDate?: string;
   /** When provided, renders the 4-button quick-log row. */
   onLog?: (action: LogAction, strengthSets?: StrengthSetInput[]) => void;
   /**
@@ -116,6 +117,7 @@ function pacesOf(session: GeneratedSession): {
 
 export function SessionCard({
   session,
+  calendarDate,
   onLog,
   status = "planned",
   busyAction,
@@ -224,6 +226,11 @@ export function SessionCard({
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
             <span className="font-mono text-micro font-bold uppercase tracking-widest text-ash">
               {DAY_LABELS[session.day_hint] ?? `D${session.day_hint}`}
+              {calendarDate && (
+                <time dateTime={calendarDate} className="ml-2 tracking-normal tabular-nums">
+                  {fmtCalendarDate(calendarDate)}
+                </time>
+              )}
               {showSlot && (
                 <span className="ml-1 text-amber">{(session.day_slot ?? "am").toUpperCase()}</span>
               )}

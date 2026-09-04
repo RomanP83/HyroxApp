@@ -11,6 +11,7 @@ import {
   DEMAND_COLORS,
   DEMAND_LABELS,
   fmtClock,
+  fmtCalendarDate,
   fmtPace,
   PHASE_COLORS,
   titleCase,
@@ -54,6 +55,7 @@ interface Props {
   planStatus: string;
   raceDate: string;
   trainingDate: string;
+  weekDates: string[];
   phases: PhaseMeta[];
   weeks: WeekMeta[];
   currentWeek: WeekMeta;
@@ -308,6 +310,11 @@ export function PlanClient(props: Props) {
                 <span className="pill text-amber">benchmark</span>
               )}
             </div>
+            <p className="mt-2 font-mono text-meta tabular-nums text-ash">
+              <time dateTime={props.weekDates[0]}>{fmtCalendarDate(props.weekDates[0])}</time>
+              {" – "}
+              <time dateTime={props.weekDates[6]}>{fmtCalendarDate(props.weekDates[6])}</time>
+            </p>
             <p className="mt-2 max-w-[62ch] text-lead leading-relaxed text-bone">
               {props.currentWeek.weekly_goal}
             </p>
@@ -375,6 +382,7 @@ export function PlanClient(props: Props) {
               key={cs.id}
               focal={props.currentWeek.status === "current" && weekday === cs.session.day_hint && cs.status === "planned"}
               session={cs.session}
+              calendarDate={props.weekDates[cs.session.day_hint - 1]}
               status={optimistic[cs.id] ?? cs.status}
               busyAction={busy?.sessionId === cs.id ? busy.action : null}
               onLog={(a, sets) => log(cs.id, a, cs.session.intensity_rpe_target, sets)}

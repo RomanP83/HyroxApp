@@ -43,6 +43,15 @@ export function planWeekNumber(
   return Math.max(1, Math.min(totalWeeks, calendarPlanWeek(generatedAt, today)));
 }
 
+/** ISO calendar dates, Monday through Sunday, for the selected plan week. */
+export function planWeekDates(generatedAt: string, weekNumber: number): string[] {
+  const generatedDate = generatedAt.length > 10
+    ? dateInTrainingZone(new Date(generatedAt)) : generatedAt;
+  const start = mondayUtc(generatedDate) + (weekNumber - 1) * 7 * DAY_MS;
+  return Array.from({ length: 7 }, (_, day) =>
+    new Date(start + day * DAY_MS).toISOString().slice(0, 10));
+}
+
 /** plan day_hint (Monday=1 … Sunday=7) for an ISO calendar date. */
 export function dayHintForDate(isoDate: string): number {
   const day = new Date(`${isoDate.slice(0, 10)}T00:00:00.000Z`).getUTCDay();

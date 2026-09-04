@@ -8,7 +8,7 @@ import {
 } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
-import { dateInTrainingZone, syncPlanWeekStatuses } from "@/lib/planClock";
+import { dateInTrainingZone, planWeekDates, syncPlanWeekStatuses } from "@/lib/planClock";
 
 export const dynamic = "force-dynamic";
 
@@ -220,6 +220,7 @@ export default async function PlanPage({
       planStatus={plan.status}
       raceDate={plan.race_date}
       trainingDate={dateInTrainingZone()}
+      weekDates={planWeekDates(plan.generated_at, current.week_number)}
       phases={phases ?? []}
       weeks={weekList}
       currentWeek={current}

@@ -14,7 +14,9 @@ export default async function BenchmarksPage() {
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id")
+    // "*" rather than naming hr_max: a database that has not run migration
+    // 0028 yet must still open this page — just without AT-PT targets.
+    .select("*")
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
@@ -45,6 +47,7 @@ export default async function BenchmarksPage() {
       defs={(defs ?? []) as BenchmarkDef[]}
       entries={entries}
       predicted={state?.predicted_race_time_sec ?? null}
+      hrMax={typeof profile.hr_max === "number" ? profile.hr_max : null}
     />
   );
 }

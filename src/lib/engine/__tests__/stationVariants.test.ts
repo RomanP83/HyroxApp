@@ -22,7 +22,7 @@ describe("the station catalogue", () => {
   it("covers every phase with the shapes that phase is for", () => {
     const byPhase = (p: PhaseType) => STATION_VARIANTS.filter((v) => v.phases.includes(p));
     expect(byPhase("base")).toHaveLength(3);
-    expect(byPhase("build")).toHaveLength(3);
+    expect(byPhase("build")).toHaveLength(4);
     expect(byPhase("peak")).toHaveLength(3);
     expect(byPhase("taper")).toHaveLength(2);
   });
@@ -70,6 +70,17 @@ describe("pickStationVariant", () => {
     const targeted = picks.filter((p) => p?.targeted);
     expect(targeted.length).toBe(3);
     expect(targeted.every((p) => p?.variant.station === "wall_balls")).toBe(true);
+  });
+
+  it("sends a weak wall-ball station to the erg ladder in the build block", () => {
+    const picks = Array.from({ length: 4 }, (_, i) => pick("build", i + 1, { stationTiers: { wall_balls: 1, row: 3 } }));
+    const targeted = picks.filter((p) => p?.targeted);
+    expect(targeted.length).toBe(2);
+    expect(targeted.every((p) => p?.variant.slug === "sv_erg_ladder_wallballs")).toBe(true);
+    // Without an erg there is no ladder — the hundred wall balls do not come alone.
+    for (let w = 1; w <= 8; w++) {
+      expect(pick("build", w, { equipment: "home_minimal" })?.variant.slug).not.toBe("sv_erg_ladder_wallballs");
+    }
   });
 
   it("reads a stated weakness too", () => {

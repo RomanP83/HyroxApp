@@ -172,7 +172,7 @@ export default async function ProgressPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             {benchCharts.map((b) => (
               <Card key={b.def.id} title={b.def.name} sub={b.def.metric_type === "time_sec" ? "lower is better" : "higher is better"}>
-                <LineChart series={b.pts} fmt={(v) => (b.def.metric_type === "time_sec" ? fmtClock(v) : String(v))} />
+                <LineChart series={b.pts} fmt={(v) => (b.def.metric_type === "time_sec" ? fmtClock(v) : b.def.metric_type === "watts" ? `${Math.round(v)} W` : String(v))} />
               </Card>
             ))}
           </div>

@@ -138,6 +138,13 @@ mit unter fünf Sekunden Transition. Jede zweite Woche zielt die Auswahl auf dei
 Station. Ohne Ergometer bekommst du nie eine Erg-Session — die App weicht auf eine andere aus,
 statt die Einheit zu streichen.
 
+**Stationseinheiten** rotieren genauso: 12 Varianten über die vier Phasen, jede zweite Woche die,
+die deine schwächste Station trifft. Im Build-Block gehört dazu die **Erg-Leiter mit 100 Wall
+Balls**: 5 × 1000 m SkiErg oder RowErg ohne Pause, jeder Kilometer 3–5 s/500 m schneller als der
+vorige, danach sofort 100 Wall Balls in geplanten Sätzen (höchstens 10 s Pause dazwischen). Sie
+kommt nur mit Ergometer, und sie ist die Variante, die eine schwache Wall-Ball-Station im Build
+bekommt.
+
 Links an jeder Einheit sitzt eine **Intensitäts-Leiste** in der Farbe dessen, was der Tag verlangt:
 orange = hart, grün = aerob, bernstein = Kraft und Stationen, grau = Erholung. Die Wochenform ist
 damit sichtbar, bevor ein Wort gelesen ist — zwei orange Leisten heißen: harte Woche.
@@ -407,6 +414,27 @@ speichern — die Zielzeit-Prognose wird sofort neu gerechnet und der Verlauf au
 fortgeschrieben. Der Plan setzt Benchmark-Wochen automatisch: Woche 1, Ende des Build-Blocks und
 Beginn des Tapers.
 
+### AT-PT — Schwellentest auf dem Ergometer
+
+Oben auf der Seite steht eine eigene Karte für den **AT-PT**: fünf Minuten auf SkiErg oder RowErg,
+gehalten in einem festen Pulsband nahe der Schwelle.
+
+- **Maximalpuls eintragen** (Feld „Max heart rate", „Set"). Er wird im Profil gespeichert und von
+  sonst nichts gelesen — der Plan ändert sich dadurch nicht. Leeres Feld + „Set" löscht ihn.
+- Daraus rechnet die Karte die Zielwerte: Aufwärmen bis ca. 80 %, **Halteband bei 87 % ± 3
+  Schläge**, Erholungsmarke bei zwei Dritteln. Bei 195 bpm: Aufwärmen bis 156, Band 167–173,
+  Erholung bis 130. Ohne Maximalpuls zeigt die Karte nur die Prozentwerte.
+- Ablauf: 10 min einfahren, Puls ins Band bringen, **5:00 im Band halten** (das Tempo anpassen,
+  nicht das Band), den Wattschnitt dieser fünf Minuten notieren. Dann anhalten und die Zeit stoppen,
+  bis der Puls auf die Erholungsmarke gefallen ist.
+- Eingetragen werden **zwei Werte**: Durchschnittswatt und Erholungszeit (mm:ss). Einer allein
+  reicht auch. Beide erscheinen als eigener Verlauf auf `/progress` — Watt „higher is better",
+  Erholungszeit „lower is better".
+- Vergleichbar sind nur Tests auf demselben Gerät mit derselben Dämpfereinstellung. Brustgurt
+  statt Handgelenksmessung: beim Ziehen am Erg misst die Uhr am Handgelenk unzuverlässig.
+- Die Zielzeit-Prognose rechnet die AT-PT-Werte nicht ein; sie bleiben ein reiner
+  Fortschrittsmesser.
+
 ---
 
 ## 11. `/progress` — Auswertungen
@@ -515,7 +543,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **Polarisiert** | 75–85 % der Laufdistanz locker, der Rest wirklich hart. Gemessen an der **Distanz je Zone**, nicht an der Zahl der Einheiten. |
 | **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. |
 | **Rebase** | Neuberechnung des Plans ab heute statt nachträglicher Änderung. |
-| **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 11 Stations-, 5 Kraftformen). |
+| **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 12 Stations-, 5 Kraftformen). |
 
 ---
 
@@ -525,6 +553,8 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| Benchmark **AT-PT**: Schwellentest auf dem Erg mit Pulsband aus dem eigenen Maximalpuls (im Profil gespeichert), Wattschnitt und Erholungszeit als zwei Verläufe | [10](#10-benchmarks--tests-eintragen) |
+| Neue Stationsvariante im Build: Erg-Leiter (5 × 1000 m, jeder schneller) direkt in 100 Wall Balls; trifft eine schwache Wall-Ball-Station | [4](#4-plan--die-trainingswoche) |
 | Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |
 | Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |
 | Setup & Tools ist eine eigene Seite (`/settings`), erreichbar über „Setup" rechts oben; Verbindungen zeigen ihren Zustand | [8](#8-settings--setup--tools) |

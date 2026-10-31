@@ -77,6 +77,16 @@ export const STATION_VARIANTS: StationVariant[] = [
     keywords: ["sled", "schlitten", "pull", "push", "bein", "leg", "quad", "laktat", "lactate"],
     why: "Sled push straight into sled pull straight into thrusters — maximal lactate in the thighs, and getting used to the burn instead of fearing it.",
   },
+  {
+    slug: "sv_erg_ladder_wallballs",
+    session_type: "station_work",
+    name: "Erg Ladder into 100 Wall Balls",
+    phases: ["build"],
+    needs_erg: true,
+    station: "wall_balls",
+    keywords: ["wall", "ball", "pacing", "negative split", "einteilen", "finish"],
+    why: "Five kilometres on the erg, each one faster than the last, then a hundred wall balls without a break — pacing over distance, and the race's last station on arms and legs that have already paid.",
+  },
 
   // ── 3. Specificity: race pace, transitions, rhythm ────────────────────
   {

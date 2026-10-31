@@ -65,7 +65,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type benchmark_metric_t as enum ('time_sec', 'reps', 'distance_m');
+  create type benchmark_metric_t as enum ('time_sec', 'reps', 'distance_m', 'watts');
 exception when duplicate_object then null; end $$;
 
 do $$ begin

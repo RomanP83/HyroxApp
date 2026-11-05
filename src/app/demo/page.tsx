@@ -45,6 +45,8 @@ interface DemoLogInput {
   weekNumber: number;
   session: GeneratedSession;
   action: LogAction;
+  /** The effort picked on the scale, when harder/easier opened it. */
+  rpe?: number;
 }
 
 type DemoLogEntry = DemoLogInput & { before: DemoWorld };
@@ -124,7 +126,12 @@ export default function DemoPage() {
       };
     }
 
-    const rpeActual = action === "planned" ? rpeTarget : action === "harder" ? rpeTarget + 2 : rpeTarget - 2;
+    // The effort scale's number when one was picked; otherwise the ±2 a bare
+    // harder/easier tap has always meant.
+    const rpeActual =
+      action === "planned"
+        ? rpeTarget
+        : (entry.rpe ?? (action === "harder" ? rpeTarget + 2 : rpeTarget - 2));
     const clampedRpe = Math.max(1, Math.min(10, rpeActual));
     const duration = session.planned_duration_min;
     const nextLoad: LoadEntry[] = [{ at: new Date(), srpe: clampedRpe * duration }, ...world.loadHistory];
@@ -185,13 +192,14 @@ export default function DemoPage() {
     };
   }
 
-  function onLog(weekNumber: number, session: GeneratedSession, action: LogAction) {
+  function onLog(weekNumber: number, session: GeneratedSession, action: LogAction, rpe?: number) {
     if (!profile || !state) return;
     const entry: DemoLogInput = {
       key: `${weekNumber}:${session.sort_order}`,
       weekNumber,
       session,
       action,
+      rpe,
     };
     const before = currentWorld(state);
     const { world, feedback: fb } = applyEntry(profile, before, entry);
@@ -475,7 +483,7 @@ export default function DemoPage() {
                   week.sessions.filter((o) => o.day_hint === s.day_hint).length > 1
                 }
                 status={statuses[`${week.week_number}:${s.sort_order}`] ?? "planned"}
-                onLog={(action) => onLog(week.week_number, s, action)}
+                onLog={(action, _sets, rpe) => onLog(week.week_number, s, action, rpe)}
                 onReset={() => onReset(week.week_number, s)}
                 onMove={(day, slot) => onMove(week.week_number, s, day, slot)}
                 occupied={

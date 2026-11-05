@@ -1,5 +1,5 @@
 import type { RenderedBlock, Division } from "@/lib/engine";
-import { fmtPace, titleCase } from "@/lib/format";
+import { fmtPace, PALETTE, titleCase } from "@/lib/format";
 
 interface ContentItem {
   exercise?: string;
@@ -36,64 +36,127 @@ function loadFor(item: ContentItem, division: Division): string | null {
   return item.load_by_division[key] ?? null;
 }
 
-/** One rendered block with explicit per-division loads (PP2). */
-export function BlockView({ block }: { block: RenderedBlock }) {
+/**
+ * Each block is a section of the session, read top to bottom like a script:
+ * warm-up, the work itself, what comes after. The header carries the colour
+ * of what the section asks — the same language as the effort rail.
+ */
+const SECTION: Record<string, { label: string; color?: string }> = {
+  warmup: { label: "Warm-up", color: PALETTE.ash },
+  main: { label: "Main set" }, // takes the session's own demand colour
+  finisher: { label: "Finisher", color: PALETTE.flame },
+  mobility: { label: "Mobility", color: PALETTE.go },
+};
+
+/** How many numbered steps a block contributes — for numbering across blocks. */
+export function stepCount(block: RenderedBlock): number {
+  return ((block.content as ContentItem[]) ?? []).length;
+}
+
+/**
+ * One rendered block with explicit per-division loads (PP2), as a section of
+ * numbered steps. `startAt` continues the numbering from the block before, so
+ * a session reads 1…n from warm-up to cool-down. `accent` is the session's
+ * demand colour, used for the main set.
+ */
+export function BlockView({
+  block,
+  startAt = 1,
+  accent = PALETTE.flame,
+}: {
+  block: RenderedBlock;
+  startAt?: number;
+  accent?: string;
+}) {
   const division = block.load_adjustments.division;
   const items = (block.content as ContentItem[]) ?? [];
+  const section = SECTION[block.block_type] ?? { label: titleCase(block.block_type) };
+  const color = section.color ?? accent;
+  const a = block.load_adjustments;
+
   return (
-    <div className="rounded-lg border border-edge bg-rack p-3">
-      <div className="mb-2 flex items-center gap-2 text-xs">
-        <span className="pill">{titleCase(block.block_type)}</span>
-        {block.station && block.station !== "general" && (
-          <span className="pill">{titleCase(block.station)}</span>
-        )}
-        {block.load_adjustments.station_tier != null && (
-          <span className="pill text-amber">tier {block.load_adjustments.station_tier}</span>
-        )}
-        {block.load_adjustments.pace_sec_km != null && (
-          <span className="pill text-amber">{fmtPace(block.load_adjustments.pace_sec_km)}</span>
-        )}
-        {block.load_adjustments.opening_pace_sec_km != null && (
-          <span className="pill">
-            out of the station: {fmtPace(block.load_adjustments.opening_pace_sec_km)}
+    <section
+      className="overflow-hidden rounded-control border border-edge bg-rack"
+      data-block-type={block.block_type}
+    >
+      <header
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5"
+        style={{ background: `${color}1f` }}
+      >
+        <span className="flex flex-wrap items-center gap-2">
+          <span
+            className="font-mono text-micro font-bold uppercase tracking-widest"
+            style={{ color }}
+          >
+            {section.label}
           </span>
-        )}
-        {block.load_adjustments.strength_modifier != null && (
-          <span className="pill text-amber">
-            load ×{block.load_adjustments.strength_modifier.toFixed(2)}
-          </span>
-        )}
-      </div>
-      {block.load_adjustments.opening_pace_sec_km != null && (
+          {block.station && block.station !== "general" && (
+            <span className="text-micro font-semibold uppercase tracking-wider text-bone">
+              {titleCase(block.station)}
+            </span>
+          )}
+        </span>
+        <span className="flex flex-wrap items-center gap-1.5">
+          {a.station_tier != null && <span className="pill text-amber">tier {a.station_tier}</span>}
+          {a.pace_sec_km != null && (
+            <span className="pill border-amber/40 font-mono normal-case tracking-normal text-amber">
+              {fmtPace(a.pace_sec_km)}
+            </span>
+          )}
+          {a.strength_modifier != null && (
+            <span className="pill text-amber">load ×{a.strength_modifier.toFixed(2)}</span>
+          )}
+        </span>
+      </header>
+
+      {a.opening_pace_sec_km != null && (
         // Never sprint out of a station into Zone 5 — the opening metres are
         // for rhythm and breathing.
-        <p className="mb-2 text-xs text-ash">
-          First {block.load_adjustments.opening_distance_m} m at{" "}
-          {fmtPace(block.load_adjustments.opening_pace_sec_km)}, then settle onto{" "}
-          {fmtPace(block.load_adjustments.pace_sec_km)}. The first{" "}
-          {block.load_adjustments.stabilise_distance_m} m are for finding your breathing — never
-          sprint out of a station.
+        <p className="border-b border-edge px-3 py-2 text-meta text-ash">
+          <span className="pill mr-1.5 normal-case tracking-normal">
+            out of the station: {fmtPace(a.opening_pace_sec_km)}
+          </span>
+          First {a.opening_distance_m} m at {fmtPace(a.opening_pace_sec_km)}, then settle onto{" "}
+          {fmtPace(a.pace_sec_km)}. The first {a.stabilise_distance_m} m are for finding your
+          breathing — never sprint out of a station.
         </p>
       )}
-      <ul className="space-y-1 text-sm">
+
+      <ol className="divide-y divide-edge">
         {items.map((it, i) => {
           const load = loadFor(it, division);
           const reps = repsFor(it);
+          // "3 × 8", "3 × 20 m", "800 m" — sets multiply whatever the step is.
+          const amount = [reps, it.distance_m ? `${it.distance_m} m` : ""]
+            .filter(Boolean)
+            .join(" · ");
+          const dose = [
+            it.sets ? `${it.sets} × ${amount || "—"}` : amount,
+            it.rest_sec ? `rest ${it.rest_sec}s` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ");
           return (
-            <li key={i} className="flex flex-wrap items-baseline gap-x-2">
-              <span className="font-medium">{it.exercise}</span>
-              {it.superset_group && <span className="pill">SS {it.superset_group}</span>}
-              <span className="text-ash">
-                {it.sets ? `${it.sets}×` : ""}
-                {reps}
-                {it.distance_m ? `${reps ? " · " : ""}${it.distance_m} m` : ""}
-                {load ? ` · ${load}` : ""}
-                {it.rest_sec ? ` · rest ${it.rest_sec}s` : ""}
+            <li key={i} className="flex items-start gap-3 px-3 py-2.5">
+              <span className="w-5 shrink-0 pt-px text-right font-mono text-meta font-semibold tabular-nums text-smoke">
+                {startAt + i}
               </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-base font-medium text-chalk">{it.exercise}</span>
+                  {it.superset_group && <span className="pill">SS {it.superset_group}</span>}
+                </div>
+                {dose && <div className="font-mono text-meta tabular-nums text-ash">{dose}</div>}
+              </div>
+              {load && (
+                <span className="shrink-0 pt-px font-mono text-meta font-semibold tabular-nums text-bone">
+                  {load}
+                </span>
+              )}
             </li>
           );
         })}
-      </ul>
-    </div>
+      </ol>
+    </section>
   );
 }

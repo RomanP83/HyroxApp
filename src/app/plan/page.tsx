@@ -141,6 +141,40 @@ export default async function PlanPage({
   const strengthTemplate = usable.length
     ? usable[(current.week_number - 1) % usable.length]
     : null;
+  // The "previous" column: what each exercise saw the last time it was logged.
+  // Newest rows first; the first session met per exercise is the last one.
+  const exerciseIds = (strengthTemplate?.strength_exercises ?? []).map((e) => e.id);
+  const { data: setHistory } = exerciseIds.length && !locked
+    ? await supabase
+        .from("strength_set_logs")
+        .select("exercise_id, session_id, set_number, reps, load_kg, logged_at")
+        .in("exercise_id", exerciseIds)
+        .order("logged_at", { ascending: false })
+        .limit(400)
+    : { data: [] as never[] };
+  const previousByExercise = new Map<
+    string,
+    { session: string; sets: { set_number: number; reps: number | null; load_kg: number | null }[] }
+  >();
+  for (const row of (setHistory ?? []) as {
+    exercise_id: string | null;
+    session_id: string;
+    set_number: number;
+    reps: number | null;
+    load_kg: number | string | null;
+  }[]) {
+    if (!row.exercise_id) continue;
+    const seen = previousByExercise.get(row.exercise_id);
+    if (seen && seen.session !== row.session_id) continue;
+    const entry = seen ?? { session: row.session_id, sets: [] };
+    entry.sets.push({
+      set_number: row.set_number,
+      reps: row.reps,
+      load_kg: row.load_kg == null ? null : Number(row.load_kg),
+    });
+    previousByExercise.set(row.exercise_id, entry);
+  }
+
   const strengthExercises = (strengthTemplate?.strength_exercises ?? [])
     .slice()
     .sort((a, b) => a.position - b.position)
@@ -152,6 +186,7 @@ export default async function PlanPage({
       rep_max: e.rep_max,
       load_kg: e.load_kg == null ? null : Number(e.load_kg),
       superset_group: e.superset_group,
+      previous: previousByExercise.get(e.id)?.sets ?? [],
     }));
 
   const clientSessions: ClientSession[] = (sessionRows ?? []).map((s: any) => {

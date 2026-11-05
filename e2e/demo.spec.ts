@@ -17,8 +17,12 @@ test("demo: generate → log → feedback card → adaptation feed", async ({ pa
   await expect(page.locator("text=Week 1")).toBeVisible();
   await expect(page.locator("text=RPE target").first()).toBeVisible();
 
-  // Report a session as harder than planned → training feedback opens.
+  // Report a session as harder than planned: the effort scale opens on
+  // target + 2, saving it opens the training feedback.
   await page.getByRole("button", { name: "Felt harder", exact: true }).first().click();
+  await expect(page.locator("text=How hard was it?")).toBeVisible();
+  await expect(page.getByTestId("effort-consequence")).toContainText("backs this kind of session off");
+  await page.getByRole("button", { name: "Save effort" }).click();
   await expect(page.locator("text=Training feedback")).toBeVisible();
   await expect(page.locator("text=Fulfillment index")).toBeVisible();
   await expect(page.locator("text=TOO HARD").first()).toBeVisible();

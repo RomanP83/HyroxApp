@@ -44,6 +44,9 @@ export interface SettingsProps {
     long_run_day: number | null;
     strength_days: number[];
     rest_days: number[];
+    /** Migration 0031 — absent on an older database, and the controls hide. */
+    strength_per_week?: number;
+    game_day?: number | null;
   };
   /** 'standard' or 'verona' — where session content comes from. */
   workoutCollection?: string;
@@ -71,6 +74,9 @@ export function SettingsClient(props: SettingsProps) {
   const [longRunDay, setLongRunDay] = useState<number | null>(props.weekShape.long_run_day);
   const [strengthDays, setStrengthDays] = useState<number[]>(props.weekShape.strength_days);
   const [restDays, setRestDays] = useState<number[]>(props.weekShape.rest_days);
+  const hasWeekExtras = props.weekShape.strength_per_week !== undefined;
+  const [strengthPerWeek, setStrengthPerWeek] = useState(props.weekShape.strength_per_week ?? 1);
+  const [gameDay, setGameDay] = useState<number | null>(props.weekShape.game_day ?? null);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
   const [collection, setCollection] = useState(props.workoutCollection ?? "standard");
@@ -82,8 +88,14 @@ export function SettingsClient(props: SettingsProps) {
   const maxRuns = Math.max(2, trainingDays - 1);
   const frequency = frequencyAdvice(props.experienceLevel, trainingDays, doubles);
   const warnings = assessWeekPreferences(
-    { longRunDay, strengthDays, restDays },
-    { trainingDays, runsPerWeek: props.volume.runs_per_week, doublesPerWeek: doubles },
+    { longRunDay, strengthDays, restDays, gameDay },
+    {
+      trainingDays,
+      runsPerWeek: props.volume.runs_per_week,
+      doublesPerWeek: doubles,
+      strengthPerWeek,
+      collection: props.workoutCollection ?? null,
+    },
   );
 
   async function saveWeekShape() {
@@ -98,6 +110,7 @@ export function SettingsClient(props: SettingsProps) {
           preferred_long_run_day: longRunDay,
           preferred_strength_days: strengthDays,
           preferred_rest_days: restDays,
+          ...(hasWeekExtras ? { strength_per_week: strengthPerWeek, preferred_game_day: gameDay } : {}),
         }),
       });
       const data = await res.json();
@@ -230,6 +243,15 @@ export function SettingsClient(props: SettingsProps) {
               onChange={setDoubles}
               format={(v) => (v === 0 ? "None" : `${v}`)}
             />
+            {hasWeekExtras && (
+              <ChipRow
+                label="Strength days"
+                options={[1, 2]}
+                value={strengthPerWeek}
+                onChange={setStrengthPerWeek}
+                format={(v) => `${v}`}
+              />
+            )}
           </div>
 
           <p
@@ -240,13 +262,21 @@ export function SettingsClient(props: SettingsProps) {
             {frequency.note}
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className={`grid gap-3 ${hasWeekExtras ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
             <DayPicker
               label="Long run"
               selected={longRunDay == null ? [] : [longRunDay]}
               onToggle={(d) => setLongRunDay(longRunDay === d ? null : d)}
               accent="go"
             />
+            {hasWeekExtras && (
+              <DayPicker
+                label="Game day"
+                selected={gameDay == null ? [] : [gameDay]}
+                onToggle={(d) => setGameDay(gameDay === d ? null : d)}
+                accent="flame"
+              />
+            )}
             <DayPicker
               label="Strength"
               selected={strengthDays}
@@ -597,9 +627,10 @@ function DayPicker({
   label: string;
   selected: number[];
   onToggle: (day: number) => void;
-  accent: "go" | "amber" | "smoke";
+  accent: "go" | "amber" | "smoke" | "flame";
 }) {
   const on = {
+    flame: "border-flame/70 bg-flame/15 text-chalk",
     go: "border-go/70 bg-go/15 text-chalk",
     amber: "border-amber/70 bg-amber/15 text-chalk",
     smoke: "border-edge-strong bg-rack text-bone",

@@ -121,3 +121,18 @@ describe("workouts on the setup page", () => {
     expect(html).not.toContain('data-testid="import-card"');
   });
 });
+
+describe("strength days and the game day", () => {
+  it("shows both controls once the database has them", () => {
+    const html = render({ weekShape: { ...base.weekShape, strength_per_week: 2, game_day: 6 } });
+    expect(html).toContain("Strength days");
+    expect(html).toContain('aria-label="Game day: Saturday"');
+    expect(html).toMatch(/aria-pressed="true" aria-label="Game day: Saturday"/);
+  });
+
+  it("hides them on an older database", () => {
+    const html = render();
+    expect(html).not.toContain("Game day");
+    expect(html).not.toContain("Strength days");
+  });
+});

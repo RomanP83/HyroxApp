@@ -62,6 +62,19 @@ export const COMPROMISED_PER_WEEK: Record<PhaseType, number> = {
   taper: 1,
 };
 
+/**
+ * A workout collection may bring a weekly game day into a phase the library
+ * keeps free of compromised running. The Verona plan has one every week of its
+ * foundation block — BBJ technique with a run/erg block, or ergs with burpees,
+ * neither with sled or lunges — so with that collection base gets one too.
+ */
+export const COLLECTION_COMPROMISED_PER_WEEK: Record<string, Partial<Record<PhaseType, number>>> = {
+  verona: { base: 1 },
+};
+
+/** Strength days a week the athlete may ask for. The taper always keeps one. */
+export const MAX_STRENGTH_PER_WEEK = 2;
+
 export const PHASE_VOLUME_MULTIPLIER: Record<PhaseType, number> = {
   base: 1.0,
   build: 1.1,

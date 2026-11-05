@@ -411,7 +411,20 @@ stehen. Ohne bestehenden Plan gelten sie für den nächsten.
 ergeben sie deine Einheiten pro Woche. Direkt darunter steht, wie das zu deinem Level passt, und
 zwar **live**: Jede Änderung an den Chips rechnet den Hinweis neu, bevor du speicherst.
 
-Darunter sieben Schalter je Zeile für **Long Run**, **Kraft** und **Ruhetage**, Montag zuerst. Die
+Daneben **Kraft-Tage** (1 oder 2 pro Woche). Bei 2 wird die leichteste Einheit der Woche —
+Mobility, sonst der Erholungslauf — zum zweiten Kraft-Tag; nie eine harte Einheit, der Long Run
+oder die Stationseinheit. Hat eine Woche keine leichte Einheit übrig (weniger Trainingstage,
+Deload-, Benchmark-Woche), bleibt es bei einem; der Taper behält absichtlich einen. Unter den
+Schaltern steht, in welchen Phasen der zweite nicht hineinpasst, und ob er dir einen der unter
+„Laufvolumen" gesetzten Läufe nimmt. Mit fünf Trainingstagen passt er in Build und Peak nicht —
+dafür braucht es sechs. Mit Doppeltagen bekommen Kraft-Vormittage wie bisher bevorzugt einen
+lockeren PM-Lauf.
+
+Darunter sieben Schalter je Zeile für **Long Run**, **Spieltag**, **Kraft** und **Ruhetage**,
+Montag zuerst. Der **Spieltag** trägt die Simulation der Woche, sonst ihren ersten Compromised Run
+(in Peak-Wochen mit zwei liegt nur der erste fest). Er darf nicht auf dem Long-Run- oder einem
+Kraft-Tag liegen — das lehnt das Speichern ab. Kraft-Tage und Spieltag erscheinen erst, wenn die
+Datenbank Migration 0031 hat. Die
 Obergrenze für Ruhetage (`7 − Trainingstage`) bewegt sich mit; nimmst du Trainingstage weg, werden
 zu viele Pins automatisch gekürzt statt dich am Speichern-Knopf auflaufen zu lassen.
 
@@ -424,9 +437,9 @@ Tage es zulassen.
 follows a hard Wednesday — plyometrics wants 24-48 h of fresh legs."* Nichts wird heimlich
 korrigiert; du siehst den Preis und entscheidest.
 
-Drei Dinge lehnt die App beim Speichern ab, statt sie zu erraten: eine Laufanzahl, die nach dem
+Vier Dinge lehnt die App beim Speichern ab, statt sie zu erraten: eine Laufanzahl, die nach dem
 Reduzieren der Trainingstage nicht mehr hineinpasst, ein Tag, der gleichzeitig Ruhetag
-und Kraft-/Long-Run-Tag ist, und mehr Ruhetage als deine Trainingsfrequenz übrig lässt. Passt die
+und Kraft-/Long-Run-/Spieltag ist, ein Spieltag auf dem Long-Run- oder einem Kraft-Tag, und mehr Ruhetage als deine Trainingsfrequenz übrig lässt. Passt die
 Woche trotzdem nicht, gewinnt das Training den Tag zurück und sagt welchen.
 
 **Laufvolumen.** Peak-Kilometer der Woche und Läufe pro Woche, dazu — sobald du geloggt hast — der
@@ -464,8 +477,14 @@ Was sich mit **Verona plan** ändert — und was nicht:
 - Paces stehen **relativ** zu deinen Zonen („Schwelle", „Renntempo −10 s/km") statt fest 4:00/km —
   sie wandern mit der Kalibrierung. Gewichte sind die Wettkampfgewichte deiner Division.
 - Strength A und B nennen die Übungen, nicht Sätze und Kilos — die stehen in deinem
-  [Kraftprogramm](#9-strength--eigenes-kraftprogramm). Die Engine plant eine Kraft-Einheit pro Woche;
-  A und B wechseln sich daher wochenweise ab.
+  [Kraftprogramm](#9-strength--eigenes-kraftprogramm). Mit **Kraft-Tage: 2** (oben) ist der erste
+  Kraft-Tag der Woche immer Strength A, der zweite Strength B — wie im Tracker. Mit einem Kraft-Tag
+  wechseln sie sich wochenweise ab.
+- **Spieltage:** Mit dem Verona-Plan gibt es auch in der **Base-Phase** jede Woche einen Spieltag
+  (abwechselnd BBJ-Technik + Lauf/Erg-Block und Ergs + Burpees, beide ohne Sled und Lunges, beide
+  brauchen ein Ergometer). Er ersetzt die Einheit mit der niedrigsten Priorität; die Grenze von zwei
+  harten Tagen pro Woche bleibt. Mit der Standard-Bibliothek bleibt Base frei von Spieltagen. Auf
+  Samstag legst du sie mit dem **Spieltag**-Schalter oben.
 - Der wadenschonende Spieltag erscheint nur, wenn deine Schwachstellen (auf `/season`) z. B.
   „Wade" oder „Achilles" nennen — wie im Tracker nur bei gereizter Wade.
 - Auf der Einheitenkarte steht der Name der Verona-Einheit, ihr Nutzen und darunter
@@ -740,6 +759,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Kraft-Tage pro Woche (1 oder 2)** und fester **Spieltag** unter „Form deiner Woche"; mit dem Verona-Plan Strength A und B in derselben Woche und ein Spieltag auch in der Base-Phase | [8](#deine-trainingswoche) |
 | **Verona-Plan als Workout-Sammlung** (Setup → Workouts): 50 Einheiten aus dem Tracker, von der Engine nach Typ, Phase und Schwachstelle eingeplant; Wechsel baut die restlichen Wochen neu | [8](#workouts) |
 | **Import aus HyroxTraining** (JSON-Backup): Verlauf, Simulationen mit Splits, Stations-Rekorde; doppelter Import fügt nichts doppelt hinzu. Neu: „Imported history" auf `/progress`, acht Stations-Benchmarks | [8](#import-aus-hyroxtraining), [10](#stations-benchmarks), [11](#imported-history) |
 | Kraft- und Stationseinheiten nennen aufgeklappt Name und Zweck ihrer Variante | [4](#eine-einheitenkarte) |

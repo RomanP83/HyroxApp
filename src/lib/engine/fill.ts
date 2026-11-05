@@ -122,6 +122,8 @@ export function fillSession(
   phase?: PhaseType,
   /** 0 for the first session of this type in the week, 1 for the second … */
   occurrence = 0,
+  /** How many sessions of this type the week holds. */
+  count = 1,
 ): RenderedBlock[] {
   const variant = variantFor(profile);
   const blocks: RenderedBlock[] = [];
@@ -160,6 +162,7 @@ export function fillSession(
         weaknesses: profile.weaknesses ?? undefined,
       },
       occurrence,
+      count,
     );
     if (chosen) {
       const w = chosen.variant;

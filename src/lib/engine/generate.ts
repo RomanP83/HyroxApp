@@ -89,8 +89,11 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         doublesPerWeek: profile.doubles_per_week ?? 0,
         runsPerWeek: profile.runs_per_week ?? undefined,
         includeFullSim: w === fullSimWeek,
+        strengthPerWeek: profile.strength_per_week ?? undefined,
+        collection: profile.workout_collection ?? null,
         prefs: {
           longRunDay: profile.preferred_long_run_day ?? null,
+          gameDay: profile.preferred_game_day ?? null,
           strengthDays: profile.preferred_strength_days ?? null,
           restDays: profile.preferred_rest_days ?? null,
         },
@@ -134,6 +137,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         seen.set(slot.session_type, n + 1);
         return n;
       });
+      const countOf = (t: string) => slots.filter((s) => s.session_type === t).length;
       const sessions = slots.map((slot, i) => ({
         day_hint: slot.day_hint,
         day_slot: slot.day_slot,
@@ -145,7 +149,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         planned_duration_min: slot.planned_duration_min,
         intensity_rpe_target: slot.intensity_rpe_target,
         sort_order: slot.sort_order,
-        blocks: fillSession(slot, profile, state, library, w, pp.phase_type, occurrenceOf[i]),
+        blocks: fillSession(slot, profile, state, library, w, pp.phase_type, occurrenceOf[i], countOf(slot.session_type)),
       }));
 
       weeks.push({

@@ -35,6 +35,12 @@ export default async function SettingsPage() {
     .eq("user_id", user.id)
     .maybeSingle();
   const workoutCollection = (collectionRow?.workout_collection as string | undefined) ?? "standard";
+  // Same for migration 0031.
+  const { data: extrasRow } = await supabase
+    .from("athlete_profiles")
+    .select("strength_per_week, preferred_game_day")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   const { data: plan } = await supabase
     .from("plans")
@@ -92,6 +98,12 @@ export default async function SettingsPage() {
         long_run_day: (profile.preferred_long_run_day as number | null) ?? null,
         strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
         rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
+        ...(extrasRow
+          ? {
+              strength_per_week: (extrasRow.strength_per_week as number | null) ?? 1,
+              game_day: (extrasRow.preferred_game_day as number | null) ?? null,
+            }
+          : {}),
       }}
       workoutCollection={workoutCollection}
       collectionAvailable={Boolean(collectionRow)}

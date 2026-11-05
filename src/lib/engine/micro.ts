@@ -7,6 +7,8 @@
 import type { DaySlot, PhaseType, SessionType } from "./types";
 import { isRunSession, runSpec } from "./running";
 import {
+  COLLECTION_COMPROMISED_PER_WEEK,
+  MAX_STRENGTH_PER_WEEK,
   PHASE_SLOT_PRIORITY,
   PHASE_RPE_TARGET,
   COMPROMISED_PER_WEEK,
@@ -104,6 +106,10 @@ interface DistributeInput {
   includeFullSim?: boolean;
   /** The athlete's pinned weekdays for long run, strength and rest. */
   prefs?: WeekPrefs;
+  /** Strength sessions the athlete wants per week (1-2). Unset = one. */
+  strengthPerWeek?: number;
+  /** The athlete's workout collection — may add a game day to a phase. */
+  collection?: string | null;
 }
 
 /**
@@ -184,6 +190,19 @@ export function applyRunFrequency(
   return out;
 }
 
+/** Turn a light slot into a second strength day (see distributeSlots). */
+export function addStrengthDays(types: SessionType[], phase: PhaseType, wanted?: number): SessionType[] {
+  const target = Math.max(1, Math.min(MAX_STRENGTH_PER_WEEK, Math.floor(wanted ?? 1)));
+  if (target < 2 || phase === "taper" || !types.includes("strength")) return types;
+  const out = [...types];
+  while (out.filter((t) => t === "strength").length < target) {
+    const victim = ["mobility", "run_easy"].map((t) => out.lastIndexOf(t as SessionType)).find((i) => i >= 0);
+    if (victim == null) break;
+    out[victim] = "strength";
+  }
+  return out;
+}
+
 /**
  * How many doubles this specific week actually gets. Three weeks say no:
  * a taper cuts volume (PP4), a deload is a deload, and a benchmark week wants
@@ -207,6 +226,8 @@ export function doublesForWeek(input: {
 export interface WeekPrefs {
   /** 1 = Monday … 7 = Sunday. */
   longRunDay?: number | null;
+  /** The game day: the week's simulation, or else its first compromised run. */
+  gameDay?: number | null;
   strengthDays?: number[] | null;
   restDays?: number[] | null;
 }
@@ -305,6 +326,18 @@ export function layoutWeek(types: SessionType[], prefs: WeekPrefs = {}): WeekLay
       );
   }
 
+  // The game day carries the week's simulation if it has one, else its first
+  // compromised run. A second compromised run (peak) is placed freely.
+  const gameIdx = types.includes("full_sim") ? types.indexOf("full_sim") : types.indexOf("compromised_run");
+  const gameDay = prefs.gameDay ?? null;
+  if (gameIdx >= 0 && gameDay) {
+    if (available.includes(gameDay) && !taken.has(gameDay)) pin(gameIdx, gameDay);
+    else
+      warnings.push(
+        `The game day is pinned to ${DAY_NAMES[gameDay]}, which is a rest day or the long-run day — it moved.`,
+      );
+  }
+
   const strengthIdxs = types.map((t, i) => (t === "strength" ? i : -1)).filter((i) => i >= 0);
   const strengthDays = clean(prefs.strengthDays).filter(
     (d) => available.includes(d) && !taken.has(d),
@@ -394,6 +427,15 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
     }
   }
 
+  // A workout collection can bring a game day into a phase the library keeps
+  // free (the Verona foundation block). It takes the place of the phase's
+  // lowest-priority slot and sits after the long run and strength in the
+  // order, so a deload sheds something else first.
+  const collectionGames = COLLECTION_COMPROMISED_PER_WEEK[input.collection ?? ""]?.[phase] ?? 0;
+  if (collectionGames >= 1 && !types.includes("compromised_run")) {
+    types = [...types.slice(0, 2), "compromised_run", ...types.slice(2, Math.max(2, trainingDays - 1))];
+  }
+
   // Benchmark week: front-load a benchmark session, drop the lowest slot.
   if (isBenchmark) {
     types = ["benchmark", ...types.slice(0, Math.max(2, trainingDays - 1))];
@@ -414,6 +456,12 @@ export function distributeSlots(input: DistributeInput): SessionSlot[] {
 
   // Two hard days a week is the ceiling, whatever the week is called.
   types = capHardSessions(types, phase);
+
+  // A second strength day, when the athlete asked for one. It takes a light
+  // slot — mobility first, then the recovery run — never a hard session, the
+  // long run or the station day. A week with no light slot left (fewer days,
+  // a deload, a benchmark week) keeps one; so does the taper, by design.
+  types = addStrengthDays(types, phase, input.strengthPerWeek);
 
   // The athlete's own week shape decides WHEN; the phase decided WHAT.
   const layout = layoutWeek(types, input.prefs);
@@ -517,10 +565,17 @@ function durationFor(
  */
 export function assessWeekPreferences(
   prefs: WeekPrefs,
-  opts: { trainingDays: number; runsPerWeek?: number | null; doublesPerWeek?: number },
+  opts: {
+    trainingDays: number;
+    runsPerWeek?: number | null;
+    doublesPerWeek?: number;
+    strengthPerWeek?: number | null;
+    collection?: string | null;
+  },
 ): string[] {
   const phases: PhaseType[] = ["base", "build", "peak", "taper"];
   const seen = new Set<string>();
+  const short: PhaseType[] = [];
   for (const phase of phases) {
     const slots = distributeSlots({
       phase,
@@ -531,9 +586,29 @@ export function assessWeekPreferences(
       doublesPerWeek: opts.doublesPerWeek ?? 0,
       runsPerWeek: opts.runsPerWeek ?? undefined,
       prefs,
+      strengthPerWeek: opts.strengthPerWeek ?? undefined,
+      collection: opts.collection ?? null,
     });
     const types = slots.filter((s) => s.day_slot !== "pm").map((s) => s.session_type);
     for (const w of layoutWeek(types, prefs).warnings) seen.add(w);
+    if (phase !== "taper" && (opts.strengthPerWeek ?? 1) >= 2 && types.filter((t) => t === "strength").length < 2) {
+      short.push(phase);
+    }
+    if (
+      (opts.strengthPerWeek ?? 1) >= 2 &&
+      opts.runsPerWeek &&
+      types.filter((t) => isRunSession(t)).length < Math.min(opts.runsPerWeek, opts.trainingDays - 1) &&
+      phase !== "taper"
+    ) {
+      seen.add(`The second strength day takes a run slot in ${phase} — fewer runs than the ${opts.runsPerWeek} you set.`);
+    }
+  }
+  if (short.length) {
+    seen.add(
+      `With ${opts.trainingDays} training days there is no light slot for a second strength day in ${short.join(
+        " and ",
+      )} — those weeks keep one.`,
+    );
   }
   return [...seen];
 }

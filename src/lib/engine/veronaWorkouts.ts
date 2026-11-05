@@ -933,12 +933,28 @@ export function pickCollectionWorkout(
   collection: WorkoutCollection | string | null | undefined,
   query: VariantQuery,
   occurrence = 0,
+  /** How many sessions of this type the week holds. */
+  count = 1,
 ): VariantPick<CollectionWorkout> | null {
   if (collection !== "verona") return null;
   const words = (query.weaknesses ?? []).map((w) => w.toLowerCase());
   const catalogue = VERONA_WORKOUTS.filter(
     (w) => !w.situational || (w.keywords ?? []).some((k) => words.some((x) => x.includes(k))),
   );
+  // Several sessions of one type in a week walk the collection in its own
+  // order — the first strength day is Strength A, the second Strength B, as
+  // the original plan had them — instead of rotating each one separately.
+  if (count > 1) {
+    const eligible = catalogue.filter(
+      (w) =>
+        w.session_type === query.sessionType &&
+        w.phases.includes(query.phase) &&
+        (!w.needs_erg || query.equipment !== "home_minimal"),
+    );
+    if (eligible.length >= 2) {
+      return { variant: eligible[occurrence % eligible.length], targeted: false, pool: eligible.length };
+    }
+  }
   return pickVariant(catalogue, { ...query, weekNumber: query.weekNumber + occurrence });
 }
 

@@ -120,10 +120,55 @@ describe("planning with the Verona collection", () => {
     expect(fromCollection).toBeGreaterThan(20);
   });
 
-  it("does not change the shape of the week — only its content", () => {
-    const strip = (pl: GeneratedPlan) =>
-      sessionsOf(pl).map(({ week, s }) => [week, s.day_hint, s.day_slot, s.session_type, s.planned_duration_min, s.intensity_rpe_target]);
-    expect(strip(plan(profile({ workout_collection: "verona" })))).toEqual(strip(plan(profile())));
+  it("changes only the content after base — base gains the weekly game day", () => {
+    const strip = (pl: GeneratedPlan, phases: string[]) =>
+      sessionsOf(pl)
+        .filter(({ phase }) => phases.includes(phase))
+        .map(({ week, s }) => [week, s.day_hint, s.day_slot, s.session_type, s.planned_duration_min, s.intensity_rpe_target]);
+    const later = ["build", "peak", "taper"];
+    expect(strip(plan(profile({ workout_collection: "verona" })), later)).toEqual(strip(plan(profile()), later));
+
+    const baseWeeks = (pl: GeneratedPlan) => pl.phases.find((p) => p.phase_type === "base")!.weeks;
+    for (const w of baseWeeks(plan(profile()))) {
+      expect(w.sessions.some((s) => s.session_type === "compromised_run")).toBe(false);
+    }
+    for (const w of baseWeeks(plan(profile({ workout_collection: "verona" })))) {
+      const game = w.sessions.find((s) => s.session_type === "compromised_run");
+      expect(game, `week ${w.week_number}`).toBeTruthy();
+      expect(game!.blocks.find((b) => b.block_type === "main")?.slug).toMatch(/^vr_(bbj_technique_erg|ergs_burpees)$/);
+      const hard = w.sessions.filter((s) =>
+        ["run_intervals", "compromised_run", "full_sim", "benchmark"].includes(s.session_type),
+      );
+      expect(hard.length).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("plans Strength A and B in the same week when two strength days are set", () => {
+    const pl = plan(profile({ workout_collection: "verona", strength_per_week: 2, preferred_strength_days: [1, 3] }));
+    let weeksWithTwo = 0;
+    for (const { phase, w } of pl.phases.flatMap((ph) => ph.weeks.map((w) => ({ phase: ph.phase_type, w })))) {
+      const str = w.sessions.filter((s) => s.session_type === "strength" && s.day_slot === "am").sort((a, b) => a.day_hint - b.day_hint);
+      if (phase === "taper") {
+        expect(str.length).toBe(1);
+        continue;
+      }
+      if (str.length < 2) continue;
+      weeksWithTwo++;
+      expect(str.map((s) => s.day_hint)).toEqual([1, 3]);
+      expect(str.map((s) => s.blocks.find((b) => b.block_type === "main")?.slug)).toEqual(["vr_strength_a", "vr_strength_b"]);
+    }
+    expect(weeksWithTwo).toBeGreaterThan(5);
+  });
+
+  it("puts the game day on the pinned weekday", () => {
+    const pl = plan(profile({ workout_collection: "verona", preferred_game_day: 6, preferred_long_run_day: 7 }));
+    for (const w of pl.phases.flatMap((ph) => ph.weeks)) {
+      const sim = w.sessions.find((s) => s.session_type === "full_sim");
+      const firstGame = sim ?? w.sessions.filter((s) => s.session_type === "compromised_run").sort((a, b) => a.sort_order - b.sort_order)[0];
+      if (!firstGame) continue;
+      const onSaturday = w.sessions.filter((s) => s.day_hint === 6 && s.day_slot === "am").map((s) => s.session_type);
+      expect(onSaturday, `week ${w.week_number}`).toContain(sim ? "full_sim" : "compromised_run");
+    }
   });
 
   it("alternates Strength A and B, and splits a week's two easy runs", () => {

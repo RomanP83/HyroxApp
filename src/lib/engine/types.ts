@@ -93,6 +93,10 @@ export interface AthleteProfile {
    * athlete (assessWeekPreferences).
    */
   preferred_long_run_day?: number | null;
+  /** Weekday of the game day (simulation or first compromised run). */
+  preferred_game_day?: number | null;
+  /** Strength sessions per week, 1-2. Unset = one. */
+  strength_per_week?: number | null;
   preferred_strength_days?: number[] | null;
   preferred_rest_days?: number[] | null;
 }

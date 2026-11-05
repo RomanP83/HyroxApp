@@ -117,6 +117,21 @@ export function PlanClient(props: Props) {
     props.sessions.map((cs) => `${cs.session.day_hint}-${cs.session.day_slot ?? "am"}`),
   );
 
+  // Week progress counts what the athlete can actually tick off — a rest day
+  // is not a session you complete. Optimistic flips count straight away.
+  const statusOf = (cs: ClientSession) => optimistic[cs.id] ?? cs.status;
+  const trainable = props.sessions.filter((cs) => cs.session.session_type !== "rest");
+  const doneCount = trainable.filter((cs) => statusOf(cs) === "done").length;
+  const skippedCount = trainable.filter((cs) => statusOf(cs) === "skipped").length;
+  const weekIndex = props.weeks.findIndex((w) => w.week_number === props.currentWeek.week_number);
+  const prevWeek = weekIndex > 0 ? props.weeks[weekIndex - 1].week_number : null;
+  const nextWeek =
+    weekIndex >= 0 && weekIndex < props.weeks.length - 1
+      ? props.weeks[weekIndex + 1].week_number
+      : null;
+  const thisWeek = props.weeks.find((w) => w.status === "current");
+  const viewingThisWeek = !thisWeek || thisWeek.week_number === props.currentWeek.week_number;
+
   // B6: returning from Stripe — verify the checkout session server-side
   // instead of trusting a query flag, then clean the URL.
   useEffect(() => {
@@ -162,6 +177,8 @@ export function PlanClient(props: Props) {
     action: LogAction,
     target: number,
     strengthSets?: StrengthSetInput[],
+    /** The effort picked on the scale; without it harder/easier mean ±2. */
+    rpePicked?: number,
   ) {
     setBusy({ sessionId, action });
     // Instant feedback (#6): the card flips before the network answers.
@@ -175,7 +192,10 @@ export function PlanClient(props: Props) {
                 ? { completed_as_planned: true }
                 : {
                     completed_as_planned: false,
-                    rpe_actual: Math.max(1, Math.min(10, target + ACTION_RPE[action])),
+                    rpe_actual: Math.max(
+                      1,
+                      Math.min(10, rpePicked ?? target + ACTION_RPE[action]),
+                    ),
                   }),
               ...(strengthSets?.length ? { strength_sets: strengthSets } : {}),
             };
@@ -371,26 +391,93 @@ export function PlanClient(props: Props) {
             </div>
           </div>
 
-          {/* ── Why this week: the promise the product is built on, at size. ── */}
+          {/* ── Why this week: the promise the product is built on, at size. ──
+              Step through the cycle a week at a time; the strip above is for
+              jumping. Viewing another week, one tap brings you back. */}
           <div>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span
-                className="font-mono text-micro font-bold uppercase tracking-widest"
-                style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}
-              >
-                {titleCase(currentPhase?.phase_type ?? "")}
-              </span>
-              <h1 className="text-h2 font-bold tracking-tight">
-                Week <span className="font-mono tabular-nums">{props.currentWeek.week_number}</span>
-              </h1>
-              {props.currentWeek.is_deload && <span className="pill text-amber">deload</span>}
-              {props.currentWeek.is_benchmark_week && (
-                <span className="pill text-amber">benchmark</span>
-              )}
+            <div className="flex items-center justify-between gap-3">
+              <WeekStep
+                to={prevWeek}
+                label="Previous week"
+                glyph="‹"
+              />
+              <div className="min-w-0 flex-1 text-center">
+                <span
+                  className="font-mono text-micro font-bold uppercase tracking-widest"
+                  style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}
+                >
+                  {titleCase(currentPhase?.phase_type ?? "")}
+                </span>
+                <h1 className="text-h2 font-bold tracking-tight">
+                  Week <span className="font-mono tabular-nums">{props.currentWeek.week_number}</span>
+                  <span className="text-lead font-medium text-smoke">
+                    {" "}
+                    of <span className="font-mono tabular-nums">{props.weeks.length}</span>
+                  </span>
+                </h1>
+                {(props.currentWeek.is_deload || props.currentWeek.is_benchmark_week) && (
+                  <div className="mt-1 flex justify-center gap-1.5">
+                    {props.currentWeek.is_deload && <span className="pill text-amber">deload</span>}
+                    {props.currentWeek.is_benchmark_week && (
+                      <span className="pill text-amber">benchmark</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <WeekStep to={nextWeek} label="Next week" glyph="›" />
             </div>
-            <p className="mt-2 max-w-[62ch] text-lead leading-relaxed text-bone">
-              {props.currentWeek.weekly_goal}
-            </p>
+
+            {/* Progress: one segment per session that asks something of you. */}
+            {trainable.length > 0 && (
+              <div className="mt-4" data-testid="week-progress">
+                <div className="flex gap-1">
+                  {trainable.map((cs) => {
+                    const st = statusOf(cs);
+                    return (
+                      <span
+                        key={cs.id}
+                        title={`${cs.session.title} · ${st}`}
+                        className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                          st === "done" ? "bg-go" : st === "skipped" ? "bg-smoke" : "bg-well"
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="mt-1.5 flex items-baseline justify-between gap-3 text-meta">
+                  <span className="text-bone">
+                    <span className="font-mono font-semibold tabular-nums text-chalk">{doneCount}</span>{" "}
+                    of <span className="font-mono tabular-nums">{trainable.length}</span> sessions done
+                    {skippedCount > 0 && (
+                      <span className="text-smoke"> · {skippedCount} skipped</span>
+                    )}
+                  </span>
+                  {!viewingThisWeek && thisWeek && (
+                    <Link
+                      href={`/plan?week=${thisWeek.week_number}`}
+                      className="font-semibold text-flame hover:underline"
+                    >
+                      Go to this week →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* The week's reason, said by the coach — not a caption. */}
+            <div className="mt-4 flex items-start gap-3 rounded-panel border border-edge bg-lane p-3.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber/15 text-amber">
+                <SparkIcon size={15} />
+              </span>
+              <div className="min-w-0">
+                <div className="text-micro font-semibold uppercase tracking-widest text-ash">
+                  Coach note
+                </div>
+                <p className="mt-0.5 max-w-[62ch] text-base leading-relaxed text-bone">
+                  {props.currentWeek.weekly_goal}
+                </p>
+              </div>
+            </div>
 
             {props.runSummary && props.runSummary.runs > 0 && (
               <div className="mt-4 max-w-md">
@@ -461,7 +548,7 @@ export function PlanClient(props: Props) {
               onLog={
                 props.locked
                   ? undefined
-                  : (a, sets) => log(cs.id, a, cs.session.intensity_rpe_target, sets)
+                  : (a, sets, rpe) => log(cs.id, a, cs.session.intensity_rpe_target, sets, rpe)
               }
               strength={cs.strength ?? null}
               onReset={props.locked ? undefined : () => reset(cs.id)}
@@ -494,6 +581,8 @@ export function PlanClient(props: Props) {
               </dl>
             )}
             <p className="mt-3 text-micro text-smoke">Recalibrates every time you log.</p>
+          </div>
+
           <div className="card">
             <div className="mb-2.5 flex items-center gap-2">
               <SparkIcon size={15} className="text-amber" />
@@ -518,8 +607,6 @@ export function PlanClient(props: Props) {
                 ))}
               </ul>
             )}
-          </div>
-
           </div>
 
           {!props.locked && (
@@ -595,5 +682,26 @@ function Row({ k, v }: { k: string; v: string }) {
       <dt className="text-ash">{k}</dt>
       <dd className="font-mono tabular-nums text-bone">{v}</dd>
     </div>
+  );
+}
+
+/** A step to the neighbouring week — a 40px target, inert at either end. */
+function WeekStep({ to, label, glyph }: { to: number | null; label: string; glyph: string }) {
+  const cls =
+    "flex h-10 w-10 shrink-0 items-center justify-center rounded-control border border-edge bg-lane text-h3 leading-none";
+  if (to == null)
+    return (
+      <span className={`${cls} text-smoke opacity-40`} aria-hidden="true">
+        {glyph}
+      </span>
+    );
+  return (
+    <Link
+      href={`/plan?week=${to}`}
+      aria-label={`${label} (week ${to})`}
+      className={`${cls} text-bone transition-colors duration-150 hover:border-edge-strong hover:text-chalk`}
+    >
+      {glyph}
+    </Link>
   );
 }

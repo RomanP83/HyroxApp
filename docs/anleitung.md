@@ -123,9 +123,16 @@ Deload- und Benchmark-Woche. Anklicken springt in die Woche.
 
 ### Die Wochenansicht
 
-- **Wochenziel** in einem Satz: warum diese Woche so aussieht (Phase, Deload, Benchmark — oder das
-  Rennen, das in ihr liegt).
-- **Wochenwechsel** über die Nummern; abgeschlossene Wochen bleiben lesbar.
+- **Wochenkopf:** Phase, „Week 6 of 12" und links/rechts je ein Pfeil (‹ ›) zur vorigen bzw.
+  nächsten Woche. In der ersten und letzten Woche ist der jeweilige Pfeil ausgegraut.
+- **Wochenfortschritt:** ein Balken mit einem Segment pro Einheit (Ruhetage zählen nicht mit) —
+  grün = erledigt, grau = ausgelassen, dunkel = offen. Darunter „2 of 5 sessions done" und, falls
+  vorhanden, die Zahl der ausgelassenen. Ein Tap auf einen Log-Knopf füllt das Segment sofort.
+- **„Go to this week →"** erscheint rechts daneben, sobald du eine andere als die laufende Woche
+  ansiehst, und bringt dich mit einem Tap zurück.
+- **Coach note:** das Wochenziel in einem Satz — warum diese Woche so aussieht (Phase, Deload,
+  Benchmark — oder das Rennen, das in ihr liegt). Der Text kommt unverändert aus der Engine.
+- **Wochenwechsel** außerdem über den Zyklus-Streifen darüber; abgeschlossene Wochen bleiben lesbar.
 - **Doppeltage** sind mit AM/PM markiert.
 - **Laufauswertung der Woche:** geplante Kilometer, Anteil im lockeren Bereich, und ob das im
   polarisierten Fenster der Phase liegt. Liegt es daneben, nennt die Karte den Hebel (meist: ein
@@ -161,11 +168,15 @@ Zugeklappt: Titel, Typ, Dauer, RPE-Ziel. Bei Laufeinheiten zusätzlich direkt si
 - **HF-Zone** und **Zielpace**
 - Bei kompromittierten Läufen: **die Eröffnungspace** (+20 s/km über die ersten 400 m)
 
-Aufgeklappt: alle Blöcke — Warm-up, Hauptteil, Finisher — mit Sätzen, Wiederholungen, Gewichten
-oder Distanzen, gerendert auf deine Division und deinen aktuellen Stand. Kraft-Einheiten zeigen
-dort zusätzlich dein importiertes Programm mit einem Eingabefeld pro Satz; **zugeklappt** steht
-stattdessen nur eine Zeile (Programmname, Übungszahl, „tap to log sets") — ein Tap darauf öffnet
-die Karte.
+Aufgeklappt: alle Blöcke als **Abschnitte** — „Warm-up" (grau), „Main set" (in der Farbe der
+Intensitäts-Leiste), „Finisher" (orange), „Mobility" (grün). Jeder Abschnitt hat eine farbige
+Kopfzeile mit Station, Tier, Zielpace oder Lastfaktor rechts daneben; darunter die Schritte,
+**über die ganze Einheit durchnummeriert** (1, 2, 3 … vom Warm-up bis zum letzten Block), je mit
+Übung, Dosis (z. B. „3 × 8", „4 × 60 m", „rest 90s") und Gewicht rechts — gerendert auf deine
+Division und deinen aktuellen Stand. Kraft-Einheiten zeigen dort zusätzlich dein importiertes
+Programm als **Satz-Tabelle** (siehe [Abschnitt 9](#9-strength--eigenes-kraftprogramm));
+**zugeklappt** steht stattdessen nur eine Zeile (Programmname, Übungszahl, „tap to log sets") — ein
+Tap darauf öffnet die Karte.
 
 Kraft- und Stationseinheiten zeigen aufgeklappt über den Blöcken zusätzlich **Name und Zweck ihrer
 Variante**. Stammt die Einheit aus der [Verona-Sammlung](#workouts), steht darunter klein
@@ -241,17 +252,37 @@ Was du wissen solltest:
 
 ## 5. Eine Einheit loggen (und den Fehlklick zurücknehmen)
 
-Vier Knöpfe pro Einheit — **ein Tap genügt**:
+Vier Knöpfe pro Einheit — **„As planned" und „Skip" sind ein Tap**, „Felt harder/easier" zwei (Skala, dann speichern):
 
 | Knopf | Bedeutung | Wirkung |
 |---|---|---|
-| **As planned** | So absolviert wie geplant | Geplante Werte werden als Ist-Werte übernommen. |
-| **Felt harder** | *War* härter als erwartet | Nächste Einheiten werden etwas leichter: Pace/Last gehen einen Schritt zurück. |
-| **Felt easier** | *War* leichter als erwartet | Nach zwei solchen Rückmeldungen in Folge geht es einen Schritt hoch. |
-| **Skip** | Nicht gemacht | Wird als ausgelassen protokolliert und fließt in die Compliance ein. |
+| **As planned** | So absolviert wie geplant | Ein Tap. Geplante Werte werden als Ist-Werte übernommen. |
+| **Felt harder** | *War* härter als erwartet | Öffnet die Anstrengungs-Skala (siehe unten). Zwei Punkte oder mehr über dem Ziel: Pace/Last gehen einen Schritt zurück. |
+| **Felt easier** | *War* leichter als erwartet | Öffnet die Anstrengungs-Skala. Zwei Punkte oder mehr unter dem Ziel, zweimal in Folge: es geht einen Schritt hoch. |
+| **Skip** | Nicht gemacht | Ein Tap. Wird als ausgelassen protokolliert und fließt in die Compliance ein. |
 
 > **Wichtig zur Formulierung:** „Felt harder/easier" beschreibt, **wie es war** — nicht, was du dir
 > wünschst. Genau deshalb heißen die Knöpfe seit der Umbenennung so und tragen einen Tooltip.
+
+### Die Anstrengungs-Skala („How hard was it?")
+
+„Felt harder" und „Felt easier" loggen nicht mehr sofort, sondern öffnen unter der Knopfreihe eine
+**RPE-Skala von 1 bis 10**: ein Bogen mit zehn Segmenten, die große Zahl in der Mitte, darunter der
+Name der Stufe (z. B. „Harder") und ein Satz, woran man sie erkennt („Sustainable, but you are
+counting the minutes."). Ein grauer Punkt am Bogen und „▲ target" unter dem Regler zeigen das
+RPE-Ziel der Einheit.
+
+- **Vorbelegt** ist Ziel + 2 (bei „Felt harder") bzw. Ziel − 2 (bei „Felt easier") — also genau
+  das, was ein Tap früher bedeutet hat. Wer nur bestätigt, loggt wie bisher.
+- **Einstellen** per Schieberegler (auch mit Pfeiltasten). Bogen, Zahl und Farbe folgen sofort.
+- **Vorher sichtbar, was passiert:** ein Satz nennt die Folge, bevor gespeichert wird — z. B.
+  „2 above the target of 7 — the plan backs this kind of session off a step." oder „Within a point
+  of the target — the plan holds its course." Die Schwellen sind die Engine-Standardwerte (±2).
+- **„Save effort"** loggt die Einheit mit genau dieser Zahl; **„Cancel"** oder ein zweiter Tap auf
+  denselben Knopf schließt die Skala, ohne etwas zu speichern. Landet die Zahl genau auf dem Ziel,
+  wird die Einheit als „As planned" gespeichert.
+
+Das funktioniert genauso im [Demo](#15-demo--ausprobieren-ohne-konto).
 
 ### Undo
 
@@ -569,10 +600,23 @@ bereiche („6 - 8"), Supersatz-Markierungen und Körpergewichts-Zeilen ohne Las
 **Vorschau vor dem Speichern.** Du siehst, was der Parser verstanden hat, und kannst korrigieren,
 bevor irgendetwas gespeichert wird.
 
-**Sätze protokollieren.** Auf der **aufgeklappten** Kraft-Einheit in `/plan` steht pro Satz ein
-Eingabefeld für Wiederholungen und Gewicht; zugeklappt zeigt die Karte nur eine Programmzeile.
-Leer gelassen heißt „wie programmiert" — auch wer ohne Aufklappen „As planned" tippt, loggt das
-Programm wie geschrieben.
+**Sätze protokollieren.** Auf der **aufgeklappten** Kraft-Einheit in `/plan` steht pro Übung eine
+**Satz-Tabelle** mit den Spalten *Set · Previous · kg · Reps · ✓*; zugeklappt zeigt die Karte nur
+eine Programmzeile.
+
+- **Previous** zeigt, was du bei dieser Übung beim letzten geloggten Training im selben Satz
+  gemacht hast, als „kg×Wdh." (z. B. „20×8", bei Körpergewicht „BW×15"). Noch nie geloggt: „—".
+- **kg** und **Reps** sind Eingabefelder; das Programm steht grau als Platzhalter darin.
+- **✓** hakt einen Satz ab: Was die Zeile zeigt — getippte Zahlen oder die grauen Programmwerte
+  (oberes Ende des Wiederholungsbereichs) — wird übernommen, die Zeile wird grün. Ein zweiter Tap
+  leert die Zeile wieder.
+- Getippte Wiederholungen mit leerem kg-Feld loggen das programmierte Gewicht. Ein Satz, den du
+  weder abhakst noch ausfüllst, wird **nicht** als Satz gespeichert — wer ohne Aufklappen
+  „As planned" tippt, loggt die Einheit wie geplant, aber ohne Satzdetails.
+- Gespeichert wird alles mit dem Log-Knopf darunter („As planned", oder „Felt harder/easier" nach
+  der [Anstrengungs-Skala](#die-anstrengungs-skala-how-hard-was-it)).
+
+Einen Satz-Timer gibt es nicht.
 
 **Progression als Vorschlag.** Nach einem geloggten Training schlägt die App die nächste Last vor
 (doppelte Progression: erst Wiederholungen ans obere Ende, dann Gewicht rauf). Der Vorschlag
@@ -790,6 +834,9 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Neues Layout auf `/plan`:** Wochenkopf mit ‹ › zur vorigen/nächsten Woche, „Week N of M", Fortschrittsbalken „x of y sessions done", „Go to this week →" und das Wochenziel als „Coach note"; Blöcke als farbige Abschnitte mit durchnummerierten Schritten | [4](#die-wochenansicht), [4](#eine-einheitenkarte) |
+| **Anstrengungs-Skala:** „Felt harder/easier" öffnen eine RPE-Skala 1–10 (vorbelegt mit Ziel ±2), die vor dem Speichern sagt, was der Plan daraus macht — auch im Demo | [5](#die-anstrengungs-skala-how-hard-was-it) |
+| **Satz-Tabelle** für Kraft-Einheiten: Spalten Set · Previous · kg · Reps · ✓, „Previous" zeigt das letzte Training, ✓ übernimmt die Zeile | [9](#9-strength--eigenes-kraftprogramm) |
 | **Urlaub eintragen** (Setup → Vacation): „Keep it ticking" oder „Fully off"; Simulation und Benchmarks wandern aus dem Urlaub, danach eine Wiedereinstiegswoche; Urlaubstage lösen keinen Pausen-Neuaufbau aus | [8](#urlaub) |
 | **Kraft-Tage pro Woche (1 oder 2)** und fester **Spieltag** unter „Form deiner Woche"; mit dem Verona-Plan Strength A und B in derselben Woche und ein Spieltag auch in der Base-Phase | [8](#deine-trainingswoche) |
 | **Verona-Plan als Workout-Sammlung** (Setup → Workouts): 50 Einheiten aus dem Tracker, von der Engine nach Typ, Phase und Schwachstelle eingeplant; Wechsel baut die restlichen Wochen neu | [8](#workouts) |

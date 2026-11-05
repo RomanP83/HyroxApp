@@ -4,7 +4,8 @@ import { useState } from "react";
 import type { DaySlot, GeneratedSession } from "@/lib/engine";
 import { runSpec } from "@/lib/engine";
 import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace } from "@/lib/format";
-import { BlockView } from "./BlockView";
+import { BlockView, stepCount } from "./BlockView";
+import { EffortPicker } from "./EffortPicker";
 import {
   CheckIcon,
   FlameIcon,
@@ -30,6 +31,11 @@ export interface StrengthExerciseInput {
   rep_max: number | null;
   load_kg: number | null;
   superset_group: string | null;
+  /**
+   * What was lifted the last time this exercise was logged, set by set — the
+   * "previous" column. Empty when it has never been logged.
+   */
+  previous?: { set_number: number; reps: number | null; load_kg: number | null }[];
 }
 
 export interface StrengthSetInput {
@@ -42,8 +48,12 @@ export interface StrengthSetInput {
 
 interface Props {
   session: GeneratedSession;
-  /** When provided, renders the 4-button quick-log row. */
-  onLog?: (action: LogAction, strengthSets?: StrengthSetInput[]) => void;
+  /**
+   * When provided, renders the 4-button quick-log row. `rpe` is the effort the
+   * athlete picked on the scale ("Felt harder" / "Felt easier" open it); it is
+   * absent for "As planned" and "Skip".
+   */
+  onLog?: (action: LogAction, strengthSets?: StrengthSetInput[], rpe?: number) => void;
   /**
    * The athlete's own strength day for this session. Turns the card into a
    * fillable sheet: reps and kilos per set, sent along with the quick-log tap.
@@ -141,7 +151,12 @@ export function SessionCard({
   const [targetSlot, setTargetSlot] = useState<DaySlot>(session.day_slot ?? "am");
   // Keyed "<exerciseId>:<setNumber>" — only what the athlete actually typed.
   const [entries, setEntries] = useState<Record<string, { reps?: number; load?: number }>>({});
+  // Sets ticked off with the check — they carry the numbers shown in the row.
+  const [doneSets, setDoneSets] = useState<Set<string>>(new Set());
+  // The effort scale, open when "Felt harder" / "Felt easier" was tapped.
+  const [effort, setEffort] = useState<{ action: "harder" | "easier"; rpe: number } | null>(null);
   const isRest = session.session_type === "rest";
+  const target = session.intensity_rpe_target;
 
   function collectSets(): StrengthSetInput[] | undefined {
     if (!strength) return undefined;
@@ -163,9 +178,62 @@ export function SessionCard({
     return out.length ? out : undefined;
   }
 
-  function press(action: LogAction) {
+  function press(action: LogAction, rpe?: number) {
     haptic(action === "planned" ? "confirm" : "tap");
-    onLog?.(action, action === "skip" ? undefined : collectSets());
+    onLog?.(action, action === "skip" ? undefined : collectSets(), rpe);
+  }
+
+  /** Harder / easier is a number, not a direction: open the scale on a guess. */
+  function openEffort(action: "harder" | "easier") {
+    haptic("tap");
+    const guess = action === "harder" ? target + 2 : target - 2;
+    setEffort({ action, rpe: Math.max(1, Math.min(10, guess)) });
+  }
+
+  function saveEffort() {
+    if (!effort) return;
+    // Landing on the target after all is "as planned" — say it that way.
+    const action: LogAction =
+      effort.rpe > target ? "harder" : effort.rpe < target ? "easier" : "planned";
+    press(action, action === "planned" ? undefined : effort.rpe);
+    setEffort(null);
+  }
+
+  function setField(key: string, field: "reps" | "load", raw: string) {
+    setEntries((m) => ({
+      ...m,
+      [key]: { ...m[key], [field]: raw === "" ? undefined : Number(raw) },
+    }));
+  }
+
+  /**
+   * The check on a set row: done as shown. Whatever the row displays — typed
+   * numbers, or the programmed ones in grey — becomes what was lifted. A second
+   * tap empties the row again.
+   */
+  function toggleSet(exercise: StrengthExerciseInput, setNumber: number) {
+    const key = `${exercise.id}:${setNumber}`;
+    haptic("tap");
+    if (doneSets.has(key)) {
+      setDoneSets((d) => {
+        const next = new Set(d);
+        next.delete(key);
+        return next;
+      });
+      setEntries((m) => {
+        const { [key]: _, ...rest } = m;
+        return rest;
+      });
+      return;
+    }
+    setDoneSets((d) => new Set(d).add(key));
+    setEntries((m) => ({
+      ...m,
+      [key]: {
+        reps: m[key]?.reps ?? exercise.rep_max ?? exercise.rep_min ?? undefined,
+        load: m[key]?.load ?? exercise.load_kg ?? undefined,
+      },
+    }));
   }
 
   function pressReset() {
@@ -181,6 +249,7 @@ export function SessionCard({
     label,
     hint,
     primary,
+    onClick,
   }: {
     action: LogAction;
     icon: React.ReactNode;
@@ -188,12 +257,16 @@ export function SessionCard({
     /** What the tap actually reports — the labels alone read as a wish. */
     hint?: string;
     primary?: boolean;
+    onClick?: () => void;
   }) => (
     <button
-      className={primary ? "btn-primary" : "btn-ghost"}
-      onClick={() => press(action)}
+      className={`${primary ? "btn-primary" : "btn-ghost"} ${
+        effort?.action === action ? "border-edge-strong text-chalk" : ""
+      }`}
+      onClick={onClick ?? (() => press(action))}
       disabled={busyAction != null}
       title={hint}
+      aria-expanded={onClick ? effort?.action === action : undefined}
     >
       {busyAction === action ? <SpinnerIcon size={16} /> : icon}
       {label}
@@ -307,8 +380,16 @@ export function SessionCard({
                   </p>
                 </div>
               )}
-              {session.blocks.map((b) => (
-                <BlockView key={`${b.block_id}-${b.sort_order}`} block={b} />
+              {/* One script, numbered 1…n from warm-up to the last block. */}
+              {session.blocks.map((b, i) => (
+                <BlockView
+                  key={`${b.block_id}-${b.sort_order}`}
+                  block={b}
+                  accent={DEMAND_COLORS[demand]}
+                  startAt={
+                    1 + session.blocks.slice(0, i).reduce((n, prev) => n + stepCount(prev), 0)
+                  }
+                />
               ))}
               {(() => {
                 const spec = runSpec(session.session_type);
@@ -367,15 +448,19 @@ export function SessionCard({
       {strength && onLog && open && !isRest && (status === "planned" || status === "moved") && (
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between text-meta">
-            <span className="font-semibold">{strength.templateName}</span>
-            <span className="text-ash">reps · kg per set</span>
+            <span className="font-semibold text-chalk">{strength.templateName}</span>
+            <span className="text-ash">tick a set, or type what you lifted</span>
           </div>
           {strength.exercises.map((exercise) => (
-            <div key={exercise.id} className="rounded-lg border border-edge bg-rack p-2">
-              <div className="mb-1 flex flex-wrap items-baseline gap-2 text-sm">
-                <span className="font-medium">{exercise.name}</span>
+            <div
+              key={exercise.id}
+              className="overflow-hidden rounded-control border border-edge bg-rack"
+              data-strength-exercise={exercise.name}
+            >
+              <div className="flex flex-wrap items-baseline gap-2 px-3 pb-1.5 pt-2.5">
+                <span className="text-base font-medium text-chalk">{exercise.name}</span>
                 {exercise.superset_group && <span className="pill">SS {exercise.superset_group}</span>}
-                <span className="text-meta text-ash">
+                <span className="font-mono text-meta text-ash">
                   {exercise.sets}×{" "}
                   {exercise.rep_min === exercise.rep_max
                     ? exercise.rep_min ?? "—"
@@ -383,53 +468,93 @@ export function SessionCard({
                   · {exercise.load_kg == null ? "bodyweight" : `${exercise.load_kg} kg`}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {Array.from({ length: exercise.sets }, (_, i) => i + 1).map((setNumber) => (
-                  <span key={setNumber} className="flex items-center gap-1">
-                    <span className="text-[10px] text-ash">S{setNumber}</span>
-                    <input
-                      className="input w-14 px-2 py-1 text-right font-mono text-meta"
-                      type="number"
-                      min="0"
-                      inputMode="numeric"
-                      placeholder={String(exercise.rep_max ?? exercise.rep_min ?? "")}
-                      aria-label={`${exercise.name} set ${setNumber} reps`}
-                      onChange={(e) =>
-                        setEntries((m) => ({
-                          ...m,
-                          [`${exercise.id}:${setNumber}`]: {
-                            ...m[`${exercise.id}:${setNumber}`],
-                            reps: e.target.value === "" ? undefined : Number(e.target.value),
-                          },
-                        }))
-                      }
-                    />
-                    <input
-                      className="input w-16 px-2 py-1 text-right font-mono text-meta"
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      inputMode="decimal"
-                      placeholder={exercise.load_kg == null ? "BW" : String(exercise.load_kg)}
-                      aria-label={`${exercise.name} set ${setNumber} weight`}
-                      onChange={(e) =>
-                        setEntries((m) => ({
-                          ...m,
-                          [`${exercise.id}:${setNumber}`]: {
-                            ...m[`${exercise.id}:${setNumber}`],
-                            load: e.target.value === "" ? undefined : Number(e.target.value),
-                          },
-                        }))
-                      }
-                    />
-                  </span>
-                ))}
-              </div>
+              <table className="w-full text-meta">
+                <thead>
+                  <tr className="text-micro font-semibold uppercase tracking-wider text-smoke">
+                    <th className="w-10 py-1 pl-3 text-left font-semibold">Set</th>
+                    <th className="py-1 text-left font-semibold">Previous</th>
+                    <th className="w-[4.5rem] py-1 text-center font-semibold">kg</th>
+                    <th className="w-16 py-1 text-center font-semibold">Reps</th>
+                    <th className="w-12 py-1 pr-2 text-center font-semibold">
+                      <span className="sr-only">Done</span>
+                      <CheckIcon size={13} className="inline" />
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: exercise.sets }, (_, i) => i + 1).map((setNumber) => {
+                    const key = `${exercise.id}:${setNumber}`;
+                    const entry = entries[key];
+                    const done = doneSets.has(key);
+                    const prev = exercise.previous?.find((p) => p.set_number === setNumber);
+                    return (
+                      <tr
+                        key={setNumber}
+                        className={`border-t border-edge transition-colors duration-150 ${
+                          done ? "bg-go/10" : ""
+                        }`}
+                      >
+                        <td className="py-1.5 pl-3 font-mono font-semibold text-ash">{setNumber}</td>
+                        <td
+                          className="whitespace-nowrap py-1.5 font-mono text-smoke"
+                          title={prev ? "Last time: kg × reps" : "Not logged before"}
+                        >
+                          {prev && (prev.reps != null || prev.load_kg != null)
+                            ? `${prev.load_kg ?? "BW"}×${prev.reps ?? "—"}`
+                            : "—"}
+                        </td>
+                        <td className="px-1 py-1.5">
+                          <input
+                            className="input no-spin px-2 py-1 text-center font-mono text-meta"
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            inputMode="decimal"
+                            placeholder={exercise.load_kg == null ? "BW" : String(exercise.load_kg)}
+                            aria-label={`${exercise.name} set ${setNumber} weight`}
+                            value={entry?.load ?? ""}
+                            onChange={(e) => setField(key, "load", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-1 py-1.5">
+                          <input
+                            className="input no-spin px-2 py-1 text-center font-mono text-meta"
+                            type="number"
+                            min="0"
+                            inputMode="numeric"
+                            placeholder={String(exercise.rep_max ?? exercise.rep_min ?? "")}
+                            aria-label={`${exercise.name} set ${setNumber} reps`}
+                            value={entry?.reps ?? ""}
+                            onChange={(e) => setField(key, "reps", e.target.value)}
+                          />
+                        </td>
+                        <td className="py-1.5 pr-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleSet(exercise, setNumber)}
+                            aria-pressed={done}
+                            aria-label={`${exercise.name} set ${setNumber} done`}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-control border transition-colors duration-150 ${
+                              done
+                                ? "border-go bg-go text-floor"
+                                : "border-edge bg-well text-smoke hover:border-edge-strong hover:text-bone"
+                            }`}
+                          >
+                            <CheckIcon size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ))}
           <p className="text-micro text-ash">
-            Leave a field empty and it logs as programmed. Clear every set at the top of the range
-            and the plan offers you the next weight — it never changes it on its own.
+            The check takes the numbers in the row — the grey ones are the programme. Typed reps
+            with an empty kg field log the programmed weight; an untouched set is not recorded.
+            Clear every set at the top of the range and the plan offers you the next weight — it
+            never changes it on its own.
           </p>
         </div>
       )}
@@ -448,13 +573,15 @@ export function SessionCard({
               action="harder"
               icon={<FlameIcon size={16} />}
               label="Felt harder"
-              hint="Harder than the target said. The engine backs the load off."
+              hint="Harder than the target said. Pick how hard — the engine backs the load off."
+              onClick={() => (effort?.action === "harder" ? setEffort(null) : openEffort("harder"))}
             />
             <LogButton
               action="easier"
               icon={<FeatherIcon size={16} />}
               label="Felt easier"
-              hint="Easier than the target said. Twice in a row and the engine steps you up."
+              hint="Easier than the target said. Pick how easy — twice in a row and the engine steps you up."
+              onClick={() => (effort?.action === "easier" ? setEffort(null) : openEffort("easier"))}
             />
             <LogButton
               action="skip"
@@ -463,6 +590,18 @@ export function SessionCard({
               hint="Not done. The plan bends — no make-up pile-up."
             />
           </div>
+          {effort && (
+            <div className="mt-3">
+              <EffortPicker
+                value={effort.rpe}
+                target={target}
+                onChange={(rpe) => setEffort((e) => (e ? { ...e, rpe } : e))}
+                onSave={saveEffort}
+                onCancel={() => setEffort(null)}
+                saving={busyAction != null}
+              />
+            </div>
+          )}
           {/* The labels alone read as a wish; they are a report. Said once, on
               the session in focus — repeated under all six it is just noise
               (every button carries the same explanation as a tooltip). */}

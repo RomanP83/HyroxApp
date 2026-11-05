@@ -446,6 +446,35 @@ Woche trotzdem nicht, gewinnt das Training den Tag zurück und sagt welchen.
 Abgleich mit dem, was deine letzten vier Wochen wirklich getragen haben. Die Obergrenze für Läufe
 folgt deinen Trainingstagen: eine Einheit pro Woche bleibt Kraft oder Stationsarbeit.
 
+### Urlaub
+
+Karte **Vacation**, unter der Trainingswoche. Erscheint erst, wenn die Datenbank Migration 0032 hat.
+
+**Eintragen:** erster und letzter Tag weg (höchstens zwei Monate, nicht schon vorbei), die Art, eine
+optionale Notiz (z. B. „Teneriffa"), dann **Add vacation**. Das baut — wie die anderen Regler — die
+**verbleibenden Wochen** neu auf; ohne Plan gilt es für den nächsten. **Remove** nimmt einen Urlaub
+wieder heraus und baut ebenfalls neu auf. Angezeigt werden Urlaube, die noch nicht vorbei sind.
+
+| Art | Was an den Urlaubstagen geplant wird |
+|---|---|
+| **Keep it ticking** | Lockere Läufe und der Long Run (zusammen höchstens drei, Long Run höchstens 75 min), **ein** optionaler Schwellenlauf (3 × 8 min, RPE höchstens 6, „nur wenn du Lust hast"), Bodyweight & Mobility statt Kraft (30 min, ohne Geräte). Stationen, Spieltage, Simulation und Benchmarks werden zu lockeren Läufen oder fallen weg; keine Doppeltage. |
+| **Fully off** | Nichts. |
+
+Was sonst passiert:
+
+- **Das Renndatum bleibt.** Der Urlaub kostet Planzeit, er schiebt das Rennen nicht.
+- Die **Simulation** des Zyklus und die **Benchmark-Wochen** wandern in die nächstgelegene Woche
+  ohne Urlaubstag (die Simulation innerhalb der Peak-Phase; gibt es dort keine, entfällt sie).
+- Die Woche, in der du **zurückkommst**, ist nach mindestens fünf Urlaubstagen eine leichtere
+  **Wiedereinstiegswoche** (wie ein Deload; im Taper nicht).
+- Einheiten im Urlaub heißen „Vacation · …", die Woche trägt oben einen Hinweis mit dem Zeitraum.
+- Ein **Renntag** im Urlaub bleibt stehen.
+- Die nächtliche Regel „7 Tage ohne Einheit → Neuaufbau" zählt Urlaubstage **nicht** mit. Fällt
+  die Belastung nach dem Urlaub stark ab, kann die nächtliche Prüfung die nächsten Wochen trotzdem
+  etwas zurücknehmen (Ramp-up, Abschnitt 6).
+- Der [KI-Coach](#ki-coach-gemini) macht Urlaubseinheiten nie härter.
+- „Heute"/Datumsgrenzen rechnet der Server in UTC.
+
 ### Workouts
 
 Die Gruppe erscheint erst, wenn die Datenbank Migration 0030 hat.
@@ -472,8 +501,9 @@ Was sich mit **Verona plan** ändert — und was nicht:
   rotierend, jede zweite Woche gezielt auf deine schwächste Station bzw. eine genannte
   Schwachstelle. Hat die Sammlung für einen Platz nichts (z. B. Mobility, Benchmark, Compromised
   Run im Taper), entscheidet die Bibliothek wie bisher.
-- Phasen: Foundation → Base, Endurance → Build, Specific und Race → Peak, Taper → Taper. Recovery-
-  und Urlaubsphasen des Trackers gibt es hier nicht; dafür gelten Deload und Reha-Modus.
+- Phasen: Foundation → Base, Endurance → Build, Specific und Race → Peak, Taper → Taper. Die Recovery-
+  Phase des Trackers gibt es hier nicht (dafür Deload und Reha-Modus); einen Urlaub trägst du
+  oben unter [Urlaub](#urlaub) ein.
 - Paces stehen **relativ** zu deinen Zonen („Schwelle", „Renntempo −10 s/km") statt fest 4:00/km —
   sie wandern mit der Kalibrierung. Gewichte sind die Wettkampfgewichte deiner Division.
 - Strength A und B nennen die Übungen, nicht Sätze und Kilos — die stehen in deinem
@@ -513,7 +543,7 @@ Was der Import **nicht** tut: Er ändert den Plan nicht, und die importierten Ei
 dem, was du hier loggst. Lauf- und Roxzone-Summen aus dem Tracker sind keine Benchmarks und bleiben
 draußen. Deine Rom-Referenz steht im Tracker im Code, nicht im Backup: trag sie selbst unter
 Rennen & Simulationen als Baseline ein. Zielwerte, Plananpassungen, Urlaub und Check-ins aus dem
-Tracker werden nicht übernommen. Der [KI-Coach](#ki-coach-gemini) sieht importierte Einheiten der
+Tracker werden nicht übernommen — den Urlaub trägst du unter [Urlaub](#urlaub) neu ein. Der [KI-Coach](#ki-coach-gemini) sieht importierte Einheiten der
 letzten 21 Tage als Teil seiner Fakten.
 
 ### Verbindungen
@@ -674,7 +704,7 @@ die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-M
 | Wann | Was passiert |
 |---|---|
 | Täglich abends | Check-in an alle mit einer heute noch offenen Einheit (Telegram, sonst E-Mail) |
-| Nächtlich | Makro-Guardrails: ACWR-Prüfung, Auto-Deload, Rebase, Reha-Übergänge |
+| Nächtlich | Makro-Guardrails: ACWR-Prüfung, Auto-Deload, Rebase, Reha-Übergänge. Eingetragene [Urlaubstage](#urlaub) zählen nicht als Tage ohne Einheit. |
 | Sonntagabend | Wochenrückblick: Compliance, Belastung, was nächste Woche ansteht. Mit `GEMINI_API_KEY` hängt der Rückblick des [KI-Coaches](#ki-coach-gemini) an, plus der Hinweis, wie viele Vorschläge auf `/plan` warten — angewendet wird dabei nichts. |
 
 Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht von außen auslösen.
@@ -748,6 +778,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 12 Stations-, 5 Kraftformen). |
 | **Baseline** | Das eine Rennen (oder die Simulation), von dem aus die Zielzeit gemessen wird; bestimmt die Form der Ziel-Splits. |
 | **Readiness** | Anteil des Wegs von der Baseline zum Ziel, gemittelt über zehn Segmente, 0–100 %. |
+| **Wiedereinstiegswoche** | Die leichtere Woche nach mindestens fünf Urlaubstagen — wie ein Deload. |
 | **Workout-Sammlung** | Woher der Inhalt der Einheiten kommt: Standard-Bibliothek oder Verona-Plan (Setup → Workouts). Die Wochenstruktur rechnet in beiden Fällen die Engine. |
 | **Post-BBJ-Verlust** | Wie viel langsamer Lauf 5 nach den Burpee Broad Jumps war als die Läufe davor, in s/km. |
 
@@ -759,6 +790,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Urlaub eintragen** (Setup → Vacation): „Keep it ticking" oder „Fully off"; Simulation und Benchmarks wandern aus dem Urlaub, danach eine Wiedereinstiegswoche; Urlaubstage lösen keinen Pausen-Neuaufbau aus | [8](#urlaub) |
 | **Kraft-Tage pro Woche (1 oder 2)** und fester **Spieltag** unter „Form deiner Woche"; mit dem Verona-Plan Strength A und B in derselben Woche und ein Spieltag auch in der Base-Phase | [8](#deine-trainingswoche) |
 | **Verona-Plan als Workout-Sammlung** (Setup → Workouts): 50 Einheiten aus dem Tracker, von der Engine nach Typ, Phase und Schwachstelle eingeplant; Wechsel baut die restlichen Wochen neu | [8](#workouts) |
 | **Import aus HyroxTraining** (JSON-Backup): Verlauf, Simulationen mit Splits, Stations-Rekorde; doppelter Import fügt nichts doppelt hinzu. Neu: „Imported history" auf `/progress`, acht Stations-Benchmarks | [8](#import-aus-hyroxtraining), [10](#stations-benchmarks), [11](#imported-history) |

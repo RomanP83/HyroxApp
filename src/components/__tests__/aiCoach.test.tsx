@@ -84,7 +84,7 @@ describe("the coach prompt", () => {
     const p = coachSystemPrompt("German");
     expect(p).toContain("in German");
     expect(p).toContain('"move"');
-    expect(p).toContain("Never make a taper or deload session harder");
+    expect(p).toContain("Never make a taper, deload or vacation session harder");
     expect(JSON.stringify(COACH_RESPONSE_SCHEMA)).toContain('"enum":["move","easier","harder","skip"]');
   });
 });

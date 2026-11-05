@@ -22,6 +22,7 @@ export const RULE_LABEL: Record<string, string> = {
   fixed_content: "a test or recovery day keeps its content",
   taper_never_harder: "the taper is never made harder",
   deload_never_harder: "a deload week is never made harder",
+  vacation_never_harder: "a vacation day is never made harder",
   acwr_too_high: "load ratio (ACWR) too high for more",
   rpe_at_max: "already at the highest effort",
   rpe_at_min: "already at the lowest effort",

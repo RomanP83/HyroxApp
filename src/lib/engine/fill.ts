@@ -22,6 +22,7 @@ import { pickStationVariant } from "./stationVariants";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
 import { pickCollectionWorkout, renderCollectionWorkout } from "./veronaWorkouts";
+import { VACATION_BLOCKS } from "./vacation";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -130,6 +131,21 @@ export function fillSession(
   let order = 0;
 
   if (slot.session_type === "rest") return blocks;
+  // On holiday the quality run and the bodyweight day have their own,
+  // gym-free content; easy and long runs render as they always do.
+  if (slot.vacation && (slot.session_type === "run_intervals" || slot.session_type === "mobility")) {
+    const v = VACATION_BLOCKS[slot.session_type];
+    blocks.push({
+      block_id: v.slug,
+      slug: v.slug,
+      block_type: "main",
+      station: null,
+      content: v.content.map((c) => ({ ...c })),
+      sort_order: 0,
+      load_adjustments: { division: profile.division, variant_name: v.name, variant_why: v.why },
+    });
+    return blocks;
+  }
   // A race day has no prescription to render: the event is the session, and
   // its warm-up belongs to the athlete's own routine, not to the library.
   if (slot.session_type === "race_day") return blocks;

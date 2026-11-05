@@ -272,3 +272,22 @@ export const AI_MIN_DURATION_MIN = 15;
 /** Longest review / reason text kept from the model. */
 export const AI_REVIEW_MAX_CHARS = 1200;
 export const AI_REASON_MAX_CHARS = 300;
+
+// ── Vacation (vacation.ts) ──────────────────────────────────────────────────
+/**
+ * A "maintain" vacation keeps the engine running without the gym: easy runs,
+ * one optional quality run, bodyweight. No stations, no sled, no game days.
+ */
+export const VACATION = {
+  /** Easy runs plus the long run, together. */
+  max_runs: 3,
+  /** The one optional quality run, held below a full hard effort. */
+  max_quality: 1,
+  quality_rpe_max: 6,
+  easy_rpe_max: 4,
+  long_run_rpe_max: 5,
+  long_run_max_min: 75,
+  bodyweight_min: 30,
+  /** A vacation this long earns a lighter re-entry week afterwards. */
+  reentry_min_days: 5,
+} as const;

@@ -65,6 +65,7 @@ describe("validateSuggestions", () => {
         ?.rule;
     expect(rules(cand({ phase: "taper" }))).toBe("taper_never_harder");
     expect(rules(cand({ is_deload: true }))).toBe("deload_never_harder");
+    expect(rules(cand({ on_vacation: true }))).toBe("vacation_never_harder");
     expect(rules(cand(), { acwr: 1.35 })).toBe("acwr_too_high");
     expect(rules(cand({ intensity_rpe_target: 9 }))).toBe("rpe_at_max");
   });

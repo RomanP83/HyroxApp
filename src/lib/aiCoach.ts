@@ -19,6 +19,7 @@ import {
   ACWR_SOFT,
   AI_REVIEW_MAX_CHARS,
   SUGGESTION_ACTIONS,
+  VACATION_TITLE_PREFIX,
   analyseRaces,
   validateSuggestions,
   type DaySlot,
@@ -132,7 +133,7 @@ Rules:
 - Use ONLY the numbers in the facts. Never invent paces, weights, times or claims.
 - An empty suggestions list is a good answer when the plan fits. Do not propose change for its own sake.
 - session_id must be copied exactly from "upcoming", and only for status "planned".
-- Never make a taper or deload session harder. Never propose "harder" when acwr is at or above the trim guardrail.
+- Never make a taper, deload or vacation session harder. Sessions titled "Vacation · …" are the athlete's holiday — leave them easy. Never propose "harder" when acwr is at or above the trim guardrail.
 - Days before today.day_hint in the current week are past — never move a session there.
 - Prefer "move" or "easier" over "skip". Race days are never touched.
 - Each reason is one or two sentences and cites the fact it rests on (e.g. two sessions logged two RPE points above target).
@@ -272,6 +273,7 @@ export async function loadCoachContext(
         week: s.week_id === current.id ? "current" : "next",
         phase: phaseOf(week.week_number),
         is_deload: week.is_deload,
+        on_vacation: s.title.startsWith(VACATION_TITLE_PREFIX),
       };
     })
     .sort((a, b) => (a.week === b.week ? a.day_hint - b.day_hint : a.week === "current" ? -1 : 1));

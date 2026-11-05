@@ -136,3 +136,20 @@ describe("strength days and the game day", () => {
     expect(html).not.toContain("Strength days");
   });
 });
+
+describe("vacations on the setup page", () => {
+  it("lists vacations and offers both modes", () => {
+    const html = render({
+      vacations: [{ id: "v1", starts_on: "2026-11-29", ends_on: "2026-12-14", mode: "maintain", note: "Teneriffa" }],
+    });
+    expect(html).toContain('data-testid="vacation-card"');
+    expect(html).toContain("29.11.2026 – 14.12.2026");
+    expect(html).toContain("keep it ticking · Teneriffa");
+    expect(html).toContain("Fully off");
+    expect(html).toContain("Add vacation");
+  });
+
+  it("is hidden on a database without the table", () => {
+    expect(render()).not.toContain('data-testid="vacation-card"');
+  });
+});

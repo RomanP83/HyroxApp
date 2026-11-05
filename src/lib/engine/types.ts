@@ -221,6 +221,11 @@ export interface GenerateInput {
    * week is a proposal; a rearranged week is a decision, and a rebase must not
    * undo a decision (see applyDayOverrides).
    */
+  /**
+   * Days the athlete is away (vacation.ts). Needs `startDate` to resolve plan
+   * weeks to dates; without it they are ignored.
+   */
+  vacations?: { start: string; end: string; mode: "maintain" | "off" }[];
   dayOverrides?: {
     week_start: string;
     session_type: SessionType;

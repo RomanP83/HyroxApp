@@ -44,6 +44,8 @@ export interface SuggestionCandidate {
   week: "current" | "next";
   phase: PhaseType | null;
   is_deload: boolean;
+  /** The session falls in a vacation (vacation.ts). */
+  on_vacation?: boolean;
 }
 
 export interface SuggestionContext {
@@ -110,6 +112,7 @@ function refuse(c: SuggestionCandidate, action: SuggestionAction, ctx: Suggestio
     // Taper is never negotiable (PP4); a deload is a deload.
     if (c.phase === "taper") return "taper_never_harder";
     if (c.is_deload) return "deload_never_harder";
+    if (c.on_vacation) return "vacation_never_harder";
     if (ctx.acwr >= ACWR_SOFT) return "acwr_too_high";
     if (c.intensity_rpe_target >= AI_RPE_MAX) return "rpe_at_max";
   }

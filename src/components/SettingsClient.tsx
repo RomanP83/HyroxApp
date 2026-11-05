@@ -21,6 +21,7 @@ import {
 } from "@/lib/engine";
 import { AppHeader } from "./AppHeader";
 import { ImportCard } from "./ImportCard";
+import { VacationCard, type VacationRow } from "./VacationCard";
 import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
@@ -52,6 +53,8 @@ export interface SettingsProps {
   workoutCollection?: string;
   /** False when the database has not run migration 0030 yet. */
   collectionAvailable?: boolean;
+  /** Undefined when the database has not run migration 0032 yet. */
+  vacations?: VacationRow[];
   volume: {
     weekly_km_peak: number | null;
     runs_per_week: number | null;
@@ -387,6 +390,17 @@ export function SettingsClient(props: SettingsProps) {
           </p>
         </div>
       </section>
+
+      {props.vacations && (
+        <section className="space-y-3">
+          <VacationCard
+            vacations={props.vacations}
+            hasPlan={props.hasPlan}
+            onToast={setToast}
+            onChanged={() => router.refresh()}
+          />
+        </section>
+      )}
 
       {props.collectionAvailable !== false && (
         <section className="space-y-3">

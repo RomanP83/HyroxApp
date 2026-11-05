@@ -7,6 +7,7 @@
 // — planWeeksTo() and the engine do, so the same calendar always produces the
 // same plan.
 // ============================================================================
+import { loadVacations } from "@/lib/vacations";
 import { NextResponse } from "next/server";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
@@ -63,6 +64,7 @@ export async function POST() {
     startDate: today,
     races: racesForPlan(calendar, today, main.date),
     dayOverrides: await loadDayOverrides(supabase, profile.id, today),
+    vacations: await loadVacations(supabase, profile.id),
   });
 
   const planId = await persistPlan(

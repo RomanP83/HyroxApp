@@ -22,6 +22,8 @@ export interface SessionSlot {
   intensity_rpe_target: number; // 1..10
   planned_duration_min: number;
   sort_order: number;
+  /** Set by applyVacationToWeek: this session falls in a vacation. */
+  vacation?: "maintain";
 }
 
 // ── Double days (AM / PM) ───────────────────────────────────────────────────

@@ -7,6 +7,8 @@ import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
 import { AppHeader } from "./AppHeader";
 import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthSetInput } from "./SessionCard";
 import { FeedbackCard } from "./FeedbackCard";
+import { AiCoachCard } from "./AiCoachCard";
+import type { SuggestionRow } from "@/lib/aiCoach";
 import {
   DEMAND_COLORS,
   DEMAND_LABELS,
@@ -66,6 +68,10 @@ interface Props {
   runSummary: WeeklyRunSummary | null;
   /** Whether the subscription tier is configured (C4). */
   subscriptionAvailable: boolean;
+  /** Whether GEMINI_API_KEY is set — the AI coach card works only then. */
+  aiEnabled?: boolean;
+  /** The latest AI coach review for this plan, if any. */
+  aiSuggestion?: SuggestionRow | null;
 }
 
 const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, harder: 2, easier: -2 };
@@ -515,6 +521,15 @@ export function PlanClient(props: Props) {
           </div>
 
           </div>
+
+          {!props.locked && (
+            <AiCoachCard
+              enabled={Boolean(props.aiEnabled)}
+              suggestion={props.aiSuggestion ?? null}
+              onToast={setToast}
+              onChanged={() => router.refresh()}
+            />
+          )}
 
           {(() => {
             const phase = currentPhase?.phase_type as PhaseType | undefined;

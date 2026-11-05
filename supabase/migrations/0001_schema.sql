@@ -79,7 +79,8 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create type adjustment_trigger_t as enum (
     'session_logged', 'missed_session', 'pause', 'acwr_high', 'acwr_low',
-    'rpe_trend', 'manual_move', 'injury_flag', 'benchmark_result'
+    'rpe_trend', 'manual_move', 'injury_flag', 'benchmark_result',
+    'ai_suggestion'
   );
 exception when duplicate_object then null; end $$;
 

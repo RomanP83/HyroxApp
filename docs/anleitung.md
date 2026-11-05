@@ -37,7 +37,9 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 
 1. **Der Plan wird gerechnet, nicht generiert.** Im Kern läuft kein Sprachmodell, sondern eine
    deterministische Engine (`src/lib/engine/**`): gleiche Eingaben → immer derselbe Plan. Das ist
-   der Grund, warum jede Entscheidung erklärbar und testbar ist.
+   der Grund, warum jede Entscheidung erklärbar und testbar ist. Ein Sprachmodell darf Texte
+   formulieren und [Vorschläge machen](#ki-coach-gemini) — den Plan ändert erst dein Tippen, über
+   die Regeln der Engine.
 2. **Rückwärts vom Renntag.** Zuerst steht der Taper fest, dann der rennspezifische Block, dann der
    Build — die Basis bekommt, was übrig bleibt.
 3. **Die App passt sich an dich an, nicht umgekehrt.** Jede geloggte Einheit verschiebt Paces,
@@ -174,8 +176,61 @@ Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 | **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter deine Pace-Zonen und der ACWR. Die eine Zahl, für die das ganze System existiert. |
 | **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
 | **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
+| **AI coach** | Rückblick auf die letzten drei Wochen und bis zu drei Vorschläge für die kommenden Einheiten — nur mit Gemini-Key, siehe [unten](#ki-coach-gemini). |
 | **Setup & tools** | Ein Link auf die [eigene Setup-Seite](#8-settings--setup--tools). |
 | **Coach-Feedback** | Erscheint nach dem Loggen als Overlay (siehe Abschnitt 6). |
+
+### KI-Coach (Gemini)
+
+Die Karte **AI coach** rechts neben der Woche. Sie ist nur aktiv, wenn auf dem Server
+`GEMINI_API_KEY` gesetzt ist; ohne Key steht dort „Off" und sonst nichts — die App arbeitet wie
+vorher. In gesperrten Wochen (Free Preview) erscheint die Karte nicht.
+
+**Review my training** schickt eine Zusammenfassung deiner Daten an Gemini (Google): die geloggten
+Einheiten der letzten 21 Tage (RPE Soll/Ist, Dauer, Erfüllungsindex, deine Notizen), ausgelassene
+Einheiten, ACWR und Belastung, Phase, Renndatum, Zielzeit und — wenn eingetragen — die
+[Rennanalyse](#rennen--simulationen). Name und E-Mail gehen nicht mit. Zurück kommt:
+
+- ein **Rückblick** in drei bis sechs Sätzen (Sprache über `AI_COACH_LANGUAGE`, Standard Deutsch),
+- **bis zu drei Vorschläge** für Einheiten der laufenden und der nächsten Woche.
+
+Ein Vorschlag ist immer eine von vier Aktionen — mehr darf das Modell nicht:
+
+| Aktion | Was „Apply" tut |
+|---|---|
+| **Move** | Verschiebt die Einheit auf einen anderen Tag / eine andere Tageshälfte, genau wie der [Verschieben-Knopf](#verschieben) (belegter Platz = Tausch, wird an der Kalenderwoche gemerkt). |
+| **Easier** | RPE-Ziel −1, Dauer −10 % (auf 5 min gerundet, mindestens 15 min). |
+| **Harder** | RPE-Ziel +1, Dauer +10 %. |
+| **Skip** | Setzt die Einheit auf „ausgelassen". |
+
+**Die Regeln entscheidet die Engine, nicht das Modell.** Bevor ein Vorschlag überhaupt angezeigt
+wird, prüft sie ihn (`src/lib/engine/suggestions.ts`). Verworfen wird unter anderem: ein Renntag;
+eine schon geloggte Einheit; ein Tag, der diese Woche schon vorbei ist; „Harder" im Taper, in
+einer Deload-Woche oder bei ACWR ab 1,3; eine inhaltliche Änderung an Benchmark-, Mobility- und
+Ruhetagen (verschieben dürfen sie); ein Tausch mit einem Renntag oder einer geloggten Einheit; mehr
+als drei Vorschläge. Was verworfen wurde, steht zugeklappt unter „… refused by the plan rules", mit
+der Regel dazu. Die Zahlen eines Vorschlags („RPE 7 → 6, 60 → 55 min") rechnet die Engine, nicht
+das Modell — beim Anwenden noch einmal frisch aus der Einheit, wie sie dann gerade ist.
+
+**Nichts ändert sich, bis du tippst.** Pro Vorschlag:
+
+- **Apply** — führt ihn aus. Die Änderung erscheint unter „Why your plan changed" mit dem Grund
+  des Coaches.
+- **Dismiss** — verwirft ihn, der Plan bleibt.
+- **Undo** — nach Apply: stellt den alten Tag bzw. RPE und Dauer wieder her, eine ausgelassene
+  Einheit kommt zurück. Geht nicht mehr, wenn die Einheit inzwischen anders geändert oder (bei
+  Easier/Harder) schon geloggt wurde — dann sagt die App das.
+
+Was du wissen solltest:
+
+- Zweimal „Review" innerhalb von 10 Minuten liefert denselben Rückblick, statt neu zu bezahlen.
+- **Easier, Harder und Skip überleben keinen Neuaufbau des Plans** (Rebase, z. B. nach geändertem
+  Laufvolumen): die Woche wird neu gerechnet. Verschiebungen dagegen schon — sie laufen über
+  denselben Merkzettel wie das manuelle Verschieben.
+- „Heute" bestimmt der Server nach UTC; kurz nach Mitternacht kann der Coach noch den Vortag sehen.
+- Datenschutz: die Daten gehen an Google. Im kostenlosen Gemini-Tarif kann Google Eingaben zur
+  Verbesserung seiner Modelle nutzen, im bezahlten nicht.
+- Das Modell stellt `GEMINI_MODEL` ein (Standard `gemini-3.8-flash`).
 
 ---
 
@@ -414,6 +469,28 @@ speichern — die Zielzeit-Prognose wird sofort neu gerechnet und der Verlauf au
 fortgeschrieben. Der Plan setzt Benchmark-Wochen automatisch: Woche 1, Ende des Build-Blocks und
 Beginn des Tapers.
 
+### Rennen & Simulationen
+
+Die Karte **Races & simulations** oben auf der Seite sammelt echte Rennen und volle Simulationen
+mit ihren Splits — die Grundlage der [Rennanalyse](#11-progress--auswertungen) auf `/progress`.
+
+- **Target time** — deine Zielzeit (h:mm:ss, zwischen 40:00 und 4:00:00), „Set" speichert, leeres
+  Feld + „Set" löscht sie. Sie steht im Profil und wird nur von der Rennanalyse gelesen: Plan und
+  „Estimated finish" ändern sich dadurch **nicht**.
+- **Add a race or simulation** (aufklappen): Art (Simulation/Race), Datum, Bezeichnung, dann in
+  Rennreihenfolge Run 1, SkiErg, Run 2, Sled Push … Run 8, Wall Balls, dazu die Roxzone als Summe
+  und die Gesamtzeit. Zeiten als `m:ss`, `h:mm:ss` oder Sekunden. Nicht gestoppte Felder bleiben
+  leer. Bleibt die Gesamtzeit leer, wird sie aus den Splits addiert — das geht nur, wenn alle 17
+  Felder gefüllt sind.
+- **Baseline** — das Häkchen „This is my baseline" (oder später **Make baseline** in der Liste)
+  markiert das Rennen, von dem aus dein Ziel gemessen wird, z. B. dein letztes echtes Rennen. Es
+  gibt genau eine Baseline; eine neue löst die alte ab.
+- Die Liste darunter zeigt alle Einträge, neueste zuerst; **Delete** löscht einen.
+
+Es gibt keine Stoppuhr für Live-Splits und keinen Knopf an der Simulations-Einheit in `/plan`, der
+hierher führt — die Zeiten trägst du nach der Einheit hier ein. Ein Import des JSON-Backups aus
+dem Einzeldatei-Tracker gibt es nicht.
+
 ### AT-PT — Schwellentest auf dem Ergometer
 
 Oben auf der Seite steht eine eigene Karte für den **AT-PT**: fünf Minuten auf SkiErg oder RowErg,
@@ -454,6 +531,28 @@ gehalten in einem festen Pulsband nahe der Schwelle.
 Die ACWR-Kurve wird Tag für Tag mit **derselben** Funktion nachgerechnet, die auch die adaptive
 Schicht benutzt — Diagramm und Engine können nicht auseinanderlaufen.
 
+### Race readiness
+
+Direkt unter den Kennzahlen, gerechnet aus den Einträgen unter
+[Rennen & Simulationen](#rennen--simulationen) (`src/lib/engine/raceAnalysis.ts`; nichts davon
+wird gespeichert, alles wird bei jedem Aufruf neu gerechnet). Ohne Zielzeit oder ohne Einträge
+sagt der Bereich, was fehlt.
+
+| Element | Was es zeigt |
+|---|---|
+| **Target / Latest / Gap to target** | Zielzeit, Gesamtzeit des neuesten Eintrags (ohne Baseline) und der Abstand. |
+| **Readiness** | Wie weit du von der Baseline zum Ziel gekommen bist, gemittelt über alle zehn Segmente (Laufen, acht Stationen, Roxzone). Erscheint erst, wenn eine Baseline gesetzt ist und jedes Segment Daten hat; sonst steht da, wie viele Segmente fehlen. |
+| **Segments** | Pro Segment Baseline, aktueller Wert, Ziel-Split, Abstand und Status: *on target* (am oder unter dem Ziel), *close* (bis 5 % darüber), *needs work*. „Aktuell" ist der neueste Eintrag, der dieses Segment gestoppt hat. Darunter die drei Segmente, die relativ am weitesten zurückliegen. |
+| **Pace lost after the burpee broad jumps** | Lauf 5 (direkt nach den BBJ) gegen den Schnitt der Läufe 1–4, in s/km, neuester Eintrag und Baseline. |
+| **Fade over the race** | Läufe 5–8 gegen Läufe 1–4, in s/km. |
+| **Finish times** | Alle Gesamtzeiten über die Zeit, mit der Zielzeit als Linie (ab zwei Einträgen). |
+
+**Ziel-Splits:** Die Zielzeit wird so auf die Segmente verteilt, wie deine Baseline sie verteilt
+hat — war bei dir Wall Balls die längste Station, bleibt sie es im Ziel. Ohne vollständig
+gestoppte Baseline nimmt die App eine typische Open-Verteilung (`DEFAULT_SEGMENT_SHARES` in
+`constants.ts`). Die Rennanalyse fließt nicht in den Plan ein; der [KI-Coach](#ki-coach-gemini)
+bekommt sie als Fakten mit.
+
 ---
 
 ## 12. Verbindungen: Strava, Garmin, Telegram
@@ -473,7 +572,7 @@ die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-M
 |---|---|
 | Täglich abends | Check-in an alle mit einer heute noch offenen Einheit (Telegram, sonst E-Mail) |
 | Nächtlich | Makro-Guardrails: ACWR-Prüfung, Auto-Deload, Rebase, Reha-Übergänge |
-| Sonntagabend | Wochenrückblick: Compliance, Belastung, was nächste Woche ansteht |
+| Sonntagabend | Wochenrückblick: Compliance, Belastung, was nächste Woche ansteht. Mit `GEMINI_API_KEY` hängt der Rückblick des [KI-Coaches](#ki-coach-gemini) an, plus der Hinweis, wie viele Vorschläge auf `/plan` warten — angewendet wird dabei nichts. |
 
 Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht von außen auslösen.
 
@@ -544,6 +643,9 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. |
 | **Rebase** | Neuberechnung des Plans ab heute statt nachträglicher Änderung. |
 | **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 12 Stations-, 5 Kraftformen). |
+| **Baseline** | Das eine Rennen (oder die Simulation), von dem aus die Zielzeit gemessen wird; bestimmt die Form der Ziel-Splits. |
+| **Readiness** | Anteil des Wegs von der Baseline zum Ziel, gemittelt über zehn Segmente, 0–100 %. |
+| **Post-BBJ-Verlust** | Wie viel langsamer Lauf 5 nach den Burpee Broad Jumps war als die Läufe davor, in s/km. |
 
 ---
 
@@ -553,6 +655,8 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **KI-Coach (Gemini)** auf `/plan`: Rückblick auf drei Wochen und bis zu drei Vorschläge (Move/Easier/Harder/Skip), von der Engine geprüft, erst per „Apply" wirksam, mit Undo; Rückblick auch im Sonntags-Review | [4](#ki-coach-gemini), [13](#13-automatische-abläufe-im-hintergrund) |
+| **Rennen & Simulationen** mit allen Splits und Zielzeit auf `/benchmarks`; **Race readiness** auf `/progress`: Ziel-Splits aus der Baseline, Abstand je Segment, Readiness, Pace-Verlust nach den BBJ, Fade | [10](#rennen--simulationen), [11](#11-progress--auswertungen) |
 | Benchmark **AT-PT**: Schwellentest auf dem Erg mit Pulsband aus dem eigenen Maximalpuls (im Profil gespeichert), Wattschnitt und Erholungszeit als zwei Verläufe | [10](#10-benchmarks--tests-eintragen) |
 | Neue Stationsvariante im Build: Erg-Leiter (5 × 1000 m, jeder schneller) direkt in 100 Wall Balls; trifft eine schwache Wall-Ball-Station | [4](#4-plan--die-trainingswoche) |
 | Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |

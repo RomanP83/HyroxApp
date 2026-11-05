@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
-import { recordDayOverrides, weekStartOf } from "@/lib/dayOverrides";
+import { supabaseServer } from "@/lib/supabase/server";
+import { moveSession } from "@/lib/moveSession";
 
 // Manual move/swap within the week (PP3 — high perceived control, low effort).
 //
@@ -9,7 +9,8 @@ import { recordDayOverrides, weekStartOf } from "@/lib/dayOverrides";
 // checks ownership, swaps with whatever already sits in the target half of the
 // day, and keeps a logged session's status instead of overwriting it. Both
 // rows change inside one transaction, which is why the unique constraint is
-// deferrable.
+// deferrable. src/lib/moveSession.ts also records the day override and the
+// audit row — shared with applied AI coach suggestions.
 const Body = z.object({
   day_hint: z.number().int().min(1).max(7),
   /** Which half of the day; omit to keep the session where it is. */
@@ -17,7 +18,6 @@ const Body = z.object({
 });
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const sessionId = params.id;
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
 
@@ -27,79 +27,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { data: session } = await supabase
-    .from("sessions")
-    .select(
-      "id, plan_id, day_hint, day_slot, title, session_type, plan_weeks!inner(week_number), plans!inner(profile_id, generated_at)",
-    )
-    .eq("id", sessionId)
-    .single();
-  if (!session) return NextResponse.json({ error: "not_found" }, { status: 404 });
-
-  const daySlot = parsed.data.day_slot ?? session.day_slot ?? "am";
-  const { data: result, error } = await supabase.rpc("move_session", {
-    p_session: sessionId,
-    p_day: parsed.data.day_hint,
-    p_slot: daySlot,
-  });
-  if (error) {
-    const status = error.message.includes("not_authorized")
-      ? 403
-      : error.message.includes("not_found")
-        ? 404
-        : 500;
-    return NextResponse.json({ error: "move_failed", detail: error.message }, { status });
+  const out = await moveSession(supabase, params.id, parsed.data.day_hint, parsed.data.day_slot);
+  if (!out.ok) {
+    return NextResponse.json({ error: out.error, detail: out.detail }, { status: out.status });
   }
-
-  const moved = (result ?? {}) as {
-    moved?: boolean;
-    swapped_with?: string | null;
-    swapped_with_type?: string | null;
-  };
-  if (!moved.moved) {
-    return NextResponse.json({ ok: true, moved: false, reason: "It is already there." });
-  }
-
-  const reason = moved.swapped_with
-    ? `You swapped "${session.title}" with "${moved.swapped_with}". Life happens — the week bends, the plan doesn't break.`
-    : `You moved "${session.title}" to day ${parsed.data.day_hint} (${daySlot.toUpperCase()}). Life happens — the week bends, the plan doesn't break.`;
-
-  // Remember the decision against the CALENDAR week, so a later rebase can put
-  // it back: plan week numbers shift when a plan is rebuilt, Mondays do not.
-  const week = (session as unknown as { plan_weeks: { week_number: number } }).plan_weeks;
-  const plan = (session as unknown as { plans: { profile_id: string; generated_at: string } }).plans;
-  if (week && plan) {
-    const weekStart = weekStartOf(plan.generated_at, week.week_number);
-    const moves = [
-      { session_type: String(session.session_type), day_hint: parsed.data.day_hint, day_slot: daySlot },
-    ];
-    // A swap moved two sessions; both sides are decisions worth keeping.
-    if (moved.swapped_with_type) {
-      moves.push({
-        session_type: moved.swapped_with_type,
-        day_hint: session.day_hint,
-        day_slot: session.day_slot ?? "am",
-      });
-    }
-    await recordDayOverrides(supabase, plan.profile_id, weekStart, moves);
-  }
-
-  // Audit the manual move (service role — plan_adjustments is engine-owned).
-  await supabaseAdmin().from("plan_adjustments").insert({
-    plan_id: session.plan_id,
-    layer: "micro",
-    trigger: "manual_move",
-    action_taken: {
-      type: "move",
-      session_id: sessionId,
-      from_day: session.day_hint,
-      from_slot: session.day_slot ?? "am",
-      to_day: parsed.data.day_hint,
-      to_slot: daySlot,
-      swapped_with: moved.swapped_with ?? null,
-    },
-    reason,
-  });
-
-  return NextResponse.json({ ok: true, moved: true, swapped_with: moved.swapped_with ?? null, reason });
+  if (!out.moved) return NextResponse.json({ ok: true, moved: false, reason: out.reason });
+  return NextResponse.json({ ok: true, moved: true, swapped_with: out.swapped_with, reason: out.reason });
 }

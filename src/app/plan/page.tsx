@@ -8,6 +8,8 @@ import {
 } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
+import { geminiConfigured } from "@/lib/gemini";
+import type { SuggestionRow } from "@/lib/aiCoach";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +69,7 @@ export default async function PlanPage({
 
   const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
 
-  const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }] =
+  const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }, { data: aiRow }] =
     await Promise.all([
       supabase.from("plan_phases").select("phase_type, start_week, end_week").eq("plan_id", plan.id),
       supabase
@@ -89,6 +91,15 @@ export default async function PlanPage({
         )
         .eq("profile_id", profile.id)
         .order("sort_order", { ascending: true }),
+      // The latest AI coach review for this plan (migration 0029; a database
+      // without it answers with an error and the card shows no review).
+      supabase
+        .from("ai_suggestions")
+        .select("*")
+        .eq("plan_id", plan.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const weekList = weeks ?? [];
@@ -242,6 +253,8 @@ export default async function PlanPage({
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
       locked={locked}
       runSummary={runSummary}
+      aiEnabled={geminiConfigured()}
+      aiSuggestion={(aiRow as SuggestionRow | null) ?? null}
     />
   );
 }

@@ -231,3 +231,31 @@ export function defaultStationTiers(level: string): StationTiers {
   for (const s of STATIONS) tiers[s] = tier;
   return tiers;
 }
+
+// ── Race analysis (raceAnalysis.ts) ─────────────────────────────────────────
+/**
+ * How a finish time splits into running, roxzone and the eight stations when
+ * there is no baseline race to take the shape from. A mid-pack Open athlete;
+ * the shares add up to 1. With a baseline race, the athlete's own shape wins.
+ */
+export const DEFAULT_SEGMENT_SHARES = {
+  run: 0.47,
+  roxzone: 0.07,
+  // Race order: SkiErg, Sled Push, Sled Pull, BBJ, Row, Farmers, Lunges, Wall Balls.
+  stations: [0.06, 0.06, 0.065, 0.065, 0.06, 0.03, 0.055, 0.065],
+} as const;
+/** A segment within this share of its target counts as "close", not "needs work". */
+export const SEGMENT_CLOSE_PCT = 0.05;
+
+// ── AI coach suggestions (suggestions.ts) ───────────────────────────────────
+// A language model proposes; these rules decide what may even be shown.
+export const AI_MAX_SUGGESTIONS = 3;
+/** One "easier"/"harder" step: RPE target ±1 and duration ±10 %. */
+export const AI_RPE_STEP = 1;
+export const AI_DURATION_STEP_PCT = 0.1;
+export const AI_RPE_MIN = 2;
+export const AI_RPE_MAX = 9;
+export const AI_MIN_DURATION_MIN = 15;
+/** Longest review / reason text kept from the model. */
+export const AI_REVIEW_MAX_CHARS = 1200;
+export const AI_REASON_MAX_CHARS = 300;

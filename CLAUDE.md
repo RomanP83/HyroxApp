@@ -23,7 +23,10 @@ entry.
 ## The rest
 
 - The plan core is deterministic: no LLM in `src/lib/engine/**`. Same input, same plan. Language
-  models may polish coach text, never alter the plan.
+  models may polish coach text, never alter the plan on their own. The one exception is the AI
+  coach (`src/lib/aiCoach.ts`): it may *propose* changes from a fixed menu, the engine validates
+  them (`src/lib/engine/suggestions.ts`), and only the athlete's tap on "Apply" changes the plan —
+  through the same audited, undoable paths a manual change uses.
 - Engine constants live in `src/lib/engine/constants.ts` and `running.ts` — one place to argue with.
 - Every migration is mirrored into `supabase/setup.sql`. A new enum value must also be added to the
   `create type` in `0001_schema.sql`, because a value cannot be *used* in the transaction that adds

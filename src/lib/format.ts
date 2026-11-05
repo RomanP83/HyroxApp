@@ -93,3 +93,18 @@ export function demandOf(sessionType: string): Demand {
 export function titleCase(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+/**
+ * Read a clock the way people type one: "1:24:55", "4:30" or plain seconds.
+ * Returns whole seconds, or null for anything that is not a positive time.
+ */
+export function parseClock(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const parts = t.split(":");
+  if (parts.length > 3 || parts.some((p) => !/^\d+(\.\d+)?$/.test(p))) return null;
+  const nums = parts.map(Number);
+  if (parts.length > 1 && nums.slice(1).some((n) => n >= 60)) return null;
+  const sec = nums.reduce((acc, n) => acc * 60 + n, 0);
+  return sec > 0 ? Math.round(sec) : null;
+}

@@ -1,3 +1,4 @@
+import { loadVacations } from "@/lib/vacations";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
@@ -110,6 +111,7 @@ export async function POST(req: Request) {
     startDate: today,
     races,
     dayOverrides,
+    vacations: await loadVacations(supabase, profile.id),
   });
   const planId = await persistPlan(
     supabase,

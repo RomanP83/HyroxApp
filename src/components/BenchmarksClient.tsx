@@ -5,6 +5,8 @@ import { AppHeader } from "./AppHeader";
 import { useRouter } from "next/navigation";
 import { fmtClock } from "@/lib/format";
 import { TargetIcon } from "./icons";
+import { RaceResultsCard } from "./RaceResultsCard";
+import type { RaceResult } from "@/lib/engine";
 import {
   ATPT_RECOVERY_SLUG,
   ATPT_WATTS_SLUG,
@@ -70,11 +72,16 @@ export function BenchmarksClient({
   entries,
   predicted,
   hrMax,
+  races,
+  targetTimeSec = null,
 }: {
   defs: BenchmarkDef[];
   entries: BenchmarkEntry[];
   predicted: number | null;
   hrMax: number | null;
+  /** Races and simulations with splits; omitted = the card is not shown. */
+  races?: RaceResult[];
+  targetTimeSec?: number | null;
 }) {
   const router = useRouter();
   const [inputs, setInputs] = useState<Record<string, string>>({});
@@ -129,6 +136,15 @@ export function BenchmarksClient({
           Updates the moment you save a benchmark below.
         </div>
       </div>
+
+      {races && (
+        <RaceResultsCard
+          results={races}
+          targetTimeSec={targetTimeSec}
+          onToast={setToast}
+          onSaved={() => router.refresh()}
+        />
+      )}
 
       {atptWatts && atptRecovery && (
         <AtPtCard

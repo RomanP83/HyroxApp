@@ -1,9 +1,11 @@
 import { AppHeader } from "@/components/AppHeader";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { computeLoadState, type LoadEntry } from "@/lib/engine";
+import { analyseRaces, computeLoadState, type LoadEntry, type RaceResult } from "@/lib/engine";
 import { fmtClock } from "@/lib/format";
 import { BarChart, LineChart, type Pt } from "@/components/charts";
+import { RaceReadiness } from "@/components/RaceReadiness";
+import { ImportedHistory, type ImportedWorkout } from "@/components/ImportedHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,9 @@ export default async function ProgressPage() {
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id")
+    // "*" rather than naming target_time_sec: a database without migration
+    // 0029 must still open this page.
+    .select("*")
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
@@ -34,7 +38,7 @@ export default async function ProgressPage() {
     .limit(1)
     .maybeSingle();
 
-  const [{ data: state }, { data: weeks }, { data: logs }, { data: prognosisRows }, { data: benchDefs }, { data: benchResults }] =
+  const [{ data: state }, { data: weeks }, { data: logs }, { data: prognosisRows }, { data: benchDefs }, { data: benchResults }, { data: raceRows }, { data: importedRows }] =
     await Promise.all([
       supabase.from("athlete_state").select("*").eq("profile_id", profile.id).maybeSingle(),
       plan
@@ -65,6 +69,16 @@ export default async function ProgressPage() {
         .select("benchmark_id, value, recorded_at")
         .eq("profile_id", profile.id)
         .order("recorded_at", { ascending: true }),
+      supabase
+        .from("race_results")
+        .select("id, kind, held_on, label, is_baseline, total_sec, runs_sec, stations_sec, roxzone_sec")
+        .eq("profile_id", profile.id),
+      // Migration 0030; without it the query errors and the section stays away.
+      supabase
+        .from("imported_workouts")
+        .select("done_on, kind, duration_min")
+        .eq("profile_id", profile.id)
+        .order("done_on", { ascending: true }),
     ]);
 
   const logList = (logs ?? []) as any[];
@@ -121,6 +135,11 @@ export default async function ProgressPage() {
     }))
     .filter((b) => b.pts.length > 0);
 
+  // ── Race readiness (races + simulations against the target time) ────────
+  const races = (raceRows ?? []) as RaceResult[];
+  const targetSec = typeof profile.target_time_sec === "number" ? profile.target_time_sec : null;
+  const raceAnalysis = analyseRaces(races, targetSec);
+
   const totalLogged = logList.length;
   const overallCompliance = complianceBars.length
     ? Math.round(complianceBars.reduce((s, b) => s + b.y, 0) / complianceBars.length)
@@ -141,6 +160,8 @@ export default async function ProgressPage() {
         <Tile label="Avg. weekly compliance" value={`${overallCompliance}%`} />
         <Tile label="Sessions logged" value={String(totalLogged)} />
       </div>
+
+      <RaceReadiness analysis={raceAnalysis} results={races} />
 
       <Card title="Weekly compliance" sub="Logged sessions vs. the week's target">
         <BarChart bars={complianceBars} fmt={(v) => `${v}%`} domain={[0, 100]} />
@@ -165,6 +186,8 @@ export default async function ProgressPage() {
       <Card title="Finish-time estimate over time" sub="Every recalibration the engine logged">
         <LineChart series={prognosis} fmt={(v) => fmtClock(v)} />
       </Card>
+
+      <ImportedHistory rows={(importedRows ?? []) as ImportedWorkout[]} />
 
       {benchCharts.length > 0 && (
         <div className="space-y-4">

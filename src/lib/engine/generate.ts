@@ -18,6 +18,17 @@ import {
   type RaceDayPlacement,
 } from "./raceCalendar";
 import { fillSession } from "./fill";
+import {
+  REENTRY_NOTE,
+  VACATION_TITLE_PREFIX,
+  applyVacationToWeek,
+  isReentryWeek,
+  normaliseVacations,
+  vacationDaysOfWeek,
+  vacationNote,
+  vacationsInWeek,
+  weeksWithVacation,
+} from "./vacation";
 import { weeklyGoal } from "./weeklyGoal";
 
 const SESSION_TITLES: Record<string, string> = {
@@ -62,14 +73,28 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
   // ONE full race simulation per cycle, not one per peak week: a complete
   // run-through costs 2-3 days of recovery. It goes three weeks out — late
   // enough to rehearse pacing, early enough to absorb.
-  const fullSimWeek = peak
-    ? Math.min(peak.end_week, Math.max(peak.start_week, weeksToRace - 2))
-    : null;
+  const vacations = input.startDate ? normaliseVacations(input.vacations) : [];
+  const awayWeeks = weeksWithVacation(weekMonday, weeksToRace, vacations);
+
+  // Neither the simulation nor a benchmark is held on holiday: each moves to
+  // the nearest week without vacation days, the simulation inside the peak.
+  const nearestFree = (want: number, lo: number, hi: number): number | null => {
+    for (let d = 0; d <= hi - lo; d++) {
+      for (const w of [want - d, want + d]) if (w >= lo && w <= hi && !awayWeeks.has(w)) return w;
+    }
+    return null;
+  };
+  const plannedSim = peak ? Math.min(peak.end_week, Math.max(peak.start_week, weeksToRace - 2)) : null;
+  const fullSimWeek =
+    peak && plannedSim != null ? nearestFree(plannedSim, peak.start_week, peak.end_week) : null;
 
   // Benchmark weeks (§5 Schritt 1): week 1, end of build, start of taper.
-  const benchmarkWeeks = new Set<number>([1]);
-  if (lastBuild) benchmarkWeeks.add(lastBuild.end_week);
-  if (taper) benchmarkWeeks.add(taper.start_week);
+  const benchmarkWeeks = new Set<number>();
+  for (const want of [1, lastBuild?.end_week, taper?.start_week]) {
+    if (want == null) continue;
+    const w = awayWeeks.has(want) ? nearestFree(want, Math.max(1, want - 1), Math.min(weeksToRace, want + 2)) : want;
+    if (w != null) benchmarkWeeks.add(w);
+  }
 
   const phases: GeneratedPhase[] = phasePlans.map((pp) => {
     const weeks: GeneratedWeek[] = [];
@@ -77,8 +102,12 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
       const weekInPhase = w - pp.start_week + 1;
       const isBenchmark = benchmarkWeeks.has(w);
       // Deload: every 4th week within base/build, unless it's a benchmark week.
+      const monday0 = weekMonday(w);
+      // Coming back from a longer vacation is a lighter week, whatever phase.
+      const reentry = monday0 != null && isReentryWeek(monday0, vacations);
       const isDeload =
-        !isBenchmark && (pp.phase_type === "base" || pp.phase_type === "build") && w % 4 === 0;
+        (!isBenchmark && (pp.phase_type === "base" || pp.phase_type === "build") && w % 4 === 0) ||
+        (reentry && pp.phase_type !== "taper");
 
       let slots = distributeSlots({
         phase: pp.phase_type,
@@ -89,8 +118,11 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         doublesPerWeek: profile.doubles_per_week ?? 0,
         runsPerWeek: profile.runs_per_week ?? undefined,
         includeFullSim: w === fullSimWeek,
+        strengthPerWeek: profile.strength_per_week ?? undefined,
+        collection: profile.workout_collection ?? null,
         prefs: {
           longRunDay: profile.preferred_long_run_day ?? null,
+          gameDay: profile.preferred_game_day ?? null,
           strengthDays: profile.preferred_strength_days ?? null,
           restDays: profile.preferred_rest_days ?? null,
         },
@@ -126,18 +158,38 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
       slots = applyRacesToWeek(slots, w, placements);
       const weekRaces = placements.filter((p) => p.week_number === w);
 
-      const sessions = slots.map((slot) => ({
+      // Vacation days bend last: the travel version of each session, or none.
+      if (monday0 && vacations.length) {
+        slots = applyVacationToWeek(slots, vacationDaysOfWeek(monday0, vacations));
+      }
+
+      // The second strength day of a week is not the first one again: each
+      // slot knows how many of its type came before it.
+      const seen = new Map<string, number>();
+      const occurrenceOf = slots.map((slot) => {
+        const n = seen.get(slot.session_type) ?? 0;
+        seen.set(slot.session_type, n + 1);
+        return n;
+      });
+      const countOf = (t: string) => slots.filter((s) => s.session_type === t).length;
+      const sessions = slots.map((slot, i) => ({
         day_hint: slot.day_hint,
         day_slot: slot.day_slot,
         session_type: slot.session_type,
         title:
           slot.session_type === "race_day"
             ? (weekRaces.find((p) => p.day_hint === slot.day_hint)?.race.type ?? "Race Day")
-            : (SESSION_TITLES[slot.session_type] ?? slot.session_type),
+            : slot.vacation
+              ? `${VACATION_TITLE_PREFIX}${
+                  slot.session_type === "mobility" ? "Bodyweight & mobility (optional)" :
+                  slot.session_type === "run_intervals" ? "Quality run (optional)" :
+                  (SESSION_TITLES[slot.session_type] ?? slot.session_type)
+                }`
+              : (SESSION_TITLES[slot.session_type] ?? slot.session_type),
         planned_duration_min: slot.planned_duration_min,
         intensity_rpe_target: slot.intensity_rpe_target,
         sort_order: slot.sort_order,
-        blocks: fillSession(slot, profile, state, library, w, pp.phase_type),
+        blocks: fillSession(slot, profile, state, library, w, pp.phase_type, occurrenceOf[i], countOf(slot.session_type)),
       }));
 
       weeks.push({
@@ -154,6 +206,8 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
           : undefined,
         weekly_goal:
           raceNotesForWeek(w, placements)[0] ??
+          (monday0 ? vacationNote(vacationsInWeek(monday0, vacations)) : null) ??
+          (reentry ? REENTRY_NOTE : null) ??
           weeklyGoal({
             phase: pp.phase_type,
             weekInPhase,

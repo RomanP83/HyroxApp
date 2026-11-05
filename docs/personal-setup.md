@@ -3,8 +3,8 @@
 The fastest path to *your* plan on *your* phone: **Supabase (free) + Vercel
 (free)**. Roughly 20 minutes, no credit card, no Stripe account.
 
-Everything optional stays optional — Stripe, Telegram, Strava, Garmin, Resend
-and Anthropic keys can all stay unset; the app degrades gracefully without them.
+Everything optional stays optional — Stripe, Telegram, Strava, Garmin, Resend,
+Anthropic and Gemini keys can all stay unset; the app degrades gracefully without them.
 
 ---
 
@@ -110,6 +110,7 @@ above.
 | **Telegram bot** | Evening check-in with 4 buttons — log without opening the app. The single biggest adherence lever. | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` from [@BotFather](https://t.me/botfather); point its webhook at `/api/telegram/webhook` |
 | **Strava or Garmin** | Runs auto-log themselves with real pace → sharper pace zones. | Developer app at either provider; see `.env.example` |
 | **Anthropic key** | Post-session coach text gets rewritten in a warmer voice (numbers stay engine-computed). | `ANTHROPIC_API_KEY` |
+| **Gemini key** | AI coach on `/plan`: reviews your last three weeks and proposes up to three session changes you apply (or not) with one tap. Training data goes to Google. | `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com); optional `GEMINI_MODEL`, `AI_COACH_LANGUAGE` |
 | **Resend** | Email fallback for check-ins if you skip Telegram. | `RESEND_API_KEY`, `EMAIL_FROM` |
 
 Stripe stays off entirely in personal mode.

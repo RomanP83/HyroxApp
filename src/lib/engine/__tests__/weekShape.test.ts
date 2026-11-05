@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyDayOverrides, assessWeekPreferences, layoutWeek } from "../micro";
+import { applyDayOverrides, assessWeekPreferences, distributeSlots, layoutWeek } from "../micro";
 import type { SessionType } from "../types";
 import { weekStartOf } from "@/lib/dayOverrides";
 
@@ -180,5 +180,41 @@ describe("weekStartOf", () => {
   it("is what makes an override survive renumbering", () => {
     // A plan generated 3 weeks later: its week 1 is the old plan's week 4.
     expect(weekStartOf("2026-08-27T09:12:00Z", 4)).toBe(weekStartOf("2026-09-17T08:00:00Z", 1));
+  });
+});
+
+describe("two strength days a week", () => {
+  const week = (phase: "base" | "build" | "peak" | "taper", days: number, extra = {}) =>
+    distributeSlots({ phase, trainingDays: days, weekInPhase: 2, isDeload: false, isBenchmark: false, strengthPerWeek: 2, ...extra })
+      .filter((s) => s.day_slot === "am")
+      .map((s) => s.session_type);
+
+  it("turns a light slot into the second strength day, never a hard one", () => {
+    const build = week("build", 6);
+    expect(build.filter((t) => t === "strength")).toHaveLength(2);
+    expect(build).toEqual(expect.arrayContaining(["compromised_run", "run_intervals", "long_run", "station_work"]));
+    expect(build).not.toContain("run_easy");
+  });
+
+  it("keeps one in the taper and in a week with no light slot", () => {
+    expect(week("taper", 6).filter((t) => t === "strength")).toHaveLength(1);
+    expect(week("build", 5).filter((t) => t === "strength")).toHaveLength(1);
+    expect(week("build", 6, { isDeload: true }).filter((t) => t === "strength")).toHaveLength(1);
+  });
+
+  it("is one strength day when nothing is asked", () => {
+    const one = distributeSlots({ phase: "build", trainingDays: 6, weekInPhase: 2, isDeload: false, isBenchmark: false });
+    expect(one.filter((s) => s.session_type === "strength")).toHaveLength(1);
+  });
+
+  it("says where a second strength day does not fit", () => {
+    const warnings = assessWeekPreferences({}, { trainingDays: 5, strengthPerWeek: 2 });
+    expect(warnings.join(" ")).toMatch(/no light slot for a second strength day in build and peak/);
+    expect(assessWeekPreferences({}, { trainingDays: 6, strengthPerWeek: 2 }).join(" ")).not.toMatch(/second strength/);
+  });
+
+  it("warns when the game day collides with the long run", () => {
+    const w = assessWeekPreferences({ longRunDay: 6, gameDay: 6 }, { trainingDays: 6 });
+    expect(w.join(" ")).toMatch(/game day is pinned to Saturday/);
   });
 });

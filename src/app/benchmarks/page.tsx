@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { BenchmarksClient, type BenchmarkDef, type BenchmarkEntry } from "@/components/BenchmarksClient";
+import type { RaceResult } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function BenchmarksPage() {
     .single();
   if (!profile) redirect("/onboarding");
 
-  const [{ data: defs }, { data: results }, { data: state }] = await Promise.all([
+  const [{ data: defs }, { data: results }, { data: state }, { data: raceRows }] = await Promise.all([
     supabase.from("benchmark_definitions").select("id, slug, name, metric_type, protocol").order("name"),
     supabase
       .from("benchmark_results")
@@ -33,6 +34,12 @@ export default async function BenchmarksPage() {
       .select("predicted_race_time_sec")
       .eq("profile_id", profile.id)
       .maybeSingle(),
+    // A database without migration 0029 answers with an error: no card then.
+    supabase
+      .from("race_results")
+      .select("id, kind, held_on, label, is_baseline, total_sec, runs_sec, stations_sec, roxzone_sec")
+      .eq("profile_id", profile.id)
+      .order("held_on", { ascending: false }),
   ]);
 
   const entries: BenchmarkEntry[] = (results ?? []).map((r) => ({
@@ -48,6 +55,8 @@ export default async function BenchmarksPage() {
       entries={entries}
       predicted={state?.predicted_race_time_sec ?? null}
       hrMax={typeof profile.hr_max === "number" ? profile.hr_max : null}
+      races={raceRows ? (raceRows as RaceResult[]) : undefined}
+      targetTimeSec={typeof profile.target_time_sec === "number" ? profile.target_time_sec : null}
     />
   );
 }

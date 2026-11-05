@@ -104,3 +104,52 @@ describe("the setup page", () => {
     expect(fresh).toContain("It applies to your next plan.");
   });
 });
+
+describe("workouts on the setup page", () => {
+  it("offers the standard library and the Verona plan, with the current one checked", () => {
+    const html = render({ workoutCollection: "verona" });
+    expect(html).toContain('data-testid="collection-card"');
+    expect(html).toContain("Standard library");
+    expect(html).toMatch(/role="radio" aria-checked="true"[^>]*>.*?Verona plan/);
+    expect(html).toContain('data-testid="import-card"');
+    expect(html).toContain("Import from HyroxTraining");
+  });
+
+  it("hides both when the database has not run the migration", () => {
+    const html = render({ collectionAvailable: false });
+    expect(html).not.toContain('data-testid="collection-card"');
+    expect(html).not.toContain('data-testid="import-card"');
+  });
+});
+
+describe("strength days and the game day", () => {
+  it("shows both controls once the database has them", () => {
+    const html = render({ weekShape: { ...base.weekShape, strength_per_week: 2, game_day: 6 } });
+    expect(html).toContain("Strength days");
+    expect(html).toContain('aria-label="Game day: Saturday"');
+    expect(html).toMatch(/aria-pressed="true" aria-label="Game day: Saturday"/);
+  });
+
+  it("hides them on an older database", () => {
+    const html = render();
+    expect(html).not.toContain("Game day");
+    expect(html).not.toContain("Strength days");
+  });
+});
+
+describe("vacations on the setup page", () => {
+  it("lists vacations and offers both modes", () => {
+    const html = render({
+      vacations: [{ id: "v1", starts_on: "2026-11-29", ends_on: "2026-12-14", mode: "maintain", note: "Teneriffa" }],
+    });
+    expect(html).toContain('data-testid="vacation-card"');
+    expect(html).toContain("29.11.2026 – 14.12.2026");
+    expect(html).toContain("keep it ticking · Teneriffa");
+    expect(html).toContain("Fully off");
+    expect(html).toContain("Add vacation");
+  });
+
+  it("is hidden on a database without the table", () => {
+    expect(render()).not.toContain('data-testid="vacation-card"');
+  });
+});

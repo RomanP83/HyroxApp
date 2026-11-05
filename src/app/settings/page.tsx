@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { SettingsClient } from "@/components/SettingsClient";
+import type { VacationRow } from "@/components/VacationCard";
 import { assessVolumeTarget, type ExperienceLevel, type PaceZones } from "@/lib/engine";
 import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { signDeepLink } from "@/lib/telegram";
@@ -26,6 +27,28 @@ export default async function SettingsPage() {
     .eq("user_id", user.id)
     .single();
   if (!profile) redirect("/onboarding");
+
+  // Separate, tolerant read: a database without migration 0030 has no
+  // workout_collection column and must still open this page.
+  const { data: collectionRow } = await supabase
+    .from("athlete_profiles")
+    .select("workout_collection")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const workoutCollection = (collectionRow?.workout_collection as string | undefined) ?? "standard";
+  // And for migration 0032: an error means no vacations table yet.
+  const { data: vacationRows, error: vacationError } = await supabase
+    .from("vacations")
+    .select("id, starts_on, ends_on, mode, note")
+    .eq("profile_id", profile.id)
+    .gte("ends_on", new Date().toISOString().slice(0, 10))
+    .order("starts_on");
+  // Same for migration 0031.
+  const { data: extrasRow } = await supabase
+    .from("athlete_profiles")
+    .select("strength_per_week, preferred_game_day")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   const { data: plan } = await supabase
     .from("plans")
@@ -83,7 +106,16 @@ export default async function SettingsPage() {
         long_run_day: (profile.preferred_long_run_day as number | null) ?? null,
         strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
         rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
+        ...(extrasRow
+          ? {
+              strength_per_week: (extrasRow.strength_per_week as number | null) ?? 1,
+              game_day: (extrasRow.preferred_game_day as number | null) ?? null,
+            }
+          : {}),
       }}
+      workoutCollection={workoutCollection}
+      vacations={vacationError ? undefined : ((vacationRows ?? []) as VacationRow[])}
+      collectionAvailable={Boolean(collectionRow)}
       volume={{
         weekly_km_peak: peakKm,
         runs_per_week: profile.runs_per_week ?? null,

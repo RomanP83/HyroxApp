@@ -52,3 +52,38 @@ describe("the session card", () => {
     expect(html).not.toContain("Move this session to another day of the week");
   });
 });
+
+describe("the variant note on non-run sessions", () => {
+  it("shows a strength variant's name, reason and its Verona origin", () => {
+    const html = renderToStaticMarkup(
+      <SessionCard
+        defaultOpen
+        session={{
+          ...session,
+          session_type: "strength",
+          title: "Strength",
+          blocks: [
+            {
+              block_id: "vr_strength_b",
+              slug: "vr_strength_b",
+              block_type: "main",
+              station: null,
+              content: [{ exercise: "Pull: lat pulldown" }],
+              sort_order: 0,
+              load_adjustments: {
+                division: "open",
+                variant_name: "Strength B · Upper Body Pull & Push",
+                variant_why: "Pulling and grip strength for the SkiErg and the sled pull.",
+                collection_original: "Strength B · Oberkörper / Zug & Druck",
+              },
+            },
+          ],
+        }}
+        onLog={() => undefined}
+      />,
+    );
+    expect(html).toContain('data-testid="variant-note"');
+    expect(html).toContain("Strength B · Upper Body Pull &amp; Push:");
+    expect(html).toContain("Verona plan: Strength B · Oberkörper / Zug &amp; Druck");
+  });
+});

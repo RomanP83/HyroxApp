@@ -17,6 +17,9 @@ const Body = z.object({
   preferred_long_run_day: Day.nullable(),
   preferred_strength_days: z.array(Day).max(4),
   preferred_rest_days: z.array(Day).max(4),
+  /** Migration 0031. Omitted = left as it is. */
+  strength_per_week: z.number().int().min(1).max(2).optional(),
+  preferred_game_day: Day.nullable().optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -32,7 +35,7 @@ export async function PATCH(req: Request) {
 
   const { data: profile } = await supabase
     .from("athlete_profiles")
-    .select("id, runs_per_week")
+    .select("*")
     .eq("user_id", user.id)
     .single();
   if (!profile) return NextResponse.json({ error: "no_profile" }, { status: 404 });
@@ -47,12 +50,25 @@ export async function PATCH(req: Request) {
       ? ["the long run"]
       : []),
     ...(body.preferred_strength_days.some((d) => rest.has(d)) ? ["a strength day"] : []),
+    ...(body.preferred_game_day != null && rest.has(body.preferred_game_day) ? ["the game day"] : []),
   ];
   if (clash.length) {
     return NextResponse.json(
       {
         error: "rest_day_clash",
         detail: `You put ${clash.join(" and ")} on a rest day. Pick one — the plan will not train on a day you called rest.`,
+      },
+      { status: 400 },
+    );
+  }
+  if (
+    body.preferred_game_day != null &&
+    (body.preferred_game_day === body.preferred_long_run_day || body.preferred_strength_days.includes(body.preferred_game_day))
+  ) {
+    return NextResponse.json(
+      {
+        error: "game_day_clash",
+        detail: "The game day shares its day with the long run or a strength day. One session per morning — pick another day.",
       },
       { status: 400 },
     );
@@ -96,6 +112,8 @@ export async function PATCH(req: Request) {
       preferred_long_run_day: body.preferred_long_run_day,
       preferred_strength_days: body.preferred_strength_days,
       preferred_rest_days: body.preferred_rest_days,
+      ...(body.strength_per_week !== undefined ? { strength_per_week: body.strength_per_week } : {}),
+      ...(body.preferred_game_day !== undefined ? { preferred_game_day: body.preferred_game_day } : {}),
     })
     .eq("id", profile.id);
   if (error) return NextResponse.json({ error: "update_failed", detail: error.message }, { status: 500 });
@@ -106,8 +124,15 @@ export async function PATCH(req: Request) {
       longRunDay: body.preferred_long_run_day,
       strengthDays: body.preferred_strength_days,
       restDays: body.preferred_rest_days,
+      gameDay: body.preferred_game_day ?? profile.preferred_game_day ?? null,
     },
-    { trainingDays, runsPerWeek: profile.runs_per_week, doublesPerWeek: body.doubles_per_week },
+    {
+      trainingDays,
+      runsPerWeek: profile.runs_per_week,
+      doublesPerWeek: body.doubles_per_week,
+      strengthPerWeek: body.strength_per_week ?? profile.strength_per_week ?? 1,
+      collection: profile.workout_collection ?? null,
+    },
   );
 
   const { data: plan } = await supabase

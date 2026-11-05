@@ -7,6 +7,7 @@
 // Runs with the service-role client (nightly cron and the injury-recovery
 // route both call it after ownership is established).
 // ============================================================================
+import { loadVacations } from "@/lib/vacations";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generatePlan, type AthleteProfile } from "@/lib/engine";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
@@ -52,6 +53,7 @@ export async function rebasePlan(
   // The whole point of a rebase is to rebuild the weeks — but a week the
   // athlete rearranged by hand is a decision, not a proposal, so it goes back.
   const dayOverrides = await loadDayOverrides(admin, plan.profile_id, today);
+  const vacations = await loadVacations(admin, plan.profile_id);
 
   const generated = generatePlan({
     profile,
@@ -61,6 +63,7 @@ export async function rebasePlan(
     startDate: today,
     races,
     dayOverrides,
+    vacations,
   });
 
   const newPlanId = await persistPlan(

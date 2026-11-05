@@ -99,6 +99,7 @@ function variantOf(session: GeneratedSession) {
     why: a.variant_why,
     fallback: a.variant_fallback,
     targeted: a.variant_targeted,
+    original: a.collection_original,
   };
 }
 
@@ -312,7 +313,19 @@ export function SessionCard({
               {(() => {
                 const spec = runSpec(session.session_type);
                 const variant = variantOf(session);
-                if (!spec) return null;
+                // Strength and station days have no run spec, but their
+                // variant still says what it is for and where it comes from.
+                if (!spec)
+                  return variant?.why ? (
+                    <div className="space-y-1 px-1 text-meta text-ash" data-testid="variant-note">
+                      <p>
+                        <b className="text-chalk">{variant.name}:</b> {variant.why}
+                      </p>
+                      {variant.original && (
+                        <p className="text-micro text-smoke">Verona plan: {variant.original}</p>
+                      )}
+                    </div>
+                  ) : null;
                 return (
                   <div className="space-y-1 px-1 text-meta text-ash">
                     {variant?.why && (
@@ -324,6 +337,9 @@ export function SessionCard({
                       <b>{spec.focus}</b> {spec.pace_note}
                     </p>
                     {variant?.fallback && <p className="italic">{variant.fallback}</p>}
+                    {variant?.original && (
+                      <p className="text-micro text-smoke">Verona plan: {variant.original}</p>
+                    )}
                   </div>
                 );
               })()}

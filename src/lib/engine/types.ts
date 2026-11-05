@@ -82,12 +82,21 @@ export interface AthleteProfile {
   weaknesses?: string[] | null;
   equipment_access: EquipmentAccess;
   /**
+   * Where session content comes from: 'standard' (the library) or 'verona'
+   * (veronaWorkouts.ts, taken first wherever it has a session for the slot).
+   */
+  workout_collection?: string | null;
+  /**
    * The athlete's own week shape, 1 = Monday … 7 = Sunday. These are hard
    * pins: the plan honours them even when they collide with the recovery
    * rules, and reports the collision instead of quietly overruling the
    * athlete (assessWeekPreferences).
    */
   preferred_long_run_day?: number | null;
+  /** Weekday of the game day (simulation or first compromised run). */
+  preferred_game_day?: number | null;
+  /** Strength sessions per week, 1-2. Unset = one. */
+  strength_per_week?: number | null;
   preferred_strength_days?: number[] | null;
   preferred_rest_days?: number[] | null;
 }
@@ -145,6 +154,8 @@ export interface RenderedBlock {
     opening_distance_m?: number;
     stabilise_distance_m?: number;
     note?: string;
+    /** From a workout collection: the session's name in the original plan. */
+    collection_original?: string;
   };
 }
 
@@ -210,6 +221,11 @@ export interface GenerateInput {
    * week is a proposal; a rearranged week is a decision, and a rebase must not
    * undo a decision (see applyDayOverrides).
    */
+  /**
+   * Days the athlete is away (vacation.ts). Needs `startDate` to resolve plan
+   * weeks to dates; without it they are ignored.
+   */
+  vacations?: { start: string; end: string; mode: "maintain" | "off" }[];
   dayOverrides?: {
     week_start: string;
     session_type: SessionType;

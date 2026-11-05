@@ -62,6 +62,19 @@ export const COMPROMISED_PER_WEEK: Record<PhaseType, number> = {
   taper: 1,
 };
 
+/**
+ * A workout collection may bring a weekly game day into a phase the library
+ * keeps free of compromised running. The Verona plan has one every week of its
+ * foundation block — BBJ technique with a run/erg block, or ergs with burpees,
+ * neither with sled or lunges — so with that collection base gets one too.
+ */
+export const COLLECTION_COMPROMISED_PER_WEEK: Record<string, Partial<Record<PhaseType, number>>> = {
+  verona: { base: 1 },
+};
+
+/** Strength days a week the athlete may ask for. The taper always keeps one. */
+export const MAX_STRENGTH_PER_WEEK = 2;
+
 export const PHASE_VOLUME_MULTIPLIER: Record<PhaseType, number> = {
   base: 1.0,
   build: 1.1,
@@ -231,3 +244,50 @@ export function defaultStationTiers(level: string): StationTiers {
   for (const s of STATIONS) tiers[s] = tier;
   return tiers;
 }
+
+// ── Race analysis (raceAnalysis.ts) ─────────────────────────────────────────
+/**
+ * How a finish time splits into running, roxzone and the eight stations when
+ * there is no baseline race to take the shape from. A mid-pack Open athlete;
+ * the shares add up to 1. With a baseline race, the athlete's own shape wins.
+ */
+export const DEFAULT_SEGMENT_SHARES = {
+  run: 0.47,
+  roxzone: 0.07,
+  // Race order: SkiErg, Sled Push, Sled Pull, BBJ, Row, Farmers, Lunges, Wall Balls.
+  stations: [0.06, 0.06, 0.065, 0.065, 0.06, 0.03, 0.055, 0.065],
+} as const;
+/** A segment within this share of its target counts as "close", not "needs work". */
+export const SEGMENT_CLOSE_PCT = 0.05;
+
+// ── AI coach suggestions (suggestions.ts) ───────────────────────────────────
+// A language model proposes; these rules decide what may even be shown.
+export const AI_MAX_SUGGESTIONS = 3;
+/** One "easier"/"harder" step: RPE target ±1 and duration ±10 %. */
+export const AI_RPE_STEP = 1;
+export const AI_DURATION_STEP_PCT = 0.1;
+export const AI_RPE_MIN = 2;
+export const AI_RPE_MAX = 9;
+export const AI_MIN_DURATION_MIN = 15;
+/** Longest review / reason text kept from the model. */
+export const AI_REVIEW_MAX_CHARS = 1200;
+export const AI_REASON_MAX_CHARS = 300;
+
+// ── Vacation (vacation.ts) ──────────────────────────────────────────────────
+/**
+ * A "maintain" vacation keeps the engine running without the gym: easy runs,
+ * one optional quality run, bodyweight. No stations, no sled, no game days.
+ */
+export const VACATION = {
+  /** Easy runs plus the long run, together. */
+  max_runs: 3,
+  /** The one optional quality run, held below a full hard effort. */
+  max_quality: 1,
+  quality_rpe_max: 6,
+  easy_rpe_max: 4,
+  long_run_rpe_max: 5,
+  long_run_max_min: 75,
+  bodyweight_min: 30,
+  /** A vacation this long earns a lighter re-entry week afterwards. */
+  reentry_min_days: 5,
+} as const;

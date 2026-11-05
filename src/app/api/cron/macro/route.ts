@@ -1,3 +1,5 @@
+import { loadVacations } from "@/lib/vacations";
+import { vacationDaysBetween } from "@/lib/engine";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -74,9 +76,16 @@ export async function POST(req: Request) {
         : null;
     // A2/K2: without logs, "days inactive" counts from plan creation — a plan
     // generated on Monday must not be rebased in its first night.
-    const daysSinceLastSession = logs?.length
-      ? Math.floor((now - new Date(logs[0].completed_at).getTime()) / 86_400_000)
-      : Math.floor((now - new Date(plan.generated_at).getTime()) / 86_400_000);
+    const lastActive = logs?.length
+      ? new Date(logs[0].completed_at).getTime()
+      : new Date(plan.generated_at).getTime();
+    // Days on vacation are not "days without a session": a planned holiday
+    // must not come back as a rebuilt plan.
+    const daysSinceLastSession = Math.max(
+      0,
+      Math.floor((now - lastActive) / 86_400_000) -
+        vacationDaysBetween(lastActive, now, await loadVacations(admin, plan.profile_id)),
+    );
 
     const state = stateFromRow(stateRow as AthleteStateRow);
 

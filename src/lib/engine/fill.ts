@@ -21,6 +21,7 @@ import { pickRunVariant, type VariantPick } from "./runVariants";
 import { pickStationVariant } from "./stationVariants";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
+import { pickCollectionWorkout, renderCollectionWorkout } from "./veronaWorkouts";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -119,6 +120,8 @@ export function fillSession(
   weekNumber: number,
   /** Which phase the week belongs to — decides which variants are eligible. */
   phase?: PhaseType,
+  /** 0 for the first session of this type in the week, 1 for the second … */
+  occurrence = 0,
 ): RenderedBlock[] {
   const variant = variantFor(profile);
   const blocks: RenderedBlock[] = [];
@@ -140,6 +143,60 @@ export function fillSession(
   const station = isStationWork ? rotatedStation : undefined;
   const targetTier = station ? state.station_tiers[station] ?? 2 : undefined;
   const pace = paceForSession(state, slot.session_type);
+
+  // The athlete's workout collection comes first: where it has a session for
+  // this slot and phase, that session is the whole prescription — warm-up
+  // included, the way the original plan wrote it. Where it has none, the
+  // library below decides as it always did.
+  if (phase && profile.workout_collection && profile.workout_collection !== "standard") {
+    const chosen = pickCollectionWorkout(
+      profile.workout_collection,
+      {
+        sessionType: slot.session_type,
+        phase,
+        weekNumber,
+        equipment: profile.equipment_access,
+        stationTiers: state.station_tiers,
+        weaknesses: profile.weaknesses ?? undefined,
+      },
+      occurrence,
+    );
+    if (chosen) {
+      const w = chosen.variant;
+      const opening =
+        pace != null && (slot.session_type === "compromised_run" || slot.session_type === "full_sim")
+          ? {
+              opening_pace_sec_km: compromisedOpeningPace(pace),
+              opening_distance_m: COMPROMISED_OPENING.buffer_distance_m,
+              stabilise_distance_m: COMPROMISED_OPENING.stabilise_distance_m,
+            }
+          : undefined;
+      blocks.push({
+        block_id: w.slug,
+        slug: w.slug,
+        block_type: "main",
+        station: w.station ?? null,
+        content: renderCollectionWorkout(w),
+        sort_order: order++,
+        load_adjustments: {
+          division: profile.division,
+          ...(pace != null ? { pace_sec_km: pace } : {}),
+          ...opening,
+          strength_modifier:
+            slot.session_type === "strength" && state.strength_modifier !== 1 ? state.strength_modifier : undefined,
+          variant_name: w.name,
+          variant_why: w.why,
+          variant_targeted: chosen.targeted,
+          collection_original: w.original,
+        },
+      });
+      if (["strength", "station_work", "compromised_run"].includes(slot.session_type)) {
+        const mob = pickBlock({ library, sessionType: slot.session_type, blockType: "mobility", variant });
+        if (mob) blocks.push(render(mob, profile, order++, { division: profile.division }));
+      }
+      return blocks;
+    }
+  }
 
   // Warm-up (skip for pure mobility, already handled).
   const wu = pickBlock({ library, sessionType: slot.session_type, blockType: "warmup", variant });

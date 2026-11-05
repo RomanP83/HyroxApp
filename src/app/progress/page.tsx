@@ -5,6 +5,7 @@ import { analyseRaces, computeLoadState, type LoadEntry, type RaceResult } from 
 import { fmtClock } from "@/lib/format";
 import { BarChart, LineChart, type Pt } from "@/components/charts";
 import { RaceReadiness } from "@/components/RaceReadiness";
+import { ImportedHistory, type ImportedWorkout } from "@/components/ImportedHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function ProgressPage() {
     .limit(1)
     .maybeSingle();
 
-  const [{ data: state }, { data: weeks }, { data: logs }, { data: prognosisRows }, { data: benchDefs }, { data: benchResults }, { data: raceRows }] =
+  const [{ data: state }, { data: weeks }, { data: logs }, { data: prognosisRows }, { data: benchDefs }, { data: benchResults }, { data: raceRows }, { data: importedRows }] =
     await Promise.all([
       supabase.from("athlete_state").select("*").eq("profile_id", profile.id).maybeSingle(),
       plan
@@ -72,6 +73,12 @@ export default async function ProgressPage() {
         .from("race_results")
         .select("id, kind, held_on, label, is_baseline, total_sec, runs_sec, stations_sec, roxzone_sec")
         .eq("profile_id", profile.id),
+      // Migration 0030; without it the query errors and the section stays away.
+      supabase
+        .from("imported_workouts")
+        .select("done_on, kind, duration_min")
+        .eq("profile_id", profile.id)
+        .order("done_on", { ascending: true }),
     ]);
 
   const logList = (logs ?? []) as any[];
@@ -179,6 +186,8 @@ export default async function ProgressPage() {
       <Card title="Finish-time estimate over time" sub="Every recalibration the engine logged">
         <LineChart series={prognosis} fmt={(v) => fmtClock(v)} />
       </Card>
+
+      <ImportedHistory rows={(importedRows ?? []) as ImportedWorkout[]} />
 
       {benchCharts.length > 0 && (
         <div className="space-y-4">

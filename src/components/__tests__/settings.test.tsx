@@ -104,3 +104,20 @@ describe("the setup page", () => {
     expect(fresh).toContain("It applies to your next plan.");
   });
 });
+
+describe("workouts on the setup page", () => {
+  it("offers the standard library and the Verona plan, with the current one checked", () => {
+    const html = render({ workoutCollection: "verona" });
+    expect(html).toContain('data-testid="collection-card"');
+    expect(html).toContain("Standard library");
+    expect(html).toMatch(/role="radio" aria-checked="true"[^>]*>.*?Verona plan/);
+    expect(html).toContain('data-testid="import-card"');
+    expect(html).toContain("Import from HyroxTraining");
+  });
+
+  it("hides both when the database has not run the migration", () => {
+    const html = render({ collectionAvailable: false });
+    expect(html).not.toContain('data-testid="collection-card"');
+    expect(html).not.toContain('data-testid="import-card"');
+  });
+});

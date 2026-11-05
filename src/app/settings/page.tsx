@@ -27,6 +27,15 @@ export default async function SettingsPage() {
     .single();
   if (!profile) redirect("/onboarding");
 
+  // Separate, tolerant read: a database without migration 0030 has no
+  // workout_collection column and must still open this page.
+  const { data: collectionRow } = await supabase
+    .from("athlete_profiles")
+    .select("workout_collection")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const workoutCollection = (collectionRow?.workout_collection as string | undefined) ?? "standard";
+
   const { data: plan } = await supabase
     .from("plans")
     .select("id, status, total_weeks")
@@ -84,6 +93,8 @@ export default async function SettingsPage() {
         strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
         rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
       }}
+      workoutCollection={workoutCollection}
+      collectionAvailable={Boolean(collectionRow)}
       volume={{
         weekly_km_peak: peakKm,
         runs_per_week: profile.runs_per_week ?? null,

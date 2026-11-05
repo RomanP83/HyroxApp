@@ -18,6 +18,7 @@ export * from "./adaptive";
 export * from "./feedback";
 export * from "./raceAnalysis";
 export * from "./suggestions";
+export * from "./veronaWorkouts";
 
 import type { AthleteProfile, AthleteState } from "./types";
 import { defaultPaceZones, defaultStationTiers } from "./constants";

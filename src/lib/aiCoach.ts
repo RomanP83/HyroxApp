@@ -99,6 +99,8 @@ export interface CoachFacts {
     notes: string | null;
   }[];
   skipped_recent: string[];
+  /** Sessions imported from the old tracker in the same 21 days, if any. */
+  imported_recent: { date: string; kind: string; title: string | null; duration_min: number | null; rpe: number | null }[];
   upcoming: {
     session_id: string;
     week: "current" | "next";
@@ -220,7 +222,7 @@ export async function loadCoachContext(
 
   const weekIds = [...new Set([...recentWeeks.map((w) => w.id), ...(next ? [next.id] : [])])];
   const since = new Date(now.getTime() - HISTORY_DAYS * DAY_MS).toISOString();
-  const [{ data: sessions }, { data: logs }] = await Promise.all([
+  const [{ data: sessions }, { data: logs }, { data: imported }] = await Promise.all([
     admin
       .from("sessions")
       .select("id, week_id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, status")
@@ -233,6 +235,13 @@ export async function loadCoachContext(
       .eq("sessions.plan_id", planId)
       .gte("completed_at", since)
       .order("completed_at", { ascending: true }),
+    // Migration 0030; without it this errors and the list stays empty.
+    admin
+      .from("imported_workouts")
+      .select("done_on, kind, title, duration_min, rpe")
+      .eq("profile_id", plan.profile_id)
+      .gte("done_on", since.slice(0, 10))
+      .order("done_on", { ascending: true }),
   ]);
 
   const sessionList = (sessions ?? []) as {
@@ -322,6 +331,13 @@ export async function loadCoachContext(
     skipped_recent: sessionList
       .filter((s) => s.status === "skipped" && recentWeeks.some((w) => w.id === s.week_id))
       .map((s) => s.title),
+    imported_recent: ((imported ?? []) as { done_on: string; kind: string; title: string | null; duration_min: number | null; rpe: number | string | null }[]).map((r) => ({
+      date: r.done_on,
+      kind: r.kind,
+      title: r.title,
+      duration_min: r.duration_min,
+      rpe: r.rpe == null ? null : Number(r.rpe),
+    })),
     upcoming: candidates.map((c) => ({
       session_id: c.id,
       week: c.week,

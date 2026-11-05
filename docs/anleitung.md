@@ -167,6 +167,11 @@ dort zusätzlich dein importiertes Programm mit einem Eingabefeld pro Satz; **zu
 stattdessen nur eine Zeile (Programmname, Übungszahl, „tap to log sets") — ein Tap darauf öffnet
 die Karte.
 
+Kraft- und Stationseinheiten zeigen aufgeklappt über den Blöcken zusätzlich **Name und Zweck ihrer
+Variante**. Stammt die Einheit aus der [Verona-Sammlung](#workouts), steht darunter klein
+„Verona plan: …" mit dem Originalnamen aus dem Tracker — bei Laufeinheiten an derselben Stelle
+unter der Zonen-Erklärung.
+
 Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 
 ### Die Karten rechts
@@ -188,7 +193,7 @@ vorher. In gesperrten Wochen (Free Preview) erscheint die Karte nicht.
 
 **Review my training** schickt eine Zusammenfassung deiner Daten an Gemini (Google): die geloggten
 Einheiten der letzten 21 Tage (RPE Soll/Ist, Dauer, Erfüllungsindex, deine Notizen), ausgelassene
-Einheiten, ACWR und Belastung, Phase, Renndatum, Zielzeit und — wenn eingetragen — die
+Einheiten, importierte Einheiten aus HyroxTraining aus demselben Zeitraum, ACWR und Belastung, Phase, Renndatum, Zielzeit und — wenn eingetragen — die
 [Rennanalyse](#rennen--simulationen). Name und E-Mail gehen nicht mit. Zurück kommt:
 
 - ein **Rückblick** in drei bis sechs Sätzen (Sprache über `AI_COACH_LANGUAGE`, Standard Deutsch),
@@ -394,7 +399,7 @@ Kalender überlebt auch einen Rebase.
 
 ## 8. `/settings` — Setup & Tools
 
-Erreichbar über **Setup** rechts oben, auf jeder Seite. Drei Gruppen, nach dem sortiert, was du
+Erreichbar über **Setup** rechts oben, auf jeder Seite. Vier Gruppen, nach dem sortiert, was du
 entscheidest.
 
 ### Deine Trainingswoche
@@ -427,6 +432,70 @@ Woche trotzdem nicht, gewinnt das Training den Tag zurück und sagt welchen.
 **Laufvolumen.** Peak-Kilometer der Woche und Läufe pro Woche, dazu — sobald du geloggt hast — der
 Abgleich mit dem, was deine letzten vier Wochen wirklich getragen haben. Die Obergrenze für Läufe
 folgt deinen Trainingstagen: eine Einheit pro Woche bleibt Kraft oder Stationsarbeit.
+
+### Workouts
+
+Die Gruppe erscheint erst, wenn die Datenbank Migration 0030 hat.
+
+**Woher die Einheiten kommen.** Zwei Karten zum Antippen, dann **Speichern** — das baut wie die
+Regler oben die **verbleibenden Wochen** neu auf (ohne Plan gilt es für den nächsten):
+
+- **Standard library** — die Einheiten der App, wie bisher.
+- **Verona plan** — die Einheiten deines Verona-Plans aus dem Einzeldatei-Tracker
+  (`src/lib/engine/veronaWorkouts.ts`, 50 Einheiten): Schwellenläufe (4–6 × 6, 3 × 10, 2 × 15 min),
+  1-km-Wiederholungen mit Wall-Ball-EMOM, Tempo-HYROX, Long Run mit 100 Wall Balls bzw. mit
+  Renntempo-Finish, Easy Run mit WB-EMOM, **Strength A** (Unterkörper/Power) und **Strength B**
+  (Oberkörper Zug/Druck), die zehn Stations-Varianten nach Phase, die Spieltage (u. a. Sled → Run,
+  Pull + BBJ, WB-Ausdauer, Ski + BBJ 80 m, Chipper, erste/zweite Rennhälfte, Cutdown, 400/Sled/400),
+  die BBJ-Formen (Economy, Capacity, Run → BBJ, BBJ → 1 km, Race Sequence, Late-Race) und die volle
+  Simulation.
+
+Was sich mit **Verona plan** ändert — und was nicht:
+
+- Die **Woche plant weiter die Engine**: welche Tage, wie viele Einheiten, Dauer, RPE-Ziel,
+  Deloads, Taper und jede Anpassung. Dein Mo–So-Rhythmus aus dem Tracker wird **nicht** 1:1
+  übernommen; feste Tage setzt du oben unter „Die Form deiner Woche".
+- Für jede Einheit nimmt die Engine die Verona-Einheit, die zu **Einheitentyp und Phase** passt —
+  rotierend, jede zweite Woche gezielt auf deine schwächste Station bzw. eine genannte
+  Schwachstelle. Hat die Sammlung für einen Platz nichts (z. B. Mobility, Benchmark, Compromised
+  Run im Taper), entscheidet die Bibliothek wie bisher.
+- Phasen: Foundation → Base, Endurance → Build, Specific und Race → Peak, Taper → Taper. Recovery-
+  und Urlaubsphasen des Trackers gibt es hier nicht; dafür gelten Deload und Reha-Modus.
+- Paces stehen **relativ** zu deinen Zonen („Schwelle", „Renntempo −10 s/km") statt fest 4:00/km —
+  sie wandern mit der Kalibrierung. Gewichte sind die Wettkampfgewichte deiner Division.
+- Strength A und B nennen die Übungen, nicht Sätze und Kilos — die stehen in deinem
+  [Kraftprogramm](#9-strength--eigenes-kraftprogramm). Die Engine plant eine Kraft-Einheit pro Woche;
+  A und B wechseln sich daher wochenweise ab.
+- Der wadenschonende Spieltag erscheint nur, wenn deine Schwachstellen (auf `/season`) z. B.
+  „Wade" oder „Achilles" nennen — wie im Tracker nur bei gereizter Wade.
+- Auf der Einheitenkarte steht der Name der Verona-Einheit, ihr Nutzen und darunter
+  „Verona plan: …" mit dem Originalnamen aus dem Tracker.
+- Im Onboarding gibt es die Wahl nicht; neue Pläne starten mit der Standard-Bibliothek, bis du hier
+  umstellst.
+
+### Import aus HyroxTraining
+
+Karte **Import from HyroxTraining** in derselben Gruppe. **Choose backup file** und die JSON-Datei
+aus dem Tracker wählen (dort Menü → Export). Die Datei wird im Browser gelesen und nur mit den
+nötigen Feldern geschickt. Übernommen wird:
+
+| Aus dem Tracker | Landet in | Bedingung |
+|---|---|---|
+| Jede **abgeschlossene** Einheit | Verlauf („Imported history" auf [`/progress`](#11-progress--auswertungen)): Datum, Art, Titel, Dauer, Session-RPE, Distanz, Notiz | Datum und Art vorhanden; Entwürfe und geplante Einheiten nicht |
+| **Simulationen** | [Rennen & Simulationen](#rennen--simulationen) | alle 8 Läufe und 8 Stationen gestoppt, Roxzone gestoppt oder in den Läufen enthalten |
+| **Stations-Rekorde** (Ski, Push, Pull, BBJ, Row, Farmers, Lunges, Wall Balls) | die acht Stations-Benchmarks auf [`/benchmarks`](#10-benchmarks--tests-eintragen) | Wall Balls nur, wenn nach einer HYROX-Sequenz gemessen — wie der Tracker selbst gezählt hat |
+
+Danach steht, was hinzukam und was mit welchem Grund nicht übernommen wurde (z. B. Simulationen
+ohne alle Splits — die stehen dann nur im Verlauf). **Dieselbe Datei nochmal** fügt nichts doppelt
+hinzu, eine neuere nur das Neue.
+
+Was der Import **nicht** tut: Er ändert den Plan nicht, und die importierten Einheiten zählen
+**nicht** in den ACWR, die Paces oder die Stations-Stufen — die Engine kalibriert weiter nur aus
+dem, was du hier loggst. Lauf- und Roxzone-Summen aus dem Tracker sind keine Benchmarks und bleiben
+draußen. Deine Rom-Referenz steht im Tracker im Code, nicht im Backup: trag sie selbst unter
+Rennen & Simulationen als Baseline ein. Zielwerte, Plananpassungen, Urlaub und Check-ins aus dem
+Tracker werden nicht übernommen. Der [KI-Coach](#ki-coach-gemini) sieht importierte Einheiten der
+letzten 21 Tage als Teil seiner Fakten.
 
 ### Verbindungen
 
@@ -468,6 +537,14 @@ Eine Liste standardisierter Tests (z. B. 1 km Zeit, Wall Balls in 2 min). Ergebn
 speichern — die Zielzeit-Prognose wird sofort neu gerechnet und der Verlauf auf `/progress`
 fortgeschrieben. Der Plan setzt Benchmark-Wochen automatisch: Woche 1, Ende des Build-Blocks und
 Beginn des Tapers.
+
+### Stations-Benchmarks
+
+Acht Karten für die Stationen in voller Renndistanz: SkiErg 1000 m, Sled Push 50 m, Sled Pull
+50 m, Burpee Broad Jumps 80 m, Row 1000 m, Farmers Carry 200 m, Sandbag Lunges 100 m, Wall Balls
+100 Wiederholungen (auf Zeit, nach einem Lauf oder Stationsblock). Eintragen wie jeder Benchmark;
+der [Import](#import-aus-hyroxtraining) füllt sie aus dem Tracker. Die Zielzeit-Prognose rechnet sie
+nicht ein, und die Rennanalyse liest sie nicht — dort zählen nur Rennen und Simulationen.
 
 ### Rennen & Simulationen
 
@@ -530,6 +607,13 @@ gehalten in einem festen Pulsband nahe der Schwelle.
 
 Die ACWR-Kurve wird Tag für Tag mit **derselben** Funktion nachgerechnet, die auch die adaptive
 Schicht benutzt — Diagramm und Engine können nicht auseinanderlaufen.
+
+### Imported history
+
+Nur wenn du aus HyroxTraining [importiert](#import-aus-hyroxtraining) hast: Anzahl und Zeitraum der
+importierten Einheiten, ihre Arten, und zwei Balken je Kalenderwoche (Einheiten, Stunden aus den
+geloggten Dauern; die letzten 20 Wochen mit Einträgen). Reiner Verlauf — fließt nicht in ACWR oder
+Plan.
 
 ### Race readiness
 
@@ -645,6 +729,7 @@ Kennzahlen zum Betrieb, mit demselben Secret abrufbar.
 | **Variante** | Eine konkrete Ausprägung einer Kerneinheit (14 Lauf-, 12 Stations-, 5 Kraftformen). |
 | **Baseline** | Das eine Rennen (oder die Simulation), von dem aus die Zielzeit gemessen wird; bestimmt die Form der Ziel-Splits. |
 | **Readiness** | Anteil des Wegs von der Baseline zum Ziel, gemittelt über zehn Segmente, 0–100 %. |
+| **Workout-Sammlung** | Woher der Inhalt der Einheiten kommt: Standard-Bibliothek oder Verona-Plan (Setup → Workouts). Die Wochenstruktur rechnet in beiden Fällen die Engine. |
 | **Post-BBJ-Verlust** | Wie viel langsamer Lauf 5 nach den Burpee Broad Jumps war als die Läufe davor, in s/km. |
 
 ---
@@ -655,6 +740,10 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Verona-Plan als Workout-Sammlung** (Setup → Workouts): 50 Einheiten aus dem Tracker, von der Engine nach Typ, Phase und Schwachstelle eingeplant; Wechsel baut die restlichen Wochen neu | [8](#workouts) |
+| **Import aus HyroxTraining** (JSON-Backup): Verlauf, Simulationen mit Splits, Stations-Rekorde; doppelter Import fügt nichts doppelt hinzu. Neu: „Imported history" auf `/progress`, acht Stations-Benchmarks | [8](#import-aus-hyroxtraining), [10](#stations-benchmarks), [11](#imported-history) |
+| Kraft- und Stationseinheiten nennen aufgeklappt Name und Zweck ihrer Variante | [4](#eine-einheitenkarte) |
+| Behoben: Pläne mit Compromised-Run-Einheit ließen sich nicht speichern (Onboarding, Neuaufbau nach Setup-Änderung) | [3](#3-onboarding--den-plan-erzeugen) |
 | **KI-Coach (Gemini)** auf `/plan`: Rückblick auf drei Wochen und bis zu drei Vorschläge (Move/Easier/Harder/Skip), von der Engine geprüft, erst per „Apply" wirksam, mit Undo; Rückblick auch im Sonntags-Review | [4](#ki-coach-gemini), [13](#13-automatische-abläufe-im-hintergrund) |
 | **Rennen & Simulationen** mit allen Splits und Zielzeit auf `/benchmarks`; **Race readiness** auf `/progress`: Ziel-Splits aus der Baseline, Abstand je Segment, Readiness, Pace-Verlust nach den BBJ, Fade | [10](#rennen--simulationen), [11](#11-progress--auswertungen) |
 | Benchmark **AT-PT**: Schwellentest auf dem Erg mit Pulsband aus dem eigenen Maximalpuls (im Profil gespeichert), Wattschnitt und Erholungszeit als zwei Verläufe | [10](#10-benchmarks--tests-eintragen) |

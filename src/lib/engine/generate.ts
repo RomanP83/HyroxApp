@@ -126,7 +126,15 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
       slots = applyRacesToWeek(slots, w, placements);
       const weekRaces = placements.filter((p) => p.week_number === w);
 
-      const sessions = slots.map((slot) => ({
+      // The second strength day of a week is not the first one again: each
+      // slot knows how many of its type came before it.
+      const seen = new Map<string, number>();
+      const occurrenceOf = slots.map((slot) => {
+        const n = seen.get(slot.session_type) ?? 0;
+        seen.set(slot.session_type, n + 1);
+        return n;
+      });
+      const sessions = slots.map((slot, i) => ({
         day_hint: slot.day_hint,
         day_slot: slot.day_slot,
         session_type: slot.session_type,
@@ -137,7 +145,7 @@ export function generatePlan(input: GenerateInput): GeneratedPlan {
         planned_duration_min: slot.planned_duration_min,
         intensity_rpe_target: slot.intensity_rpe_target,
         sort_order: slot.sort_order,
-        blocks: fillSession(slot, profile, state, library, w, pp.phase_type),
+        blocks: fillSession(slot, profile, state, library, w, pp.phase_type, occurrenceOf[i]),
       }));
 
       weeks.push({

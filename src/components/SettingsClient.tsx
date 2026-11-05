@@ -20,6 +20,7 @@ import {
   type VolumeAssessment,
 } from "@/lib/engine";
 import { AppHeader } from "./AppHeader";
+import { ImportCard } from "./ImportCard";
 import { haptic } from "@/lib/haptics";
 import {
   CalendarIcon,
@@ -44,6 +45,10 @@ export interface SettingsProps {
     strength_days: number[];
     rest_days: number[];
   };
+  /** 'standard' or 'verona' — where session content comes from. */
+  workoutCollection?: string;
+  /** False when the database has not run migration 0030 yet. */
+  collectionAvailable?: boolean;
   volume: {
     weekly_km_peak: number | null;
     runs_per_week: number | null;
@@ -68,6 +73,8 @@ export function SettingsClient(props: SettingsProps) {
   const [restDays, setRestDays] = useState<number[]>(props.weekShape.rest_days);
   const [kmPeak, setKmPeak] = useState(props.volume.weekly_km_peak?.toString() ?? "");
   const [runsPerWeek, setRunsPerWeek] = useState(props.volume.runs_per_week?.toString() ?? "");
+  const [collection, setCollection] = useState(props.workoutCollection ?? "standard");
+  const [savingCollection, setSavingCollection] = useState(false);
 
   // Both of these are pure engine functions, so the page can answer live
   // instead of only after a save: change a day and the cost changes with it.
@@ -106,6 +113,30 @@ export function SettingsClient(props: SettingsProps) {
       setToast(e instanceof Error ? e.message : "Could not save your week shape.");
     } finally {
       setSavingShape(false);
+    }
+  }
+
+  async function saveCollection() {
+    setSavingCollection(true);
+    try {
+      const res = await fetch("/api/plans/collection", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workout_collection: collection }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "failed");
+      haptic("confirm");
+      setToast(
+        data.rebased
+          ? "Saved — the remaining weeks were rebuilt with the new sessions."
+          : "Saved — your next plan uses it.",
+      );
+      router.refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Could not save the workout source.");
+    } finally {
+      setSavingCollection(false);
     }
   }
 
@@ -326,6 +357,53 @@ export function SettingsClient(props: SettingsProps) {
           </p>
         </div>
       </section>
+
+      {props.collectionAvailable !== false && (
+        <section className="space-y-3">
+          <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">Workouts</h2>
+          <div className="card space-y-4" data-testid="collection-card">
+            <p className="max-w-[62ch] text-meta leading-relaxed text-ash">
+              Where the content of your sessions comes from. The engine still decides the week —
+              which days, how long, how hard, deloads and taper. Only what a session contains
+              changes.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Workout source">
+              {[
+                {
+                  id: "standard",
+                  title: "Standard library",
+                  text: "The app's sessions, rotated by phase and aimed at your weakest station.",
+                },
+                {
+                  id: "verona",
+                  title: "Verona plan",
+                  text: "The sessions of your Verona plan — quality runs, station variants, game days, Strength A/B. The library fills slots it has nothing for.",
+                },
+              ].map((o) => (
+                <button
+                  key={o.id}
+                  role="radio"
+                  aria-checked={collection === o.id}
+                  onClick={() => setCollection(o.id)}
+                  className={`rounded-panel border p-3 text-left transition-colors ${
+                    collection === o.id ? "border-amber/60 bg-rack" : "border-edge hover:border-edge-strong"
+                  }`}
+                >
+                  <div className="text-base font-semibold">{o.title}</div>
+                  <div className="mt-1 text-meta leading-relaxed text-ash">{o.text}</div>
+                </button>
+              ))}
+            </div>
+            <SaveRow
+              busy={savingCollection}
+              onSave={() => void saveCollection()}
+              hasPlan={props.hasPlan}
+              icon={<CalendarIcon size={16} />}
+            />
+          </div>
+          <ImportCard onDone={() => router.refresh()} />
+        </section>
+      )}
 
       {/* ── Connections: a list of the same shape, so a list it is ─────────── */}
       <section className="space-y-3">

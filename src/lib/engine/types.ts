@@ -82,6 +82,11 @@ export interface AthleteProfile {
   weaknesses?: string[] | null;
   equipment_access: EquipmentAccess;
   /**
+   * Where session content comes from: 'standard' (the library) or 'verona'
+   * (veronaWorkouts.ts, taken first wherever it has a session for the slot).
+   */
+  workout_collection?: string | null;
+  /**
    * The athlete's own week shape, 1 = Monday … 7 = Sunday. These are hard
    * pins: the plan honours them even when they collide with the recovery
    * rules, and reports the collision instead of quietly overruling the
@@ -145,6 +150,8 @@ export interface RenderedBlock {
     opening_distance_m?: number;
     stabilise_distance_m?: number;
     note?: string;
+    /** From a workout collection: the session's name in the original plan. */
+    collection_original?: string;
   };
 }
 

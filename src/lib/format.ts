@@ -27,33 +27,39 @@ export function fmtClock(totalSeconds?: number | null): string {
  * numbers as tailwind.config.ts; changing one means changing both.
  */
 export const PALETTE = {
-  flame: "#ff5a1f",
-  amber: "#e8a33a",
-  go: "#35b88a",
-  stop: "#e0646c",
-  smoke: "#55636f",
-  ash: "#7b8b98",
-  cool: "#6ea8fe",
-  violet: "#a78bfa",
+  // Marker colours on the enamel board — each one has a job (docs/design.md).
+  ink: "#1b1d20", // the work
+  flame: "#c12d24", // target red — targets, open gaps, the hard end of the effort scale
+  amber: "#b4521a", // station orange — HYROX station work, engine notes
+  go: "#18794a", // done green — done, targets met; nothing else
+  stop: "#c12d24",
+  run: "#1f4fb8", // running blue
+  bone: "#454b50", // ink 2
+  ash: "#5f666b", // ink 3
+  smoke: "#80878b",
+  rule: "#d6dadc",
+  rail: "#b6bbbe",
 } as const;
 
+// Phase colours follow the markers: aerobic base is running work, the build is
+// station work, the peak is aimed at the target, the taper is plain ink.
 export const PHASE_COLORS: Record<string, string> = {
-  base: PALETTE.go,
+  base: PALETTE.run,
   build: PALETTE.amber,
   peak: PALETTE.flame,
-  taper: PALETTE.cool,
+  taper: PALETTE.ink,
 };
 
 /** Season block colours — the year view reuses the phase palette so a block
  *  and the plan phase it later becomes read as the same thing. */
 export const SEASON_BLOCK_COLORS: Record<string, string> = {
   post_race_recovery: PALETTE.smoke,
-  base: PALETTE.go,
+  base: PALETTE.run,
   build: PALETTE.amber,
   race_specific: PALETTE.flame,
-  bridge: PALETTE.violet,
-  taper: PALETTE.cool,
-  open_base: "#3b4653",
+  bridge: PALETTE.bone,
+  taper: PALETTE.ink,
+  open_base: PALETTE.rail,
 };
 
 /**
@@ -77,9 +83,10 @@ const DEMAND_OF: Record<string, Demand> = {
   rest: "recovery",
 };
 
+// Green is for done, so an aerobic day is running blue, not green.
 export const DEMAND_COLORS: Record<Demand, string> = {
   hard: PALETTE.flame,
-  aerobic: PALETTE.go,
+  aerobic: PALETTE.run,
   load: PALETTE.amber,
   recovery: PALETTE.smoke,
 };

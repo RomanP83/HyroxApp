@@ -32,12 +32,12 @@ export async function sendEmail(
 export function checkinEmailHtml(sessionTitle: string, durationMin: number): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   return `
-  <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
+  <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1b1d20">
     <h2 style="margin:0 0 8px">🏋️ Today's session: ${sessionTitle}</h2>
     <p style="margin:0 0 16px;color:#555">${durationMin} min planned. Did you get it done?
     One tap in the app logs it — and quietly tunes your plan.</p>
     <a href="${appUrl}/plan"
-       style="display:inline-block;background:#ff5a1f;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600">
+       style="display:inline-block;background:#1b1d20;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:700">
       Log it now
     </a>
     <p style="margin:20px 0 0;font-size:12px;color:#999">

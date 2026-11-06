@@ -21,13 +21,13 @@ describe("the session card", () => {
   it("marks what the day demands, in colour and in words", () => {
     const html = render({ session, onLog: () => undefined });
     expect(html).toContain("Hard");
-    expect(html).toContain("#ff5a1f"); // the effort rail
+    expect(html).toContain("#c12d24"); // the effort rail
     const aerobic = render({
       session: { ...session, session_type: "long_run", title: "Long Run" },
       onLog: () => undefined,
     });
     expect(aerobic).toContain("Aerobic");
-    expect(aerobic).toContain("#35b88a");
+    expect(aerobic).toContain("#1f4fb8");
   });
 
   it("spends the accent on one card only — the session you are standing in", () => {

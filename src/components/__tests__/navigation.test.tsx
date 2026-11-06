@@ -13,12 +13,15 @@ describe("the way back to the week view", () => {
   const html = renderToStaticMarkup(<AppHeader />);
 
   it("the logo is a link to /plan", () => {
-    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>Hyrox/);
+    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>HYROX/);
   });
 
   it("the first tab is the week view, on every page", () => {
-    const firstTab = html.indexOf('href="/plan">This week');
-    expect(firstTab).toBeGreaterThan(-1);
+    // Desktop side column and phone tab bar both open on the week view.
+    const firstLinks = [...html.matchAll(/<nav[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>/g)].map((m) => m[1]);
+    expect(firstLinks.length).toBe(2);
+    expect(firstLinks.every((href) => href === "/plan")).toBe(true);
+    expect(html).toMatch(/href="\/plan"[^>]*>(?:<svg[\s\S]*?<\/svg>)?This week/);
   });
 
   it("marks the page you are on", () => {

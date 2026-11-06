@@ -137,13 +137,13 @@ function PacingSection({
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">
+      <h2 className="text-h2 text-chalk">
         Your race, minute by minute
       </h2>
       <div className="card space-y-4">
         <div className="flex flex-wrap items-end gap-4">
           <label className="block">
-            <span className="mb-1 block text-micro font-semibold uppercase tracking-wider text-ash">
+            <span className="mb-1 block text-meta font-bold text-bone">
               Goal time
             </span>
             <input
@@ -191,7 +191,7 @@ function PacingSection({
           <div className="overflow-x-auto">
             <table className="w-full text-meta">
               <thead>
-                <tr className="border-b border-edge text-micro uppercase tracking-wider text-ash">
+                <tr className="border-b border-edge text-meta font-bold text-bone">
                   <th className="py-2 text-left font-semibold">Segment</th>
                   <th className="py-2 text-right font-semibold">Split</th>
                   <th className="py-2 text-right font-semibold">Elapsed</th>
@@ -243,7 +243,7 @@ function CostSection({
   const worst = costs[0];
   return (
     <section className="space-y-3">
-      <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">
+      <h2 className="text-h2 text-chalk">
         What each station is costing you
       </h2>
       <div className="card space-y-3">
@@ -353,7 +353,7 @@ function ResultSection({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">Your races</h2>
+      <h2 className="text-h2 text-chalk">Your races</h2>
 
       {results.length > 0 && (
         <div className="card space-y-2">
@@ -396,7 +396,7 @@ function ResultSection({
 
             <div className="flex flex-wrap gap-3">
               <label className="block">
-                <span className="mb-1 block text-micro font-semibold uppercase tracking-wider text-ash">
+                <span className="mb-1 block text-meta font-bold text-bone">
                   Race date
                 </span>
                 <input
@@ -407,7 +407,7 @@ function ResultSection({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-micro font-semibold uppercase tracking-wider text-ash">
+                <span className="mb-1 block text-meta font-bold text-bone">
                   Finish time
                 </span>
                 <input
@@ -420,7 +420,7 @@ function ResultSection({
             </div>
 
             <div>
-              <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">
+              <div className="mb-1 text-meta font-bold text-bone">
                 Run splits
               </div>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
@@ -447,7 +447,7 @@ function ResultSection({
             </div>
 
             <div>
-              <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">
+              <div className="mb-1 text-meta font-bold text-bone">
                 Station times
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -489,7 +489,7 @@ function ResultSection({
 function Figure({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div>
-      <div className="text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
+      <div className="text-meta font-bold text-bone">{label}</div>
       <div
         className={`font-mono text-h3 tabular-nums ${accent ? "text-flame" : "text-chalk"}`}
       >

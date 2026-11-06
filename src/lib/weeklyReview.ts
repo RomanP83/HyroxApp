@@ -100,7 +100,7 @@ export async function buildWeeklyReview(
   const text = lines.join("\n");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const html = `
-  <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a1a">
+  <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1b1d20">
     ${lines
       .map((l) =>
         l.startsWith("•")
@@ -109,7 +109,7 @@ export async function buildWeeklyReview(
       )
       .join("")}
     <a href="${appUrl}/progress"
-       style="display:inline-block;margin-top:12px;background:#ff5a1f;color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600">
+       style="display:inline-block;margin-top:12px;background:#1b1d20;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:700">
       See your progress charts
     </a>
   </div>`;

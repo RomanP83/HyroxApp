@@ -490,7 +490,7 @@ export function PlanClient(props: Props) {
                 <SparkIcon size={15} />
               </span>
               <div className="min-w-0">
-                <div className="text-micro font-semibold uppercase tracking-widest text-ash">
+                <div className="text-meta font-bold text-bone">
                   Coach note
                 </div>
                 <p className="mt-0.5 max-w-[62ch] text-base leading-relaxed text-bone">
@@ -502,7 +502,7 @@ export function PlanClient(props: Props) {
             {props.runSummary && props.runSummary.runs > 0 && (
               <div className="mt-4 max-w-md">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                  <span className="text-meta font-bold text-bone">
                     Running
                   </span>
                   <span className="font-mono text-meta tabular-nums text-bone">
@@ -540,7 +540,7 @@ export function PlanClient(props: Props) {
           {/* ── The week. One card leads: the one you are standing in. ────── */}
           <div className="space-y-1.5 pt-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+              <span className="text-meta font-bold text-bone">
                 {props.sessions.length} sessions
               </span>
               <span className="flex items-center gap-3 text-micro text-smoke">
@@ -621,7 +621,7 @@ export function PlanClient(props: Props) {
           {/* The one number the whole system exists to move. It reads like the
               clock it will be measured against, not like a metric tile. */}
           <div className="card-focal">
-            <div className="text-micro font-semibold uppercase tracking-widest text-ash">
+            <div className="text-meta font-bold text-bone">
               Estimated finish
             </div>
             <div className="mt-1.5 font-mono text-clock font-bold tabular-nums text-chalk">
@@ -641,7 +641,7 @@ export function PlanClient(props: Props) {
           <div className="card">
             <div className="mb-2.5 flex items-center gap-2">
               <SparkIcon size={15} className="text-amber" />
-              <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+              <span className="text-meta font-bold text-bone">
                 Why your plan changed
               </span>
             </div>
@@ -692,7 +692,7 @@ export function PlanClient(props: Props) {
               whole plan, which is not a footnote to today's session. */}
           <Link
             href="/settings"
-            className="flex items-center justify-between gap-2 rounded-panel border border-edge bg-lane/60 px-4 py-3 text-micro font-semibold uppercase tracking-widest text-ash transition-colors duration-150 hover:border-edge-strong hover:text-bone"
+            className="flex items-center justify-between gap-2 rounded-panel border border-edge bg-lane/60 px-4 py-3 text-meta font-bold text-bone transition-colors duration-150 hover:border-edge-strong hover:text-bone"
           >
             Setup &amp; tools
             <span className="text-smoke">→</span>
@@ -702,7 +702,7 @@ export function PlanClient(props: Props) {
 
       {feedback && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-12"
           onClick={() => setFeedback(null)}
         >
           <div className="w-full max-w-lg animate-pop-in" onClick={(e) => e.stopPropagation()}>
@@ -783,7 +783,7 @@ function GoalLine({ check }: { check: GoalCheck }) {
   return (
     <div className="mt-3 border-t border-edge pt-3">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-micro font-semibold uppercase tracking-widest text-ash">Goal</span>
+        <span className="text-meta font-bold text-bone">Goal</span>
         <span className="font-mono text-base font-semibold tabular-nums text-bone">
           {fmtClock(check.goal_seconds)}
         </span>
@@ -850,7 +850,7 @@ function SwapSheet({
   const options: StationAlternative[] = alternativesFor(station, equipment);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-void/70 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
@@ -876,7 +876,7 @@ function SwapSheet({
             onClick={() => onPick(null)}
             className={`w-full rounded-control border p-3 text-left transition-colors duration-150 ease-out ${
               current === null
-                ? "border-flame/70 bg-flame/10"
+                ? "border-chalk bg-rack ring-1 ring-chalk"
                 : "border-edge bg-well hover:border-edge-strong"
             }`}
           >
@@ -892,7 +892,7 @@ function SwapSheet({
               onClick={() => onPick(alt.slug)}
               className={`w-full rounded-control border p-3 text-left transition-colors duration-150 ease-out ${
                 current === alt.slug
-                  ? "border-flame/70 bg-flame/10"
+                  ? "border-chalk bg-rack ring-1 ring-chalk"
                   : "border-edge bg-well hover:border-edge-strong"
               }`}
             >

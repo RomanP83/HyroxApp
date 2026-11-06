@@ -548,7 +548,7 @@ export default function DemoPage() {
 
       {feedback && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-12"
           onClick={() => setFeedback(null)}
         >
           <div className="w-full max-w-lg animate-pop-in" onClick={(e) => e.stopPropagation()}>

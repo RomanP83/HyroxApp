@@ -317,7 +317,7 @@ export function SettingsClient(props: SettingsProps) {
 
       {/* ── The two controls that rebuild the plan ────────────────────────── */}
       <section className="space-y-4">
-        <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">
+        <h2 className="text-h2 text-chalk">
           Your training week
         </h2>
 
@@ -350,7 +350,7 @@ export function SettingsClient(props: SettingsProps) {
           />
 
           <label className="block">
-            <span className="mb-1 block text-micro font-semibold uppercase tracking-wider text-ash">
+            <span className="mb-1 block text-meta font-bold text-bone">
               Goal time — what you are chasing
             </span>
             <input
@@ -410,7 +410,7 @@ export function SettingsClient(props: SettingsProps) {
             </div>
             <div className="flex flex-wrap items-end gap-3">
               <label className="block">
-                <span className="mb-1 block text-micro font-semibold uppercase tracking-wider text-ash">
+                <span className="mb-1 block text-meta font-bold text-bone">
                   Week 1 Monday
                 </span>
                 <input
@@ -701,7 +701,7 @@ export function SettingsClient(props: SettingsProps) {
 
       {props.collectionAvailable !== false && (
         <section className="space-y-3">
-          <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">Workouts</h2>
+          <h2 className="text-h2 text-chalk">Workouts</h2>
           <div className="card space-y-4" data-testid="collection-card">
             <p className="max-w-[62ch] text-meta leading-relaxed text-ash">
               Where the content of your sessions comes from. The engine still decides the week —
@@ -727,7 +727,7 @@ export function SettingsClient(props: SettingsProps) {
                   aria-checked={collection === o.id}
                   onClick={() => setCollection(o.id)}
                   className={`rounded-panel border p-3 text-left transition-colors ${
-                    collection === o.id ? "border-amber/60 bg-rack" : "border-edge hover:border-edge-strong"
+                    collection === o.id ? "border-chalk bg-rack ring-1 ring-chalk" : "border-edge hover:border-edge-strong"
                   }`}
                 >
                   <div className="text-base font-semibold">{o.title}</div>
@@ -748,7 +748,7 @@ export function SettingsClient(props: SettingsProps) {
 
       {/* ── Connections: a list of the same shape, so a list it is ─────────── */}
       <section className="space-y-3">
-        <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">Connections</h2>
+        <h2 className="text-h2 text-chalk">Connections</h2>
         <div className="space-y-1.5">
           <Connection
             icon={<RunIcon size={16} />}
@@ -777,7 +777,7 @@ export function SettingsClient(props: SettingsProps) {
 
       {/* ── The one that is not a setting ─────────────────────────────────── */}
       <section className="space-y-3">
-        <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">
+        <h2 className="text-h2 text-chalk">
           When something breaks
         </h2>
         {props.planStatus === "rehab" ? (
@@ -810,7 +810,7 @@ export function SettingsClient(props: SettingsProps) {
           it sits in Setup as a plain link rather than behind an API call: a
           download is what the browser is already good at. */}
       <section className="space-y-3">
-        <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">Your data</h2>
+        <h2 className="text-h2 text-chalk">Your data</h2>
         <div className="card flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-[52ch] text-meta leading-relaxed text-ash">
             Download everything: profile, plans, every logged session, benchmarks, race results and
@@ -829,7 +829,7 @@ export function SettingsClient(props: SettingsProps) {
           session in this browser only. Its own heading says so before the
           copy has to. */}
       <section className="space-y-3">
-        <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">This device</h2>
+        <h2 className="text-h2 text-chalk">This device</h2>
         <div className="card flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-[52ch] text-meta leading-relaxed text-ash">
             Signing out ends the session in this browser. Your plan and everything you have logged
@@ -943,7 +943,7 @@ function ChipRow({
 }) {
   return (
     <div>
-      <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
+      <div className="mb-1 text-meta font-bold text-bone">{label}</div>
       <div className="flex gap-1">
         {options.map((o) => (
           <button
@@ -954,7 +954,7 @@ function ChipRow({
             onClick={() => onChange(o)}
             className={`h-9 flex-1 rounded-control border text-meta font-semibold transition-colors duration-150 ease-out ${
               value === o
-                ? "border-flame/70 bg-flame/10 text-chalk"
+                ? "border-chalk bg-rack text-chalk ring-1 ring-chalk"
                 : "border-edge bg-well text-ash hover:border-edge-strong hover:text-bone"
             }`}
           >
@@ -979,14 +979,14 @@ function DayPicker({
   accent: "go" | "amber" | "smoke" | "flame";
 }) {
   const on = {
-    flame: "border-flame/70 bg-flame/15 text-chalk",
-    go: "border-go/70 bg-go/15 text-chalk",
-    amber: "border-amber/70 bg-amber/15 text-chalk",
+    flame: "border-chalk bg-chalk text-lane",
+    go: "border-chalk bg-chalk text-lane",
+    amber: "border-chalk bg-chalk text-lane",
     smoke: "border-edge-strong bg-rack text-bone",
   }[accent];
   return (
     <div>
-      <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
+      <div className="mb-1 text-meta font-bold text-bone">{label}</div>
       <div className="grid grid-cols-7 gap-1">
         {[1, 2, 3, 4, 5, 6, 7].map((d) => {
           const active = selected.includes(d);
@@ -1029,7 +1029,7 @@ function ChoiceRow<T extends string>({
 }) {
   return (
     <div>
-      <div className="mb-1 text-micro font-semibold uppercase tracking-wider text-ash">{label}</div>
+      <div className="mb-1 text-meta font-bold text-bone">{label}</div>
       <div className="flex flex-wrap gap-1">
         {options.map(([key, text]) => (
           <button
@@ -1040,7 +1040,7 @@ function ChoiceRow<T extends string>({
             onClick={() => onChange(key)}
             className={`h-9 flex-1 whitespace-nowrap rounded-control border px-3 text-meta font-semibold transition-colors duration-150 ease-out ${
               value === key
-                ? "border-flame/70 bg-flame/10 text-chalk"
+                ? "border-chalk bg-rack text-chalk ring-1 ring-chalk"
                 : "border-edge bg-well text-ash hover:border-edge-strong hover:text-bone"
             }`}
           >

@@ -1,77 +1,93 @@
 import type { Config } from "tailwindcss";
 
 // ============================================================================
-// The palette comes from the room this sport happens in: a matte black indoor
-// arena, sled turf, chalk on hands, and the amber LED of a race clock. One hue
-// runs through every surface — only the lightness moves — so the interface
-// reads as one space rather than a set of panels from different products.
+// The box whiteboard — the same design as the HyroxTraining tracker
+// (docs/design.md). A cool enamel board inside an aluminium frame rail, white
+// ruled panels, and marker colours that each mean one thing:
 //
-// Naming is deliberate: a token called `floor` or `chalk` says which world it
-// belongs to. `gray-700` would fit any project, which is the problem.
+//   ink   the work, and the fill of everything you can press
+//   red   targets and gaps still open (and the hard end of the effort scale)
+//   blue  running — and, as an interaction colour, links and focus
+//   green done, and targets already met — nothing else
+//   orange HYROX station work, and the engine's attention notes
+//
+// The token NAMES are the app's own (floor, lane, chalk …) so components keep
+// their meaning; the VALUES are the whiteboard's.
 // ============================================================================
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // ── Surfaces: one hue, lightness only. Whisper-quiet steps. ─────────
-        /** The arena floor — the page itself. */
-        floor: "#080c10",
-        /** A panel resting on the floor: cards, the session list's own ground. */
-        lane: "#0f1620",
-        /** One step up: nested emphasis, popovers, raised rows. */
-        rack: "#16202b",
-        /** Inset — inputs are sunk INTO the surface, never floated above it. */
-        well: "#05080b",
+        // ── Surfaces ───────────────────────────────────────────────────────
+        /** Enamel board — the page ground and the sheet ground. */
+        floor: "#f0f2f3",
+        /** Board panel white — cards, inputs, chips, the bottom tab bar. */
+        lane: "#ffffff",
+        /** Sunk panel — panels nested inside a panel, set rows, empty states. */
+        rack: "#f6f7f8",
+        /** Inputs sit on panel white with a rule, not sunk into the board. */
+        well: "#ffffff",
 
-        // ── Text: four levels, because two is not a hierarchy. ──────────────
-        chalk: "#e7edf2", // primary
-        bone: "#aebbc6", // secondary — body text that still carries weight
-        ash: "#7b8b98", // tertiary — metadata, labels
-        smoke: "#55636f", // muted — disabled, decoration
+        // ── Ink ────────────────────────────────────────────────────────────
+        chalk: "#1b1d20", // ink — primary text, pressable fills
+        bone: "#454b50", // ink 2 — secondary text, labels
+        ash: "#5f666b", // ink 3 — meta lines, dimmed days
+        smoke: "#80878b", // decoration only — never body text
 
-        // ── Signal. ONE accent; everything else means something specific. ───
-        /** The accent: actions, and the hard end of the effort scale. */
-        flame: "#ff5a1f",
-        /** Attention — a deload, a benchmark, a note from the engine. */
-        amber: "#e8a33a",
-        /** Aerobic, done, on target. Desaturated: dark grounds amplify chroma. */
-        go: "#35b88a",
-        /** Error, injury, over the line. */
-        stop: "#e0646c",
+        // ── Markers ────────────────────────────────────────────────────────
+        /** Target red: targets, open gaps, the hard end of the effort scale. */
+        flame: "#c12d24",
+        /** Station orange: HYROX station work, and an engine note to read. */
+        amber: "#b4521a",
+        /** Done green: done, and targets already met. */
+        go: "#18794a",
+        /** Error and over the line — the same red as a target still open. */
+        stop: "#c12d24",
+        /** Running blue: running, links, the focus ring. */
+        run: "#1f4fb8",
+        /** Done wash: the ground of a check that has been marked done. */
+        wash: "#e9f4ee",
+
+        // ── Frame (rail) — only ever on chrome, never under content ────────
+        "rail-hi": "#d4d8da",
+        "rail-lo": "#b6bbbe",
+        "rail-edge": "#8f9497",
       },
       borderColor: {
-        // Borders are rgba so they blend into whatever they sit on; a solid hex
-        // edge reads as a drawn line, which is exactly what we do not want.
-        DEFAULT: "rgba(255,255,255,0.075)",
-        edge: "rgba(255,255,255,0.075)",
-        "edge-strong": "rgba(255,255,255,0.15)",
+        DEFAULT: "#d6dadc",
+        edge: "#d6dadc", // rule — between rows and around panels
+        "edge-strong": "#c2c7ca", // rule 2 — control outlines, chart axes
       },
       ringColor: {
-        edge: "rgba(255,255,255,0.075)",
-        "edge-strong": "rgba(255,255,255,0.15)",
+        edge: "#d6dadc",
+        "edge-strong": "#c2c7ca",
       },
       fontFamily: {
-        sans: ["var(--font-ui)", "ui-sans-serif", "system-ui", "sans-serif"],
-        // Every time, split and distance in this sport is read off a clock.
-        mono: ["var(--font-data)", "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ["var(--font-ui)", "Barlow", "Segoe UI", "system-ui", "sans-serif"],
+        // The board's writing: titles, section heads, and every number.
+        display: ["var(--font-data)", "Barlow Condensed", "Arial Narrow", "sans-serif"],
+        mono: ["var(--font-data)", "Barlow Condensed", "Arial Narrow", "sans-serif"],
       },
       fontSize: {
-        // A 14px base stepped at ~1.25 — a scale you can see, not 15/16/17 mush.
-        micro: ["0.6875rem", { lineHeight: "1rem", letterSpacing: "0.06em" }], // 11
-        meta: ["0.75rem", { lineHeight: "1.1rem" }], // 12
-        base: ["0.875rem", { lineHeight: "1.45rem" }], // 14
-        lead: ["1rem", { lineHeight: "1.5rem" }], // 16
-        h3: ["1.125rem", { lineHeight: "1.5rem", letterSpacing: "-0.01em" }], // 18
-        h2: ["1.375rem", { lineHeight: "1.7rem", letterSpacing: "-0.015em" }], // 22
-        h1: ["1.75rem", { lineHeight: "2rem", letterSpacing: "-0.02em" }], // 28
-        clock: ["2.75rem", { lineHeight: "1", letterSpacing: "-0.03em" }], // 44
+        micro: ["0.75rem", { lineHeight: "1.05rem", letterSpacing: "0.04em" }], // 12
+        meta: ["0.8125rem", { lineHeight: "1.2rem" }], // 13 — label
+        base: ["0.9375rem", { lineHeight: "1.45rem" }], // 15 — body small
+        lead: ["1rem", { lineHeight: "1.5rem" }], // 16 — body
+        h3: ["1.0625rem", { lineHeight: "1.4rem" }], // 17 — title
+        h2: ["1.375rem", { lineHeight: "1.65rem", letterSpacing: "0.01em" }], // 22 — headline
+        h1: ["clamp(2.25rem, 7vw, 3rem)", { lineHeight: "1" }], // display
+        clock: ["clamp(2rem, 6.4vw, 2.75rem)", { lineHeight: "1" }], // number n1
       },
       borderRadius: {
-        // Concentric: a 12px card holding 16px of padding wants ~8px children.
-        control: "0.5rem", // 8  — buttons, inputs, chips
-        panel: "0.75rem", // 12 — cards
-        stage: "1rem", // 16 — modals
+        control: "6px", // buttons, inputs, chips, nav items
+        panel: "8px", // panels, folds
+        stage: "8px", // sheets
+      },
+      boxShadow: {
+        // The one lift: what is happening today. Nothing else gets a shadow.
+        lift: "0 1px 0 #e3e5e1, 0 14px 30px -20px rgba(27,29,32,.5)",
+        sheet: "0 30px 80px -30px rgba(0,0,0,.55)",
       },
       keyframes: {
         "fade-up": {
@@ -86,12 +102,16 @@ const config: Config = {
           "0%": { backgroundPosition: "-400px 0" },
           "100%": { backgroundPosition: "400px 0" },
         },
+        strike: {
+          "0%": { transform: "rotate(-1.5deg) scaleX(0)" },
+          "100%": { transform: "rotate(-1.5deg) scaleX(1)" },
+        },
       },
       animation: {
-        // Custom ease-out: the built-in curves are too weak to feel deliberate.
         "fade-up": "fade-up 0.22s cubic-bezier(0.23, 1, 0.32, 1) both",
         "pop-in": "pop-in 0.18s cubic-bezier(0.23, 1, 0.32, 1) both",
         shimmer: "shimmer 1.4s linear infinite",
+        strike: "strike 0.5s cubic-bezier(.22,1,.36,1) both",
       },
     },
   },

@@ -12,7 +12,7 @@ export const maxDuration = 60;
 export async function POST() {
   if (!geminiConfigured()) return NextResponse.json({ error: "not_configured" }, { status: 503 });
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

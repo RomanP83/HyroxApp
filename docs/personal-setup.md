@@ -3,7 +3,7 @@
 The fastest path to *your* plan on *your* phone: **Supabase (free) + Vercel
 (free)**. Roughly 20 minutes, no credit card, no Stripe account.
 
-Everything optional stays optional — Stripe, Telegram, Strava, Garmin, Resend,
+Everything optional stays optional — Telegram, Strava, Garmin, Resend,
 Anthropic and Gemini keys can all stay unset; the app degrades gracefully without them.
 
 ---
@@ -25,10 +25,15 @@ Anthropic and Gemini keys can all stay unset; the app degrades gracefully withou
    definitions. It is safe to run more than once.
 
    Prefer the CLI? `npx supabase link --project-ref <ref> && npx supabase db push`
-   applies the migrations; you then still need the three files in
+   applies the migrations; you then still need the four files in
    `supabase/seed/` for the workout library.
 
-4. **Lock the door behind you.** Sign in to the app once (step 3 below), then in
+   **Re-run `setup.sql` after every update of the app.** The plan is stored as
+   references into the workout library, so a database that is behind the code
+   cannot save a plan the new engine builds — that shows up as a failed rebuild
+   with the reason named in the message.
+
+4. **Lock the door behind you.** Sign in to the app once (step 4 below), then in
    Supabase go to **Authentication → Providers → Email** and turn off
    *Allow new users to sign up*. Now the URL is public but only your account
    exists. (Row-level security already scopes every row to its owner, so even a
@@ -49,11 +54,11 @@ Anthropic and Gemini keys can all stay unset; the app degrades gracefully withou
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from Supabase |
    | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase |
    | `NEXT_PUBLIC_APP_URL` | `https://<your-app>.vercel.app` |
-   | `PERSONAL_MODE` | `1` |
+   | `APP_TIME_ZONE` | `Europe/Berlin` (or your training timezone) |
    | `CRON_SECRET` | any long random string |
 
-   `PERSONAL_MODE=1` unlocks every week — the free-preview paywall exists for
-   the product, not for you.
+   There is no paywall and no `PERSONAL_MODE` flag any more: this app has one
+   athlete, so every week is simply there.
 
    > Chicken-and-egg on `NEXT_PUBLIC_APP_URL`: deploy once, copy the URL Vercel
    > gives you, paste it in, redeploy.
@@ -73,9 +78,24 @@ conveniences, and both do nothing anyway until Telegram or Resend is configured.
 
 ---
 
-## 3. First run (~3 min)
+## 3. Point Supabase at your domain — don't skip this (~1 min)
 
-1. Open your URL → **Build my plan**.
+A fresh Supabase project has **Site URL** set to `http://localhost:3000`. Until
+you change it, every sign-in link you receive points at localhost and dies there.
+
+In Supabase → **Authentication → URL Configuration**:
+
+- **Site URL** → `https://<your-app>.vercel.app` (no trailing slash)
+- **Redirect URLs** → *Add URL* → `https://<your-app>.vercel.app/**`
+
+Save. If you already requested a link before doing this, request a fresh one —
+the old email has the wrong address baked in.
+
+---
+
+## 4. First run (~3 min)
+
+1. Open your URL → your plan, or onboarding if you have not signed in yet.
 2. Sign in with your email — Supabase mails you a magic link. *(The built-in
    mailer is rate-limited but fine for one person. If the mail never arrives,
    check Supabase → Authentication → Logs.)*
@@ -113,4 +133,16 @@ above.
 | **Gemini key** | AI coach on `/plan`: reviews your last three weeks and proposes up to three session changes you apply (or not) with one tap. Training data goes to Google. | `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com); optional `GEMINI_MODEL`, `AI_COACH_LANGUAGE` |
 | **Resend** | Email fallback for check-ins if you skip Telegram. | `RESEND_API_KEY`, `EMAIL_FROM` |
 
-Stripe stays off entirely in personal mode.
+Garmin requires `GARMIN_WEBHOOK_SECRET` as well as OAuth credentials. Register
+`https://<your-app>/api/garmin/webhook?token=<secret>` in the Garmin portal and keep
+that URL private. No secret means the webhook rejects requests, including reachability checks.
+
+## Updating an existing install (September 2026)
+
+Back up the database. Apply the new migrations in order before deploying the
+updated app — as of November 2026 that is `0029` … `0035` (0034 and 0035 are the
+former `0027_macro_idempotency` and `0028_transactional_session_logging`, renumbered
+when the branches were merged), then the three catalogue seeds in `supabase/seed/`
+(`0004`–`0006`); `setup.sql` contains all of it and is safe to re-run. Do not reset a
+live database. Configure the Garmin secret/Push URL and `APP_TIME_ZONE`.
+Remove unused `STRIPE_*` and `PERSONAL_MODE` variables. Authentication and RLS remain necessary.

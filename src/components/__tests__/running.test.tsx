@@ -87,3 +87,33 @@ describe("run sessions on the card", () => {
     expect(html).not.toContain("HRmax");
   });
 });
+
+describe("the second session of a double day", () => {
+  // Below two hours the PM session is training on unrecovered fatigue instead
+  // of adding a stimulus; beyond six it is simply a second day's load. The
+  // athlete decides when to go, so the number belongs on the card.
+  const pmSession = {
+    day_hint: 3,
+    day_slot: "pm" as const,
+    session_type: "run_easy" as const,
+    title: "Recovery Run",
+    planned_duration_min: 25,
+    intensity_rpe_target: 2,
+    sort_order: 1,
+    blocks: [],
+  };
+
+  it("states the gap it needs from the morning", () => {
+    const html = renderToStaticMarkup(
+      <SessionCard session={pmSession} onLog={() => undefined} showSlot />,
+    );
+    expect(html).toContain("2–6 h after the morning session");
+  });
+
+  it("says nothing of the sort on a single session day", () => {
+    const html = renderToStaticMarkup(
+      <SessionCard session={{ ...pmSession, day_slot: "am" }} onLog={() => undefined} showSlot />,
+    );
+    expect(html).not.toContain("after the morning session");
+  });
+});

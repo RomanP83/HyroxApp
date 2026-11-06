@@ -7,10 +7,12 @@
 // ============================================================================
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  isRunSession,
   microCalibrate,
   stationForWeek,
   type AthleteProfile,
   type LoadEntry,
+  type PaceZones,
   type Station,
 } from "@/lib/engine";
 import type { BenchmarkSample } from "@/lib/engine";
@@ -141,8 +143,50 @@ export async function applyMicroForSession(
     if (withPace) actualPaceSecKm = withPace.pace_actual_sec_km;
   }
 
-  const station: Station | undefined =
-    session.session_type === "station_work" ? stationForWeek(weekNumber) : undefined;
+  // Which station this session actually hammered, read off the block the engine
+  // recorded it on. It used to be guessed from the weekly rotation — but 59 of
+  // the 60 catalogue sessions name their own station and that one wins, so the
+  // rotation matched what was trained in about a quarter of weeks. Logging a
+  // wall-ball session as "felt easier" was stepping up some other station's
+  // tier, and the tiers steer the catalogue, the prescribed weights, the pacing
+  // sheet and the finish-time estimate.
+  let station: Station | undefined;
+  if (session.session_type === "station_work") {
+    const { data: blockRows } = await admin
+      .from("session_blocks")
+      .select("workout_blocks(station)")
+      .eq("session_id", sessionId);
+    const trained = (blockRows ?? [])
+      .map((r) => (r.workout_blocks as { station?: string | null } | null)?.station)
+      .find((s): s is string => Boolean(s) && s !== "run" && s !== "general");
+    // No block says which station it was: fall back to the rotation rather than
+    // calibrating nothing at all.
+    station = (trained as Station | undefined) ?? stationForWeek(weekNumber);
+  }
+
+  // The zone this session was actually prescribed at, read back off the block
+  // the engine recorded it on. Without it the session TYPE decides, and every
+  // interval session — threshold, VO₂max and race pace alike — calibrated the
+  // interval zone. `null` when the session names no single zone: then nothing
+  // is calibrated, which is the honest answer for an alternation.
+  let paceZone: keyof PaceZones | null | undefined;
+  if (isRunSession(session.session_type)) {
+    const { data: blockRows } = await admin
+      .from("session_blocks")
+      .select("load_adjustments")
+      .eq("session_id", sessionId);
+    const withZone = (blockRows ?? []).find(
+      (r) => (r.load_adjustments as { pace_zone?: string } | null)?.pace_zone,
+    );
+    const paced = (blockRows ?? []).find(
+      (r) => (r.load_adjustments as { pace_sec_km?: number } | null)?.pace_sec_km != null,
+    );
+    paceZone = withZone
+      ? ((withZone.load_adjustments as { pace_zone: keyof PaceZones }).pace_zone)
+      : paced
+        ? undefined // paced from its type's zone, as before
+        : null; // a "mixed" session: no single pace was ever prescribed
+  }
 
   // 7) Run the pure engine (calibration constants from engine_config, D2).
   const tuning = await loadTuning(admin);
@@ -157,6 +201,7 @@ export async function applyMicroForSession(
     durationActualMin: log.duration_actual_min ?? session.planned_duration_min,
     previousSameTypeDelta,
     actualPaceSecKm,
+    paceZone,
     loadHistory,
     benchmarks,
   });

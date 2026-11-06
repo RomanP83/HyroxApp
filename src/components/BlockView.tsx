@@ -1,5 +1,6 @@
-import type { RenderedBlock, Division } from "@/lib/engine";
-import { fmtPace, PALETTE, titleCase } from "@/lib/format";
+import type { RenderedBlock, Division, StationAlternative } from "@/lib/engine";
+import { fmtPace, PACE_ZONE_LABEL, PALETTE, titleCase } from "@/lib/format";
+import { SwapIcon } from "./icons";
 
 interface ContentItem {
   exercise?: string;
@@ -8,6 +9,8 @@ interface ContentItem {
   distance_m?: number;
   rest_sec?: number;
   load_by_division?: Record<string, string>;
+  /** Running, not erg metres or a carry — a swap must never cancel this. */
+  is_run?: boolean;
   // A personal strength template speaks in the athlete's own numbers: a rep
   // range instead of one figure, kilos instead of division loads.
   rep_min?: number | null;
@@ -63,20 +66,29 @@ export function BlockView({
   block,
   startAt = 1,
   accent = PALETTE.flame,
+  substitution,
+  onSwap,
 }: {
   block: RenderedBlock;
   startAt?: number;
   accent?: string;
+  /** Standing substitute for this block's station, when the athlete set one. */
+  substitution?: StationAlternative | null;
+  /** Opens the swap list. Omitted where swapping makes no sense (demo, print). */
+  onSwap?: () => void;
 }) {
   const division = block.load_adjustments.division;
   const items = (block.content as ContentItem[]) ?? [];
   const section = SECTION[block.block_type] ?? { label: titleCase(block.block_type) };
   const color = section.color ?? accent;
   const a = block.load_adjustments;
+  const swappable = Boolean(onSwap) && Boolean(block.station) && block.station !== "general";
 
   return (
     <section
-      className="overflow-hidden rounded-control border border-edge bg-rack"
+      className={`overflow-hidden rounded-control border bg-rack ${
+        substitution ? "border-amber/40" : "border-edge"
+      }`}
       data-block-type={block.block_type}
     >
       <header
@@ -100,14 +112,40 @@ export function BlockView({
           {a.station_tier != null && <span className="pill text-amber">tier {a.station_tier}</span>}
           {a.pace_sec_km != null && (
             <span className="pill border-amber/40 font-mono normal-case tracking-normal text-amber">
+              {a.pace_zone ? `${PACE_ZONE_LABEL[a.pace_zone]} · ` : ""}
               {fmtPace(a.pace_sec_km)}
             </span>
           )}
           {a.strength_modifier != null && (
             <span className="pill text-amber">load ×{a.strength_modifier.toFixed(2)}</span>
           )}
+          {swappable && (
+            <button
+              type="button"
+              onClick={onSwap}
+              className="flex items-center gap-1 rounded-control px-1.5 py-0.5 text-micro font-semibold text-ash transition-colors duration-150 ease-out hover:bg-well hover:text-bone"
+            >
+              <SwapIcon size={13} />
+              {substitution ? "Swapped" : "Swap"}
+            </button>
+          )}
         </span>
       </header>
+
+      {substitution && (
+        // The substitute replaces the prescription on the card, and says in the
+        // same breath what it does not replace. A swap that hides its cost
+        // quietly changes what the session trains.
+        <div className="mx-3 mt-2.5 rounded-control border border-amber/30 bg-amber/5 p-2.5">
+          <div className="text-base font-semibold text-chalk">{substitution.name}</div>
+          <p className="mt-0.5 text-meta leading-relaxed text-bone">{substitution.prescription}</p>
+          <p className="mt-1.5 text-micro leading-relaxed text-ash">
+            <b className="text-go">Keeps:</b> {substitution.keeps}{" "}
+            <b className="text-amber">Costs:</b> {substitution.costs}
+          </p>
+          <div className="mt-2 text-micro font-semibold uppercase tracking-wider text-smoke">Instead of</div>
+        </div>
+      )}
 
       {a.opening_pace_sec_km != null && (
         // Never sprint out of a station into Zone 5 — the opening metres are
@@ -136,8 +174,17 @@ export function BlockView({
           ]
             .filter(Boolean)
             .join(" · ");
+          // A substitute replaces the station work and nothing else. The run in
+          // a compromised block is still the run — striking it through would
+          // cancel half the session because the sled was busy.
+          const replaced = Boolean(substitution) && !it.is_run;
           return (
-            <li key={i} className="flex items-start gap-3 px-3 py-2.5">
+            <li
+              key={i}
+              className={`flex items-start gap-3 px-3 py-2.5 ${
+                replaced ? "opacity-50 line-through decoration-smoke/40" : ""
+              }`}
+            >
               <span className="w-5 shrink-0 pt-px text-right font-mono text-meta font-semibold tabular-nums text-smoke">
                 {startAt + i}
               </span>

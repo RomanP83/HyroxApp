@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
+import { currentWeekNumber } from "@/lib/planWeek";
 import { supabaseServer } from "@/lib/supabase/server";
 import { SettingsClient } from "@/components/SettingsClient";
 import type { VacationRow } from "@/components/VacationCard";
-import { assessVolumeTarget, type ExperienceLevel, type PaceZones } from "@/lib/engine";
+import {
+  assessVolumeTarget,
+  type Division,
+  type ExperienceLevel,
+  type PaceZones,
+} from "@/lib/engine";
 import { recentWeeklyRunKm } from "@/lib/runVolume";
 import { signDeepLink } from "@/lib/telegram";
 import { stravaConfigured } from "@/lib/strava";
@@ -13,7 +19,7 @@ export const dynamic = "force-dynamic";
 // Setup & tools. Reachable without a plan: the week shape and the volume are
 // exactly what someone wants to set BEFORE generating one.
 export default async function SettingsPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -22,7 +28,7 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, experience_level, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days",
+      "id, experience_level, target_time_sec, division, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
     )
     .eq("user_id", user.id)
     .single();
@@ -52,7 +58,7 @@ export default async function SettingsPage() {
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, status, total_weeks")
+    .select("id, status, total_weeks, starts_on, race_date")
     .eq("profile_id", profile.id)
     .in("status", ["active", "paused", "rehab"])
     .order("generated_at", { ascending: false })
@@ -67,6 +73,11 @@ export default async function SettingsPage() {
   // needs the athlete's pace zones and where the plan currently stands.
   let assessment = null;
   if (peakKm && plan) {
+    const thisWeek = currentWeekNumber({
+      startsOn: String(plan.starts_on).slice(0, 10),
+      today: new Date().toISOString().slice(0, 10),
+      totalWeeks: plan.total_weeks,
+    });
     const [{ data: state }, { data: phases }, { data: current }] = await Promise.all([
       supabase.from("athlete_state").select("pace_zones").eq("profile_id", profile.id).maybeSingle(),
       supabase.from("plan_phases").select("phase_type, end_week").eq("plan_id", plan.id),
@@ -74,7 +85,7 @@ export default async function SettingsPage() {
         .from("plan_weeks")
         .select("week_number")
         .eq("plan_id", plan.id)
-        .eq("status", "current")
+        .eq("week_number", thisWeek)
         .maybeSingle(),
     ]);
     const zones = (state?.pace_zones ?? {}) as PaceZones;
@@ -98,14 +109,26 @@ export default async function SettingsPage() {
   return (
     <SettingsClient
       hasPlan={Boolean(plan)}
+      planStart={
+        plan
+          ? {
+              starts_on: String(plan.starts_on).slice(0, 10),
+              race_date: String(plan.race_date).slice(0, 10),
+              total_weeks: plan.total_weeks,
+            }
+          : null
+      }
       planStatus={plan?.status ?? "none"}
       experienceLevel={(profile.experience_level as ExperienceLevel) ?? "intermediate"}
+      division={(profile.division as Division) ?? "open"}
+      goalRaceTimeSec={profile.target_time_sec ?? null}
       weekShape={{
         training_days_per_week: trainingDays,
         doubles_per_week: profile.doubles_per_week ?? 0,
         long_run_day: (profile.preferred_long_run_day as number | null) ?? null,
         strength_days: (profile.preferred_strength_days as number[] | null) ?? [],
         rest_days: (profile.preferred_rest_days as number[] | null) ?? [],
+        double_days: (profile.preferred_double_days as number[] | null) ?? [],
         ...(extrasRow
           ? {
               strength_per_week: (extrasRow.strength_per_week as number | null) ?? 1,

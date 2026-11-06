@@ -13,16 +13,25 @@ import { generatePlan, type AthleteProfile } from "@/lib/engine";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
 import { loadDayOverrides } from "@/lib/dayOverrides";
+import { raceIsBehind, weekStartOf } from "@/lib/planWeek";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
+import { buildTransitionBlock } from "@/lib/transitionBlock";
+import { dateInTrainingZone } from "@/lib/planClock";
 
 export async function rebasePlan(
   admin: SupabaseClient,
   planId: string,
   reason: string,
+  /**
+   * The Monday the rebuilt plan starts on. A rebase means "from today", so the
+   * default is this week's Monday; the settings page passes a chosen date when
+   * the athlete is deliberately moving the start.
+   */
+  startsOn?: string,
 ): Promise<string | null> {
   const { data: plan } = await admin
     .from("plans")
-    .select("id, profile_id, race_id, race_date, stripe_payment_id")
+    .select("id, profile_id, race_id, race_date, kind")
     .eq("id", planId)
     .single();
   if (!plan) return null;
@@ -39,8 +48,40 @@ export async function rebasePlan(
 
   // A rebase must not lose the race calendar: the B and C races the athlete
   // entered are part of the plan, not decoration on the season page.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateInTrainingZone();
+  const start = weekStartOf(startsOn?.slice(0, 10) ?? today, 1);
   const raceDate = String(plan.race_date).slice(0, 10);
+
+  // A transition block rebases into a transition block. persistPlan defaults
+  // kind to "race" and this never passed one, so every nightly rebase quietly
+  // turned a transition block into a race cycle — peaking and tapering into the
+  // block's own end date, which is not a race and was never meant to be one.
+  if (plan.kind === "transition") {
+    const block = await buildTransitionBlock({
+      supabase: admin,
+      profile,
+      state,
+      startsOn: start,
+      today,
+    });
+    // persist_plan abandons the previous active plan in the same transaction,
+    // so the old block needs no separate retirement here.
+    await admin.from("plan_adjustments").insert({
+      plan_id: block.planId,
+      layer: "macro",
+      trigger: "pause",
+      action_taken: { type: "rebase", from_plan: plan.id, kind: "transition" },
+      reason,
+    });
+    return block.planId;
+  }
+
+  // Never rebase past a race that has already happened. planWeeksTo counts
+  // weeks TO the race; against a date in the past it clamps to its floor and
+  // hands back a two-week taper aimed at a day that is over. The guard lives
+  // here rather than in each of the six callers, because any of them can be
+  // reached the week after a race.
+  if (raceIsBehind(raceDate, today)) return null;
   const calendar = await loadSeasonRaces(admin, plan.profile_id);
   const races = racesForPlan(
     calendar.some((r) => r.date === raceDate)
@@ -59,8 +100,8 @@ export async function rebasePlan(
     profile,
     state,
     library,
-    weeksToRace: planWeeksTo(raceDate, today, 2),
-    startDate: today,
+    weeksToRace: planWeeksTo(raceDate, start, 2),
+    startDate: start,
     races,
     dayOverrides,
     vacations,
@@ -72,18 +113,12 @@ export async function rebasePlan(
       profileId: plan.profile_id,
       raceDate: plan.race_date,
       raceId: plan.race_id,
-      stripePaymentId: plan.stripe_payment_id,
+      startsOn: start,
+      rebaseFrom: planId,
+      rebaseReason: reason,
     },
     generated,
   );
-
-  await admin.from("plan_adjustments").insert({
-    plan_id: newPlanId,
-    layer: "macro",
-    trigger: "pause",
-    action_taken: { type: "rebase", from_plan: planId },
-    reason,
-  });
 
   return newPlanId;
 }

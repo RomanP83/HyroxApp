@@ -5,6 +5,8 @@
 // ============================================================================
 
 export type Division = "open" | "pro" | "doubles" | "masters_open" | "masters_pro";
+/** The four stages of the block between goals (constants.ts holds their specs). */
+export type TransitionModule = "reset" | "reintroduction" | "reload" | "offseason";
 export type ExperienceLevel =
   | "beginner"
   | "intermediate"
@@ -65,10 +67,28 @@ export type StationTiers = Record<string, number>; // station -> tier 1..3
 
 export type DaySlot = "am" | "pm";
 
+/** One benchmark result, latest per test. */
+export interface BenchmarkSample {
+  slug: string; // benchmark_definitions.slug
+  value: number; // metric value (sec, reps, or m)
+}
+
 export interface AthleteProfile {
   id: string;
   division: Division;
+  /**
+   * What this athlete can currently carry: it steers the training mix, the
+   * level-keyed catalogues, the session frequency and the default tiers.
+   * Deliberately NOT the goal — see target_time_sec.
+   */
   experience_level: ExperienceLevel;
+  /**
+   * The finish time the athlete is actually training for, in seconds. Ability
+   * and ambition are different numbers and an athlete is allowed to have both:
+   * running 1:30 today and wanting sub 70 is a training plan, not a
+   * contradiction. Null until set; goalSecondsForLevel supplies the default.
+   */
+  target_time_sec?: number | null;
   five_k_seconds: number | null;
   station_estimates: Record<string, number>;
   training_days_per_week: number; // 3..6
@@ -99,6 +119,8 @@ export interface AthleteProfile {
   strength_per_week?: number | null;
   preferred_strength_days?: number[] | null;
   preferred_rest_days?: number[] | null;
+  /** Weekdays that must carry the second session, when doubles are on. */
+  preferred_double_days?: number[] | null;
 }
 
 export interface AthleteState {
@@ -107,6 +129,12 @@ export interface AthleteState {
   acwr: number;
   pace_zones: PaceZones;
   station_tiers: StationTiers;
+  /**
+   * Station splits from the athlete's last race, in seconds. The tier is an
+   * ordinal guess; this is what the clock said. Present only once a race has
+   * been logged — until then the tiers carry the estimate on their own.
+   */
+  measured_station_seconds?: Partial<Record<Station, number>>;
   predicted_race_time_sec: number | null;
   /** Persisted strength-load multiplier the ±5% calibration steps (A6). */
   strength_modifier: number;
@@ -141,6 +169,19 @@ export interface RenderedBlock {
     division: Division;
     station_tier?: number;
     pace_sec_km?: number;
+    /**
+     * Which zone that pace came from. Recorded so a logged session calibrates
+     * the zone it was actually run at: the interval catalogue spans threshold,
+     * VO₂max and race pace, and without this every one of them nudged the
+     * interval zone.
+     */
+    pace_zone?: keyof PaceZones;
+    /**
+     * Running metres this block prescribes outright. Present only where the
+     * session is written as metres (compromised runs, intervals); a long run
+     * runs for a time and is read as duration ÷ pace.
+     */
+    run_metres?: number;
     /** Multiplier on the block's template loads (strength calibration, A6). */
     strength_modifier?: number;
     /** Which shape of the core session this is, and why (runVariants.ts). */
@@ -203,6 +244,19 @@ export interface GenerateInput {
   state: AthleteState;
   library: WorkoutBlock[];
   weeksToRace: number;
+  /**
+   * "race" periodises towards a race day; "transition" is the block between
+   * goals — base work at maintenance load, no benchmark, no simulation, no
+   * taper, because there is nothing to taper into. See transitionPhasePlan.
+   */
+  mode?: "race" | "transition";
+  /**
+   * Which transition module the block opens on. A block that continues one —
+   * no race in the calendar, the last simply ran out — starts at the
+   * off-season: the three days of nothing belong after a race, not after a
+   * loading cycle.
+   */
+  firstModule?: TransitionModule;
   /**
    * Any date inside plan week 1 (normally today). Only needed when races are
    * passed: it anchors the plan grid so a calendar date can be resolved to a

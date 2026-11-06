@@ -19,7 +19,7 @@ const DAY_MS = 86_400_000;
 const fmt = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.`;
 
 async function context() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -28,7 +28,7 @@ async function context() {
   return { supabase, profileId: (profile?.id as string | undefined) ?? null, status: profile ? 200 : 404 };
 }
 
-async function rebuild(supabase: ReturnType<typeof supabaseServer>, profileId: string, reason: string) {
+async function rebuild(supabase: Awaited<ReturnType<typeof supabaseServer>>, profileId: string, reason: string) {
   const { data: plan } = await supabase
     .from("plans")
     .select("id")

@@ -21,7 +21,7 @@ const Create = z.object({
 const Patch = z.object({ id: z.string().uuid(), is_baseline: z.literal(true) });
 
 async function profileId() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

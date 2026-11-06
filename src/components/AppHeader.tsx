@@ -16,6 +16,7 @@ const NAV = [
   { href: "/season", label: "Season" },
   { href: "/strength", label: "Strength" },
   { href: "/progress", label: "Progress" },
+  { href: "/race", label: "Race" },
   { href: "/benchmarks", label: "Benchmarks" },
 ];
 
@@ -39,7 +40,7 @@ export function AppHeader({ countdown, action }: Props) {
         <Link href="/plan" className="text-h3 font-bold tracking-tight">
           Hyrox<span className="text-flame">·</span>Hub
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex flex-wrap items-center gap-1">
           {NAV.map((item) => {
             const active = pathname === item.href;
             return (

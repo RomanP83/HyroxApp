@@ -178,7 +178,7 @@ export async function loadCoachContext(
 ): Promise<{ facts: CoachFacts; ctx: SuggestionContext; profileId: string } | null> {
   const { data: plan } = await admin
     .from("plans")
-    .select("id, profile_id, race_date, generated_at")
+    .select("id, profile_id, race_date, starts_on")
     .eq("id", planId)
     .maybeSingle();
   if (!plan) return null;
@@ -218,7 +218,7 @@ export async function loadCoachContext(
 
   // Today's place in the current calendar week: the same Monday grid the
   // day overrides and race calendar use.
-  const weekStart = new Date(`${weekStartOf(plan.generated_at, current.week_number)}T00:00:00Z`).getTime();
+  const weekStart = new Date(`${weekStartOf(plan.starts_on, current.week_number)}T00:00:00Z`).getTime();
   const todayDayHint = Math.max(1, Math.min(7, Math.floor((utcMidnight(now) - weekStart) / DAY_MS) + 1));
 
   const weekIds = [...new Set([...recentWeeks.map((w) => w.id), ...(next ? [next.id] : [])])];

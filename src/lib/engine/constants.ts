@@ -5,10 +5,18 @@
 // action is audited in plan_adjustments). Keep them here, in one place.
 // ============================================================================
 
-import type { PhaseType, SessionType, PaceZones, StationTiers } from "./types";
+import type {
+  ExperienceLevel,
+  TransitionModule,
+  PhaseType,
+  SessionType,
+  PaceZones,
+  StationTiers,
+} from "./types";
 import { STATIONS } from "./types";
 
 export const ENGINE_VERSION = "v1.2";
+export const ACWR_MIN_HISTORY_DAYS = 28;
 
 // ── Macro phase-split lookup (weeks_to_race -> [base, build, peak, taper]) ────
 // Taper is never negotiable (PP4).
@@ -22,11 +30,10 @@ export const PHASE_SPLIT_TABLE: Record<number, [number, number, number, number]>
 };
 
 // ── Session-slot priority per phase (highest priority first) ─────────────────
-// training_days_per_week decides how many slots survive; lowest-priority drops
-// first, and a 5th day adds run_easy.
-// Running is 50-60% of a Hyrox, so the run sessions lead each phase's order.
-// Base is deliberately free of compromised running: pure running economy first,
-// no sled/lunge load on the tendons yet (see COMPROMISED_PER_WEEK).
+// This no longer decides WHAT a week trains — TRAINING_MIX does, per level as
+// well as per phase. What survives here is ORDER and precedence: who gives way
+// when a hard session has to be capped, and which run type the phase reaches
+// for next. Running leads every phase because a Hyrox is 50-60% a running race.
 export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
   base: ["long_run", "strength", "run_intervals", "run_easy", "station_work", "mobility"],
   // Station work sits ahead of the recovery run in build and peak: a Hyrox
@@ -44,6 +51,68 @@ export const PHASE_SLOT_PRIORITY: Record<PhaseType, SessionType[]> = {
   // emptied. Dropping strength entirely is how athletes arrive flat.
   taper: ["run_intervals", "compromised_run", "run_easy", "strength", "station_work", "long_run"],
 };
+
+// ── The training mix, by level and phase ────────────────────────────────────
+// Hyrox is 50-60% a running race, so aerobic running economy is the floor
+// everything else stands on. Across a macrocycle the emphasis then moves from
+// maximal strength and Zone-2 base towards race-specific compromised running
+// and lactate tolerance — the same athlete, a different problem each block.
+//
+// These are shares of PLANNED MINUTES, not session counts: an 80-minute long
+// run and a 50-minute station session are not one unit each. distributeSlots()
+// apportions the week's sessions against them (micro.ts), carrying the
+// remainder across the weeks of a phase, which is how a 5% share still shows
+// up roughly every fourth week instead of rounding away to never.
+//
+// Running here is all three run types together; the sub-order inside it is the
+// phase's own (long run first, then the quality session, then easy volume).
+
+export interface TrainingMix {
+  run: number;
+  strength: number;
+  station: number;
+  compromised: number;
+}
+
+export const TRAINING_MIX: Record<ExperienceLevel, Record<PhaseType, TrainingMix>> = {
+  beginner: {
+    base: { run: 0.45, strength: 0.35, station: 0.15, compromised: 0.05 },
+    build: { run: 0.4, strength: 0.25, station: 0.2, compromised: 0.15 },
+    peak: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    taper: { run: 0.5, strength: 0.1, station: 0.15, compromised: 0.25 },
+  },
+  intermediate: {
+    base: { run: 0.5, strength: 0.3, station: 0.15, compromised: 0.05 },
+    build: { run: 0.4, strength: 0.2, station: 0.2, compromised: 0.2 },
+    peak: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    taper: { run: 0.45, strength: 0.1, station: 0.2, compromised: 0.25 },
+  },
+  advanced: {
+    base: { run: 0.5, strength: 0.25, station: 0.15, compromised: 0.1 },
+    build: { run: 0.35, strength: 0.2, station: 0.2, compromised: 0.25 },
+    peak: { run: 0.3, strength: 0.1, station: 0.25, compromised: 0.35 },
+    taper: { run: 0.45, strength: 0.1, station: 0.2, compromised: 0.25 },
+  },
+  elite: {
+    base: { run: 0.55, strength: 0.2, station: 0.15, compromised: 0.1 },
+    build: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    peak: { run: 0.3, strength: 0.1, station: 0.25, compromised: 0.35 },
+    taper: { run: 0.45, strength: 0.1, station: 0.2, compromised: 0.25 },
+  },
+  world_class: {
+    base: { run: 0.55, strength: 0.2, station: 0.15, compromised: 0.1 },
+    build: { run: 0.35, strength: 0.15, station: 0.2, compromised: 0.3 },
+    peak: { run: 0.3, strength: 0.1, station: 0.25, compromised: 0.35 },
+    taper: { run: 0.45, strength: 0.05, station: 0.2, compromised: 0.3 },
+  },
+};
+
+/**
+ * Hours between the two sessions of a double day. Below two the second session
+ * is training on top of unrecovered fatigue rather than a second stimulus;
+ * beyond six it is simply a separate day's worth of load.
+ */
+export const DOUBLE_DAY_GAP_HOURS = { min: 2, max: 6 } as const;
 
 /**
  * Hard days a week may hold — threshold/interval work, compromised running,
@@ -88,6 +157,115 @@ export const PHASE_RPE_TARGET: Record<PhaseType, number> = {
   peak: 8,
   taper: 5,
 };
+
+// ── The transition block, module by module ──────────────────────────────────
+// What happens between a race and the start of the next macrocycle is not one
+// undifferentiated "easy block". It is four stages that build on each other,
+// and which of them an athlete gets depends on how much room there is before
+// the next goal.
+//
+// The load climbs from nothing to near-normal across them, and the specificity
+// stays at zero throughout: no compromised running anywhere in a transition
+// block, no simulation, no benchmark. Race specificity is what the next
+// macrocycle is for; this block exists to arrive at it intact.
+
+export interface TransitionModuleSpec {
+  module: TransitionModule;
+  name: string;
+  /** Share of the volume a race block's base week would carry. */
+  volume: number;
+  /** Ceiling on the week's RPE targets — the module's whole point, some weeks. */
+  rpe_cap: number;
+  /** The training mix for the week; compromised is 0 in every module. */
+  mix: TrainingMix;
+  /** Threshold and VO2max work: not before the capacity is back. */
+  intervals: boolean;
+  /**
+   * A long run. The re-introduction week is 2-3 SHORT aerobic runs — putting
+   * a long run in it is the one thing that would make the week what it is not.
+   */
+  long_run: boolean;
+  /** One line on the week card, in the athlete's words. */
+  focus: string;
+}
+
+export const TRANSITION_MODULES: Record<TransitionModule, TransitionModuleSpec> = {
+  // Week 1. Days 1-3 carry nothing at all; days 4-7 move without impact —
+  // spinning, swimming, walking, mobility. No running, no landings, no lifting.
+  reset: {
+    module: "reset",
+    name: "Reset",
+    volume: 0.15,
+    rpe_cap: 3,
+    mix: { run: 0, strength: 0, station: 0, compromised: 0 },
+    intervals: false,
+    long_run: false,
+    focus:
+      "Complete recovery. The first three days carry nothing; the rest is movement without impact — spin, swim, walk, mobility. No running, no landings, no lifting. The nervous system is what is recovering, and it does not negotiate.",
+  },
+  // Week 2. Short aerobic runs, light full-body strength, erg technique.
+  reintroduction: {
+    module: "reintroduction",
+    name: "Re-Introduction",
+    volume: 0.45,
+    rpe_cap: 6,
+    mix: { run: 0.4, strength: 0.45, station: 0.15, compromised: 0 },
+    intervals: false,
+    long_run: false,
+    focus:
+      "Back into training, gently. Short Zone 1-2 runs, light full-body strength at high reps and nowhere near failure, and erg technique. Nothing is measured this week and nothing is simulated.",
+  },
+  // Week 3. Volume back to normal in the aerobic range, real lifts again.
+  reload: {
+    module: "reload",
+    name: "Volume Reload",
+    volume: 0.65,
+    rpe_cap: 8,
+    mix: { run: 0.55, strength: 0.3, station: 0.15, compromised: 0 },
+    intervals: true,
+    long_run: true,
+    focus:
+      "Training capacity back. Running volume normalises in Zone 2 with at most one moderate stimulus, and the main lifts return at 3-4 sets around RPE 7. A good week to look back at the race and name the weakness the next cycle should attack.",
+  },
+  // Week 4 onwards. The off-season proper: strength and weaknesses, polarised
+  // aerobic volume, and still not one metre of compromised running.
+  offseason: {
+    module: "offseason",
+    name: "Off-Season",
+    volume: 0.8,
+    rpe_cap: 9,
+    mix: { run: 0.55, strength: 0.25, station: 0.2, compromised: 0 },
+    intervals: true,
+    long_run: true,
+    focus:
+      "Off-season: the block where weaknesses get fixed rather than worked around. Heavy compounds in the low single digits, high Zone-2 volume across running and the ergs, and isolated station work on whatever the race exposed. Still no compromised running — that belongs to the next cycle.",
+  },
+};
+
+/** Ordered, which is how a block of N weeks is filled. */
+export const TRANSITION_ORDER: TransitionModule[] = [
+  "reset",
+  "reintroduction",
+  "reload",
+  "offseason",
+];
+
+/**
+ * The longest plan the format holds. A race block never needs more (the switch
+ * into race-specific work happens 12-16 weeks out), and it is how far an
+ * open-ended transition block runs before it has to be extended.
+ */
+export const PLAN_MAX_WEEKS = 20;
+
+/**
+ * The runway a race block wants. Anything beyond it before the next race is
+ * where the off-season module stretches out — the switch into race-specific
+ * work happens 12-16 weeks out, not the day after the last race.
+ */
+export const RACE_BLOCK_WEEKS = 16;
+
+/** Every fourth off-season week is a deload: three loading, one at -40%. */
+export const OFFSEASON_DELOAD_EVERY = 4;
 
 export const DELOAD_VOLUME_MULTIPLIER = 0.6; // §5: every 4th week in base/build
 
@@ -291,3 +469,25 @@ export const VACATION = {
   /** A vacation this long earns a lighter re-entry week afterwards. */
   reentry_min_days: 5,
 } as const;
+// ── Goal times ──────────────────────────────────────────────────────────────
+
+/**
+ * The finish time each level has always implied, now as a number.
+ *
+ * These are the times the level control has been promising in its own label
+ * ("Competitive · sub 1:20") without anything ever checking them. They are a
+ * starting point only: the goal is the athlete's to set, and the level goes
+ * back to describing what they can currently carry.
+ */
+export const GOAL_SECONDS_BY_LEVEL: Record<ExperienceLevel, number> = {
+  beginner: 100 * 60, // 1:40
+  intermediate: 90 * 60, // 1:30
+  advanced: 80 * 60, // 1:20
+  elite: 70 * 60, // 1:10
+  world_class: 60 * 60, // 1:00
+};
+
+/** The goal an athlete starts with, before they have said otherwise. */
+export function goalSecondsForLevel(level: ExperienceLevel): number {
+  return GOAL_SECONDS_BY_LEVEL[level] ?? GOAL_SECONDS_BY_LEVEL.intermediate;
+}

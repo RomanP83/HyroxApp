@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { applyDayOverrides, assessWeekPreferences, distributeSlots, layoutWeek } from "../micro";
 import type { SessionType } from "../types";
 import { weekStartOf } from "@/lib/dayOverrides";
@@ -169,12 +169,18 @@ describe("manual moves survive a rebase", () => {
 });
 
 describe("weekStartOf", () => {
+  beforeEach(() => vi.stubEnv("APP_TIME_ZONE", "Europe/Berlin"));
+  afterEach(() => vi.unstubAllEnvs());
+
   it("maps a plan week to the Monday it starts on", () => {
     // Plan generated on a Thursday: week 1 is the week containing it.
     expect(weekStartOf("2026-08-27T09:12:00Z", 1)).toBe("2026-08-24");
     expect(weekStartOf("2026-08-27T09:12:00Z", 4)).toBe("2026-09-14");
-    // Generated on a Sunday — still that week's Monday, not the next one.
-    expect(weekStartOf("2026-08-30T22:00:00Z", 1)).toBe("2026-08-24");
+    // The grid is anchored on plans.starts_on, a calendar date with no time
+    // of day, so there is no midnight for a time zone to move. "Today" is
+    // resolved in the training time zone before it gets here (planClock.ts).
+    expect(weekStartOf("2026-08-31", 1)).toBe("2026-08-31");
+    expect(weekStartOf("2026-08-30", 1)).toBe("2026-08-24");
   });
 
   it("is what makes an override survive renumbering", () => {
@@ -216,5 +222,54 @@ describe("two strength days a week", () => {
   it("warns when the game day collides with the long run", () => {
     const w = assessWeekPreferences({ longRunDay: 6, gameDay: 6 }, { trainingDays: 6 });
     expect(w.join(" ")).toMatch(/game day is pinned to Saturday/);
+  });
+});
+
+describe("which Monday an override is filed under", () => {
+  // The bug: the move endpoint anchored an override on plans.generated_at while
+  // generatePlan replays it against the grid derived from plans.starts_on. Those
+  // are the same Monday only when the plan was generated ON a Monday — and
+  // starts_on defaults to NEXT Monday, so in the normal case every recorded move
+  // was filed a week early, matched nothing on the next rebase, and vanished.
+  const generatedAt = "2026-03-04T18:20:00Z"; // a Wednesday
+  const startsOn = "2026-03-09"; // nextMonday(generatedAt)
+
+  it("is a different Monday for the two anchors whenever a plan is not built on a Monday", () => {
+    expect(weekStartOf(generatedAt, 1)).toBe("2026-03-02");
+    expect(weekStartOf(startsOn, 1)).toBe("2026-03-09");
+    expect(weekStartOf(generatedAt, 1)).not.toBe(weekStartOf(startsOn, 1));
+  });
+
+  it("only replays when the override was filed on the grid the plan is built on", () => {
+    const slots = BUILD.map((t, i) => ({
+      session_type: t,
+      day_hint: i + 1,
+      day_slot: "am" as const,
+      intensity_rpe_target: 7,
+      planned_duration_min: 60,
+      sort_order: i,
+    }));
+    const onStartsOn = {
+      week_start: weekStartOf(startsOn, 3),
+      session_type: "strength" as SessionType,
+      day_hint: 5,
+      day_slot: "am" as const,
+    };
+    // The plan's own week 3 Monday — what generatePlan looks the override up by.
+    const planWeek3 = weekStartOf(startsOn, 3);
+    const replayed = applyDayOverrides(
+      slots,
+      [onStartsOn].filter((o) => o.week_start === planWeek3),
+    );
+    expect(replayed.find((s) => s.session_type === "strength")?.day_hint).toBe(5);
+
+    // The same move, filed the way it used to be: it never matches, so the
+    // athlete's decision is silently dropped.
+    const onGeneratedAt = { ...onStartsOn, week_start: weekStartOf(generatedAt, 3) };
+    const dropped = applyDayOverrides(
+      slots,
+      [onGeneratedAt].filter((o) => o.week_start === planWeek3),
+    );
+    expect(dropped.find((s) => s.session_type === "strength")?.day_hint).not.toBe(5);
   });
 });

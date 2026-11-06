@@ -110,6 +110,14 @@ export const MedicalIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ExitIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+    <path d="M10 17l-5-5 5-5" />
+    <path d="M5 12h12" />
+  </Svg>
+);
+
 export const LeafIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M11 20A7 7 0 0 1 9.8 6.1C15 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z" />
@@ -164,4 +172,21 @@ export const SpinnerIcon = ({ size = 18, className }: IconProps) => (
   >
     <path d="M21 12a9 9 0 1 1-6.2-8.56" />
   </svg>
+);
+
+/** Two arrows trading places — swapping one exercise for another. */
+export const SwapIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8h13l-3.5-3.5" />
+    <path d="M20 16H7l3.5 3.5" />
+  </Svg>
+);
+
+/** An arrow into a tray — taking your own data out. */
+export const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3v12" />
+    <path d="M7 11l5 5 5-5" />
+    <path d="M4 20h16" />
+  </Svg>
 );

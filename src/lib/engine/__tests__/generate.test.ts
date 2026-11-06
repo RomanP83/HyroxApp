@@ -2,7 +2,12 @@ import { describe, it, expect } from "vitest";
 import { splitPhases, buildPhasePlan } from "../macro";
 import { generatePlan } from "../generate";
 import { initialAthleteState } from "../index";
-import type { AthleteProfile, WorkoutBlock } from "../types";
+import type { AthleteProfile, ExperienceLevel, WorkoutBlock } from "../types";
+import {
+  compromisedLibraryBlocks,
+  intervalLibraryBlocks,
+  stationLibraryBlocks,
+} from "../librarySeed";
 
 // Minimal but representative library so fill() always finds something.
 const library: WorkoutBlock[] = [
@@ -128,18 +133,65 @@ describe("plan generation (5 reference profiles: 8/10/12/16 wks x levels)", () =
     expect(mains.every((b) => b.load_adjustments.division === "open")).toBe(true);
   });
 
-  it("places deloads only in base/build and never on benchmark weeks", () => {
-    const p = profile();
-    const state = initialAthleteState(p);
-    const plan = generatePlan({ profile: p, state, library, weeksToRace: 16 });
-    const weeks = plan.phases.flatMap((ph) =>
-      ph.weeks.map((w) => ({ phase: ph.phase_type, ...w })),
-    );
-    for (const w of weeks) {
-      if (w.is_deload) {
-        expect(["base", "build"]).toContain(w.phase);
+  it("deloads every 3-4 weeks, never on a test week and never in the taper", () => {
+    for (const weeksToRace of [12, 16]) {
+      const p = profile();
+      const state = initialAthleteState(p);
+      const plan = generatePlan({ profile: p, state, library, weeksToRace });
+      const weeks = plan.phases.flatMap((ph) =>
+        ph.weeks.map((w) => ({ phase: ph.phase_type, ...w })),
+      );
+      const deloads = weeks.filter((w) => w.is_deload);
+      expect(deloads.length, `${weeksToRace} weeks`).toBeGreaterThan(1);
+      for (const w of deloads) {
+        expect(w.phase, `deload in ${w.phase}`).not.toBe("taper");
         expect(w.is_benchmark_week).toBe(false);
+        expect(w.sessions.some((s) => s.session_type === "full_sim")).toBe(false);
+      }
+      // No stretch of loading weeks longer than the rule allows, counting a
+      // test week as the relief it is (it carries no doubles either).
+      const relief = weeks
+        .filter((w) => w.is_deload || w.is_benchmark_week)
+        .map((w) => w.week_number);
+      let previous = 0;
+      for (const week of relief) {
+        expect(week - previous, `${weeksToRace} weeks: gap before W${week}`).toBeLessThanOrEqual(4);
+        previous = week;
       }
     }
   });
+});
+
+describe("a plan only ever names blocks that exist", () => {
+  // session_blocks.block_id is a uuid with a foreign key into workout_blocks.
+  // A block the engine invents but the library does not hold cannot be saved:
+  // the whole plan fails on persist, and the athlete is told nothing useful.
+  // The production library is the seed, compromised running included.
+  const full: WorkoutBlock[] = [...library, ...compromisedLibraryBlocks(), ...stationLibraryBlocks(), ...intervalLibraryBlocks()];
+  const known = new Set(full.map((b) => b.id));
+
+  const levels: ExperienceLevel[] = ["beginner", "intermediate", "advanced", "elite", "world_class"];
+  for (const level of levels) {
+    it(`holds for a ${level} athlete across a full cycle`, () => {
+      const p = profile({ experience_level: level, training_days_per_week: 6 });
+      const state = initialAthleteState(p);
+      const plan = generatePlan({ profile: p, state, library: full, weeksToRace: 16 });
+      const blocks = plan.phases
+        .flatMap((ph) => ph.weeks)
+        .flatMap((w) => w.sessions)
+        .flatMap((s) => s.blocks);
+      // Proof the levelled catalogues are actually on this path — they are
+      // the ones that named a slug where a uuid belonged.
+      for (const catalogue of [
+        compromisedLibraryBlocks(),
+        stationLibraryBlocks(),
+        intervalLibraryBlocks(),
+      ]) {
+        const ids = new Set(catalogue.map((b) => b.id));
+        expect(blocks.some((b) => ids.has(b.block_id))).toBe(true);
+      }
+      const unknown = blocks.filter((b) => !known.has(b.block_id)).map((b) => b.block_id);
+      expect(unknown).toEqual([]);
+    });
+  }
 });

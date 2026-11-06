@@ -38,7 +38,7 @@ export async function moveSession(
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, plan_id, day_hint, day_slot, title, session_type, plan_weeks!inner(week_number), plans!inner(profile_id, generated_at)",
+      "id, plan_id, day_hint, day_slot, title, session_type, plan_weeks!inner(week_number), plans!inner(profile_id, starts_on)",
     )
     .eq("id", sessionId)
     .single();
@@ -75,9 +75,12 @@ export async function moveSession(
   // Remember the decision against the CALENDAR week, so a later rebase can put
   // it back: plan week numbers shift when a plan is rebuilt, Mondays do not.
   const week = (session as unknown as { plan_weeks: { week_number: number } }).plan_weeks;
-  const plan = (session as unknown as { plans: { profile_id: string; generated_at: string } }).plans;
+  const plan = (session as unknown as { plans: { profile_id: string; starts_on: string } }).plans;
   if (week && plan) {
-    const weekStart = weekStartOf(plan.generated_at, week.week_number);
+    // Anchored on starts_on — the grid generatePlan replays overrides against.
+    // Anchoring on generated_at filed every move on a plan built on any day
+    // but Monday a week early, and the next rebase silently lost it.
+    const weekStart = weekStartOf(plan.starts_on, week.week_number);
     const moves = [{ session_type: String(session.session_type), day_hint: dayHint, day_slot: daySlot }];
     // A swap moved two sessions; both sides are decisions worth keeping.
     if (moved.swapped_with_type) {

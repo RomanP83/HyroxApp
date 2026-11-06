@@ -13,7 +13,7 @@ import type {
   SessionType,
   Station,
 } from "./types";
-import { TIER_MIN, TIER_MAX, DEFAULT_TUNING, type EngineTuning } from "./constants";
+import { TIER_MIN, TIER_MAX, DEFAULT_TUNING, ACWR_MIN_HISTORY_DAYS, type EngineTuning } from "./constants";
 import { predictRaceTime, type BenchmarkSample } from "./prognosis";
 
 export interface AdjustmentRecord {
@@ -51,15 +51,27 @@ export function computeLoadState(history: LoadEntry[], now: Date = new Date()): 
   const ms = (d: string | Date) => new Date(d).getTime();
   const t = now.getTime();
 
-  const acute = history
+  const valid = history.filter((e) => {
+    const age = t - ms(e.at);
+    return age >= 0 && age < 28 * DAY && Number.isFinite(e.srpe) && e.srpe >= 0;
+  });
+  const acute = valid
     .filter((e) => t - ms(e.at) < 7 * DAY)
     .reduce((s, e) => s + e.srpe, 0);
-  const last28 = history
-    .filter((e) => t - ms(e.at) < 28 * DAY)
-    .reduce((s, e) => s + e.srpe, 0);
-  const chronic = last28 / 4; // average weekly load over 28 days
+  const last28 = valid.reduce((s, e) => s + e.srpe, 0);
+  const oldest = history.reduce((min, e) => {
+    const at = ms(e.at);
+    return at <= t && Number.isFinite(e.srpe) && e.srpe >= 0 ? Math.min(min, at) : min;
+  }, t);
+  const observedDays = valid.length ? Math.floor((t - oldest) / DAY) + 1 : 0;
 
-  const acwr = chronic > 0 ? acute / chronic : acute > 0 ? 1.5 : 1.0;
+  // Until a complete 28-day baseline exists, ACWR is deliberately neutral.
+  // Dividing a first session by a quarter-filled window produced an artificial
+  // 4.0 spike and triggered a deload before the athlete had any history.
+  const coldStart = observedDays < ACWR_MIN_HISTORY_DAYS;
+  const chronic = coldStart ? acute : last28 / 4;
+
+  const acwr = coldStart ? 1.0 : chronic > 0 ? acute / chronic : acute > 0 ? 1.5 : 1.0;
   return {
     acute_load_7d: Math.round(acute),
     chronic_load_28d: Math.round(chronic),
@@ -69,6 +81,13 @@ export function computeLoadState(history: LoadEntry[], now: Date = new Date()): 
 
 // ── Layer 1: micro-calibration ──────────────────────────────────────────────
 
+/**
+ * The zone a session type runs at, when the session itself does not say.
+ *
+ * run_intervals is exactly why `paceZone` on MicroInput exists: the interval
+ * catalogue spans threshold, VO₂max and race pace, and calibrating the interval
+ * zone off a 25-minute LT2 block moves the wrong number in the wrong direction.
+ */
 const PACE_ZONE_FOR: Partial<Record<SessionType, keyof PaceZones>> = {
   run_easy: "easy_sec_km",
   run_intervals: "interval_sec_km",
@@ -88,6 +107,12 @@ export interface MicroInput {
   previousSameTypeDelta?: number;
   /** optional logged / Strava run pace to pull the zone toward (capped ±3%/wk). */
   actualPaceSecKm?: number;
+  /**
+   * The zone this particular session was prescribed at, from the block the
+   * engine recorded it on. Overrides the session type's default; absent when
+   * the session names no single zone, and then no pace is calibrated at all.
+   */
+  paceZone?: keyof PaceZones | null;
   loadHistory: LoadEntry[]; // sRPE entries incl. the session just logged
   benchmarks?: BenchmarkSample[];
   now?: Date;
@@ -125,6 +150,7 @@ export function microCalibrate(input: MicroInput): MicroResult {
     rpeActual,
     durationActualMin,
     previousSameTypeDelta,
+    paceZone,
     actualPaceSecKm,
     loadHistory,
     benchmarks = [],
@@ -164,8 +190,12 @@ export function microCalibrate(input: MicroInput): MicroResult {
   // Direction: +1 harder (up), -1 easier (down), 0 hold. One step only.
   const step = tooHard ? -1 : tooEasyStreak ? 1 : 0;
 
+  // The session's own zone wins over its type's. `null` means the session names
+  // no single zone (an alternation, a progression) — nothing gets calibrated
+  // from it, because there is no one pace it was run at.
+  const zoneKey = paceZone === null ? undefined : (paceZone ?? PACE_ZONE_FOR[sessionType]);
+
   if (step !== 0) {
-    const zoneKey = PACE_ZONE_FOR[sessionType];
     if (station && sessionType === "station_work") {
       const from = state.station_tiers[station] ?? 2;
       const to = clampTier(from + step);
@@ -227,7 +257,6 @@ export function microCalibrate(input: MicroInput): MicroResult {
   // 3) Pace-zone update from an actual run pace (manual or Strava), capped to
   //    ±3% of the weekly reference (A7).
   if (actualPaceSecKm != null) {
-    const zoneKey = PACE_ZONE_FOR[sessionType];
     if (zoneKey) {
       const from = next.pace_zones[zoneKey];
       const to = capPaceToRef(paceRef[zoneKey], actualPaceSecKm, T.pace_weekly_cap_pct);

@@ -2,7 +2,8 @@
 
 Adaptive 12-week Hyrox training plans, built backward from **your** race date — and
 recalibrated after **every** session. running.COACH-style adaptation for the Hyrox
-market, without a wearable requirement.
+training, without a wearable requirement. This installation is now personal-only:
+the home URL opens the plan, all weeks are available, and Stripe has been removed.
 
 > This repository implements the product described in
 > [`docs/implementation-plan.md`](docs/implementation-plan.md) (v1.1). Marketing
@@ -24,7 +25,7 @@ does, kept current with each new feature. (In German, like the app's first users
 | **PP4** Taper/peak uncertainty | Dedicated taper phase that is *never* negotiable. |
 | **PP5** Adherence > perfect plan | **1-tap logging** + a Telegram 4-button quick-log — and a **1-tap undo** when the wrong button gets hit. |
 | **PP6** Fragmented sources | One system: plan + tracking + adaptation + benchmarks. |
-| **PP7** Price sensitivity | One-time price per race cycle. |
+| **Personal use** | Every week available without purchases or subscriptions. |
 
 ---
 
@@ -32,7 +33,7 @@ does, kept current with each new feature. (In German, like the app's first users
 
 ```
 Next.js (App Router, Vercel)
-  ├─ Marketing / SEO landing            src/app/page.tsx
+  ├─ Personal entry → /plan             src/app/page.tsx
   ├─ Onboarding wizard (magic-link)     src/app/onboarding/page.tsx
   ├─ Week view + 1-tap logging          src/app/plan/page.tsx + components/PlanClient.tsx
   ├─ Season view (the year plan)        src/app/season/page.tsx + components/SeasonClient.tsx
@@ -41,7 +42,7 @@ Next.js (App Router, Vercel)
   ├─ Knowledge review (operator)        src/app/admin/knowledge/page.tsx
   └─ API routes                         src/app/api/**
         /plans/generate  · /sessions/[id]/log (POST log · DELETE undo) · /sessions/[id]/move
-        /stripe/checkout · /stripe/webhook    · /telegram/webhook · /cron/macro
+        /garmin/webhook · /telegram/webhook · /cron/macro
         /admin/knowledge/documents · /admin/knowledge/proposals · /seasons
         /strength/templates
 
@@ -103,7 +104,7 @@ literature, tuned in beta with real logs — which is why the audit log exists f
 
 ```bash
 npm install
-cp .env.example .env.local          # fill in Supabase (+ optional Stripe/Telegram)
+cp .env.example .env.local          # fill in Supabase (+ optional Telegram)
 
 # Run the deterministic engine test suite (no services required):
 npm test
@@ -127,8 +128,9 @@ supabase db reset        # applies supabase/migrations/** then seeds the library
 
 Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
 `SUPABASE_SERVICE_ROLE_KEY` (the engine writes `athlete_state` / `plan_adjustments`
-via the service role, bypassing RLS). Stripe, Telegram and the cron secret are
-optional — see `.env.example`. The app degrades gracefully when they’re unset.
+via the service role, bypassing RLS). Telegram and wearable connections are optional;
+`CRON_SECRET` is required for production scheduled jobs. Garmin requires
+`GARMIN_WEBHOOK_SECRET`. See `docs/personal-setup.md` for the migration/deployment order.
 
 ---
 

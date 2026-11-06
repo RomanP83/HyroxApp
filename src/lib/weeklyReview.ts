@@ -5,6 +5,7 @@
 // Returned as plain text (Telegram-safe HTML subset) + email HTML.
 // ============================================================================
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { currentWeekNumber } from "@/lib/planWeek";
 import { fmtClock } from "@/lib/format";
 
 export interface WeeklyReview {
@@ -16,11 +17,23 @@ export async function buildWeeklyReview(
   admin: SupabaseClient,
   planId: string,
 ): Promise<WeeklyReview | null> {
+  const { data: planRow } = await admin
+    .from("plans")
+    .select("starts_on, total_weeks")
+    .eq("id", planId)
+    .maybeSingle();
+  if (!planRow) return null;
+  const thisWeek = currentWeekNumber({
+    startsOn: String(planRow.starts_on).slice(0, 10),
+    today: new Date().toISOString().slice(0, 10),
+    totalWeeks: planRow.total_weeks,
+  });
+
   const { data: week } = await admin
     .from("plan_weeks")
     .select("id, week_number, target_sessions")
     .eq("plan_id", planId)
-    .eq("status", "current")
+    .eq("week_number", thisWeek)
     .maybeSingle();
   if (!week) return null;
 

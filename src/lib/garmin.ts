@@ -20,7 +20,11 @@ const TOKEN_URL = "https://diapi.garmin.com/di-oauth2-service/oauth/token";
 const USER_ID_URL = "https://apis.garmin.com/wellness-api/rest/user/id";
 
 export function garminConfigured(): boolean {
-  return Boolean(process.env.GARMIN_CLIENT_ID && process.env.GARMIN_CLIENT_SECRET);
+  return Boolean(
+    process.env.GARMIN_CLIENT_ID &&
+      process.env.GARMIN_CLIENT_SECRET &&
+      process.env.GARMIN_WEBHOOK_SECRET,
+  );
 }
 
 // ── OAuth state: profileId + PKCE verifier, HMAC-signed ─────────────────────
@@ -176,11 +180,12 @@ export async function processGarminSummary(
   const pace = paceSecPerKm(summary.distanceInMeters ?? 0, summary.durationInSeconds ?? 0);
   if (pace == null) return null;
 
-  const { data: profile } = await admin
+  const { data: profile, error } = await admin
     .from("athlete_profiles")
     .select("id")
     .eq("garmin_user_id", summary.userId)
     .maybeSingle();
+  if (error) throw new Error("Garmin profile lookup failed");
   if (!profile) return null;
 
   return autoLogRun(admin, profile.id, {

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { predictRaceTime, type AthleteProfile, type BenchmarkSample } from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
+import { currentWeekNumber } from "@/lib/planWeek";
+import { dateInTrainingZone } from "@/lib/planClock";
 
 // B2 (fixes M6): record a benchmark result and recalibrate the race-time
 // prognosis from it — closes the loop the schema always had tables for.
@@ -15,7 +17,7 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
   // Phase context from plan progress (start / mid / pre_race).
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, total_weeks")
+    .select("id, total_weeks, starts_on")
     .eq("profile_id", profile.id)
     .eq("status", "active")
     .order("generated_at", { ascending: false })
@@ -46,11 +48,16 @@ export async function POST(req: Request) {
     .maybeSingle();
   let phaseContext: "start" | "mid" | "pre_race" = "start";
   if (plan) {
+    const thisWeek = currentWeekNumber({
+      startsOn: String(plan.starts_on).slice(0, 10),
+      today: dateInTrainingZone(),
+      totalWeeks: plan.total_weeks,
+    });
     const { data: cur } = await supabase
       .from("plan_weeks")
       .select("week_number")
       .eq("plan_id", plan.id)
-      .eq("status", "current")
+      .eq("week_number", thisWeek)
       .maybeSingle();
     const ratio = cur ? cur.week_number / plan.total_weeks : 0;
     phaseContext = ratio >= 0.75 ? "pre_race" : ratio >= 0.34 ? "mid" : "start";

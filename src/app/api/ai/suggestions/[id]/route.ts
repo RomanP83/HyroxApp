@@ -16,19 +16,20 @@ const Body = z.object({
   op: z.enum(["apply", "dismiss", "undo"]),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: suggestionId } = await params;
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   const { item_id, op } = parsed.data;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   // RLS (ais_select) returns the row only to its owner.
-  const { data: rowData } = await supabase.from("ai_suggestions").select("*").eq("id", params.id).maybeSingle();
+  const { data: rowData } = await supabase.from("ai_suggestions").select("*").eq("id", suggestionId).maybeSingle();
   if (!rowData) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const row = rowData as SuggestionRow;
   const items = (row.items ?? []) as StoredSuggestion[];

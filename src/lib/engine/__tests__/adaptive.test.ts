@@ -25,6 +25,41 @@ function profile(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
 const p = profile();
 
 describe("computeLoadState (ACWR)", () => {
+  it("does not restart warm-up when the oldest log leaves the rolling window", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    const history = [
+      { at: new Date(now.getTime() - 40 * 86_400_000), srpe: 300 },
+      { at: now, srpe: 300 },
+    ];
+    expect(computeLoadState(history, now).acwr).toBe(4);
+  });
+
+  it("excludes future logs and invalid loads", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    expect(computeLoadState([
+      { at: new Date(now.getTime() + 86_400_000), srpe: 900 },
+      { at: now, srpe: NaN },
+      { at: now, srpe: -1 },
+    ], now)).toEqual({ acute_load_7d: 0, chronic_load_28d: 0, acwr: 1 });
+  });
+
+  it("keeps ACWR neutral for a first logged session", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    const s = computeLoadState([{ at: now, srpe: 420 }], now);
+    expect(s.acute_load_7d).toBe(420);
+    expect(s.chronic_load_28d).toBe(420);
+    expect(s.acwr).toBe(1);
+  });
+
+  it("keeps ACWR neutral until a complete 28-day baseline exists", () => {
+    const now = new Date("2026-07-04T12:00:00Z");
+    const history = Array.from({ length: 14 }, (_, d) => ({
+      at: new Date(now.getTime() - d * 86_400_000),
+      srpe: 300,
+    }));
+    expect(computeLoadState(history, now).acwr).toBe(1);
+  });
+
   it("computes acute/chronic/acwr from sRPE history", () => {
     const now = new Date("2026-07-04T12:00:00Z");
     const history: LoadEntry[] = [];
@@ -71,6 +106,63 @@ describe("micro-calibration — step rules", () => {
     } as MicroInput);
     expect(second.state.station_tiers.wall_balls).toBe(startTier + 1);
     expect(second.adjustments.some((a) => a.action_taken.type === "tier_up")).toBe(true);
+  });
+
+  it("calibrates the zone the session was run at, not the one its type implies", () => {
+    // The interval catalogue spans threshold, VO₂max and race pace. Before the
+    // block recorded its zone, a 25-minute LT2 block reported as too hard eased
+    // the INTERVAL pace — the one number that session never touched.
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "run_intervals", paceZone: "tempo_sec_km",
+      rpeTarget: 7, rpeActual: 10, durationActualMin: 45,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.pace_zones.tempo_sec_km).not.toBe(state.pace_zones.tempo_sec_km);
+    expect(res.state.pace_zones.interval_sec_km).toBe(state.pace_zones.interval_sec_km);
+  });
+
+  it("calibrates nothing from a session that names no single pace", () => {
+    // An alternation or a progression has no one pace it was run at, so there
+    // is no zone to move. Guessing one is how the wrong number drifts.
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "run_intervals", paceZone: null,
+      rpeTarget: 7, rpeActual: 10, durationActualMin: 45, actualPaceSecKm: 240,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.pace_zones).toEqual(state.pace_zones);
+  });
+
+  it("still falls back to the session type when no zone was recorded", () => {
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "run_intervals",
+      rpeTarget: 7, rpeActual: 10, durationActualMin: 45,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.pace_zones.interval_sec_km).not.toBe(state.pace_zones.interval_sec_km);
+  });
+
+  it("steps the tier of the station that was actually trained", () => {
+    // The runner used to guess the station from the weekly rotation, which
+    // matched what the session trained in about a quarter of weeks — so logging
+    // a wall-ball session moved some other station's tier. microCalibrate takes
+    // the station it is given; the runner now reads it off the block.
+    const state = base();
+    const res = microCalibrate({
+      state, profile: p, sessionType: "station_work", station: "wall_balls",
+      rpeTarget: 6, rpeActual: 9, durationActualMin: 50,
+      loadHistory: [{ at: new Date(), srpe: 450 }],
+    } as MicroInput);
+    expect(res.state.station_tiers.wall_balls).toBe(
+      Math.max(1, state.station_tiers.wall_balls - 1),
+    );
+    // And nothing else moved.
+    for (const [station, tier] of Object.entries(state.station_tiers)) {
+      if (station === "wall_balls") continue;
+      expect(res.state.station_tiers[station], station).toBe(tier);
+    }
   });
 
   it("steps DOWN immediately when a session is too hard", () => {

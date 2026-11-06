@@ -2377,3 +2377,1072 @@ drop policy if exists vac_all on vacations;
 create policy vac_all on vacations for all
   using (owns_profile(profile_id))
   with check (owns_profile(profile_id));
+
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- 0033 — the training branch that ran beside main (late August), brought in.
+--
+-- These columns came with that work. A database that already ran its
+-- migrations has them; "if not exists" keeps this harmless there.
+--
+--   athlete_profiles.preferred_double_days   the athlete pins the PM days
+--   plans.starts_on                           the Monday week 1 begins on
+--   plans.kind                                race cycle or transition block
+--   athlete_state.measured_station_seconds    station splits from the last race
+--   athlete_profiles.station_substitutions    standing swaps when a station is busy
+--
+-- Goal time: that work stored it as athlete_profiles.goal_race_time_sec; main
+-- calls it target_time_sec (0029). One goal, one column: a value from the old
+-- column is copied over where target_time_sec is still empty, and nothing
+-- reads goal_race_time_sec any more. The old column is left in place.
+--
+-- Race results: that work had its own race_results table. Race results now
+-- live in athlete_race_results (0029); race_results is left untouched.
+--
+-- resolve_plan_block() learns the branch's pinned catalogue ids: a uuid that
+-- names an existing block passes through; one that does not (the catalogue
+-- seed has not run yet) is stored by slug under that id. persist_plan gains
+-- starts_on and kind.
+-- ============================================================================
+
+alter table athlete_profiles
+  add column if not exists preferred_double_days int[] not null default '{}';
+
+alter table plans add column if not exists starts_on date;
+update plans
+set starts_on = ((generated_at at time zone 'UTC')::date
+  - ((extract(isodow from (generated_at at time zone 'UTC'))::int - 1) || ' days')::interval)::date
+where starts_on is null;
+alter table plans
+  alter column starts_on set not null,
+  alter column starts_on set default (
+    current_date - ((extract(isodow from current_date)::int - 1) || ' days')::interval
+  )::date;
+
+alter table plans
+  add column if not exists kind text not null default 'race';
+do $$ begin
+  alter table plans add constraint plans_kind_check check (kind in ('race', 'transition'));
+exception when duplicate_object then null; end $$;
+
+alter table athlete_state
+  add column if not exists measured_station_seconds jsonb not null default '{}'::jsonb;
+
+alter table athlete_profiles
+  add column if not exists station_substitutions jsonb not null default '{}'::jsonb;
+
+-- One goal time.
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'athlete_profiles' and column_name = 'goal_race_time_sec'
+  ) then
+    execute 'update athlete_profiles set target_time_sec = goal_race_time_sec
+             where target_time_sec is null and goal_race_time_sec between 2400 and 14400';
+  end if;
+end $$;
+
+create or replace function resolve_plan_block(b jsonb, p_session_type text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_raw text := b->>'block_id';
+  v_is_uuid boolean := coalesce(v_raw ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', false);
+  v_slug text;
+  v_id uuid;
+begin
+  if v_is_uuid then
+    select id into v_id from workout_blocks where id = v_raw::uuid;
+    if found then return v_id; end if;
+  end if;
+  v_slug := coalesce(nullif(b->>'slug', ''), case when v_is_uuid then null else v_raw end);
+  if v_slug is null then
+    raise exception 'block_without_id_or_slug';
+  end if;
+
+  -- An inline row follows the engine's current content; a real library row
+  -- with the same slug is never overwritten.
+  insert into workout_blocks (id, slug, block_type, station, content, equipment_variant, difficulty_tier, session_types, tags)
+  values (
+    case when v_is_uuid then v_raw::uuid else gen_random_uuid() end,
+    v_slug,
+    coalesce(nullif(b->>'block_type', ''), 'main')::block_type_t,
+    nullif(b->>'station', '')::station_t,
+    coalesce(b->'content', '[]'::jsonb),
+    'gym',
+    2,
+    '{}',
+    array['inline', coalesce(p_session_type, '')]
+  )
+  on conflict (slug) do update
+    set content = excluded.content,
+        block_type = excluded.block_type,
+        station = excluded.station
+    where 'inline' = any(workout_blocks.tags);
+
+  select id into v_id from workout_blocks where slug = v_slug;
+  return v_id;
+end;
+$$;
+
+revoke all on function resolve_plan_block(jsonb, text) from public;
+grant execute on function resolve_plan_block(jsonb, text) to authenticated, service_role;
+
+create or replace function persist_plan(p jsonb)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile uuid := (p->>'profile_id')::uuid;
+  v_plan uuid;
+  v_phase uuid;
+  v_week uuid;
+  v_session uuid;
+  phase jsonb;
+  wk jsonb;
+  sess jsonb;
+begin
+  if auth.uid() is not null and not exists (
+    select 1 from athlete_profiles ap
+    where ap.id = v_profile and ap.user_id = auth.uid()
+  ) then
+    raise exception 'not_authorized';
+  end if;
+
+  update plans set status = 'abandoned'
+  where profile_id = v_profile and status in ('active', 'paused', 'rehab');
+
+  insert into plans (profile_id, race_id, race_date, starts_on, kind, status, total_weeks, engine_version, stripe_payment_id)
+  values (
+    v_profile,
+    nullif(p->>'race_id', '')::uuid,
+    (p->>'race_date')::date,
+    -- The Monday the plan's week 1 begins on. Sent by the caller so the
+    -- athlete can start next Monday rather than mid-week; absent, the current
+    -- week's Monday, which is what generated_at used to imply.
+    coalesce(
+      nullif(p->>'starts_on', '')::date,
+      (current_date - ((extract(isodow from current_date)::int - 1) || ' days')::interval)::date
+    ),
+    coalesce(nullif(p->>'kind', ''), 'race'),
+    coalesce(nullif(p->>'status', ''), 'active')::plan_status_t,
+    (p->>'total_weeks')::int,
+    coalesce(nullif(p->>'engine_version', ''), 'v1.2'),
+    nullif(p->>'stripe_payment_id', '')
+  )
+  returning id into v_plan;
+
+  for phase in select * from jsonb_array_elements(p->'phases') loop
+    insert into plan_phases (plan_id, phase_type, sort_order, start_week, end_week, focus_description, volume_multiplier)
+    values (
+      v_plan,
+      (phase->>'phase_type')::phase_type_t,
+      (phase->>'sort_order')::int,
+      (phase->>'start_week')::int,
+      (phase->>'end_week')::int,
+      phase->>'focus_description',
+      (phase->>'volume_multiplier')::numeric
+    )
+    returning id into v_phase;
+
+    for wk in select * from jsonb_array_elements(phase->'weeks') loop
+      insert into plan_weeks (phase_id, plan_id, week_number, is_deload, is_benchmark_week, weekly_goal, target_sessions, status)
+      values (
+        v_phase,
+        v_plan,
+        (wk->>'week_number')::int,
+        coalesce((wk->>'is_deload')::bool, false),
+        coalesce((wk->>'is_benchmark_week')::bool, false),
+        wk->>'weekly_goal',
+        coalesce((wk->>'target_sessions')::int, 4),
+        case when (wk->>'week_number')::int = 1 then 'current' else 'upcoming' end::week_status_t
+      )
+      returning id into v_week;
+
+      for sess in select * from jsonb_array_elements(wk->'sessions') loop
+        insert into sessions (week_id, plan_id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, sort_order)
+        values (
+          v_week,
+          v_plan,
+          (sess->>'day_hint')::int,
+          coalesce(nullif(sess->>'day_slot', ''), 'am')::day_slot_t,
+          (sess->>'session_type')::session_type_t,
+          sess->>'title',
+          (sess->>'planned_duration_min')::int,
+          (sess->>'intensity_rpe_target')::int,
+          coalesce((sess->>'sort_order')::int, 0)
+        )
+        returning id into v_session;
+
+        insert into session_blocks (session_id, block_id, sort_order, load_adjustments)
+        select
+          v_session,
+          resolve_plan_block(b, sess->>'session_type'),
+          coalesce((b->>'sort_order')::int, 0),
+          coalesce(b->'load_adjustments', '{}'::jsonb)
+        from jsonb_array_elements(coalesce(sess->'blocks', '[]'::jsonb)) b;
+      end loop;
+    end loop;
+  end loop;
+
+  return v_plan;
+end;
+$$;
+
+revoke all on function persist_plan(jsonb) from public;
+grant execute on function persist_plan(jsonb) to authenticated, service_role;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/0034_macro_idempotency.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- One macro directive may change a given week once. The claim and the session
+-- updates share this transaction, so cron retries cannot compound durations.
+
+create table if not exists macro_directive_applications (
+  id uuid primary key default gen_random_uuid(),
+  plan_id uuid not null references plans(id) on delete cascade,
+  week_id uuid not null references plan_weeks(id) on delete cascade,
+  directive text not null check (directive in ('auto_deload', 'trim_week', 'ramp_up')),
+  multiplier numeric not null check (multiplier > 0 and multiplier <= 1),
+  applied_at timestamptz not null default now(),
+  unique (plan_id, week_id, directive)
+);
+
+alter table macro_directive_applications enable row level security;
+
+create or replace function apply_macro_scale(
+  p_plan uuid,
+  p_week uuid,
+  p_directive text,
+  p_multiplier numeric,
+  p_mark_deload boolean default false
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_claim uuid;
+begin
+  if p_directive not in ('auto_deload', 'trim_week', 'ramp_up') then
+    raise exception 'invalid_directive';
+  end if;
+  if p_multiplier <= 0 or p_multiplier > 1 then
+    raise exception 'invalid_multiplier';
+  end if;
+  if not exists (select 1 from plan_weeks where id = p_week and plan_id = p_plan) then
+    raise exception 'week_not_in_plan';
+  end if;
+
+  insert into macro_directive_applications(plan_id, week_id, directive, multiplier)
+  values (p_plan, p_week, p_directive, p_multiplier)
+  on conflict (plan_id, week_id, directive) do nothing
+  returning id into v_claim;
+
+  if v_claim is null then return false; end if;
+
+  update sessions
+  set planned_duration_min = greatest(15, round(planned_duration_min * p_multiplier)::int)
+  where week_id = p_week and status in ('planned', 'moved');
+
+  if p_mark_deload then
+    update plan_weeks set is_deload = true where id = p_week;
+  end if;
+  return true;
+end;
+$$;
+
+revoke all on function apply_macro_scale(uuid, uuid, text, numeric, boolean) from public, anon, authenticated;
+grant execute on function apply_macro_scale(uuid, uuid, text, numeric, boolean) to service_role;
+
+-- Serialize a rebase of the same source plan and commit its audit atomically.
+create or replace function rebase_plan_once(p_old uuid, p_payload jsonb, p_reason text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile uuid;
+  v_status text;
+  v_new uuid;
+begin
+  select profile_id, status::text into v_profile, v_status from plans where id = p_old for update;
+  if not found then raise exception 'plan_not_found'; end if;
+  if (p_payload->>'profile_id')::uuid is distinct from v_profile then
+    raise exception 'profile_mismatch';
+  end if;
+  select plan_id into v_new from plan_adjustments
+  where action_taken->>'type' = 'rebase' and action_taken->>'from_plan' = p_old::text
+  order by created_at desc limit 1;
+  if v_new is not null then return v_new; end if;
+  if v_status not in ('active', 'paused', 'rehab') then raise exception 'stale_plan'; end if;
+  v_new := persist_plan(p_payload);
+  insert into plan_adjustments(plan_id, layer, trigger, action_taken, reason)
+  values (v_new, 'macro', 'pause', jsonb_build_object('type', 'rebase', 'from_plan', p_old), p_reason);
+  return v_new;
+end;
+$$;
+revoke all on function rebase_plan_once(uuid, jsonb, text) from public, anon, authenticated;
+grant execute on function rebase_plan_once(uuid, jsonb, text) to service_role;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/0035_transactional_session_logging.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- Log, strength sets and status commit together; duplicate deliveries are no-ops.
+create or replace function record_session_completion(
+  p_session uuid,
+  p_completed_as_planned boolean,
+  p_rpe int,
+  p_duration int,
+  p_block_results jsonb,
+  p_notes text,
+  p_strength_sets jsonb default '[]'::jsonb,
+  p_completed_at timestamptz default now()
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_log uuid;
+  v_profile uuid;
+  v_sets int := 0;
+begin
+  if p_rpe is null or p_rpe not between 1 and 10 or p_duration is null or p_duration <= 0 then
+    raise exception 'invalid_session_values';
+  end if;
+  select p.profile_id into v_profile
+  from sessions s join plans p on p.id = s.plan_id
+  join athlete_profiles ap on ap.id = p.profile_id
+  where s.id = p_session and (ap.user_id = auth.uid() or auth.role() = 'service_role')
+  for update of s;
+  if not found then raise exception 'not_authorized'; end if;
+
+  if jsonb_typeof(coalesce(p_strength_sets, '[]'::jsonb)) <> 'array'
+    or jsonb_array_length(coalesce(p_strength_sets, '[]'::jsonb)) > 60 then
+    raise exception 'invalid_strength_sets';
+  end if;
+  -- SECURITY DEFINER must also validate the referenced exercise owner.
+  if exists (
+    select 1 from jsonb_to_recordset(coalesce(p_strength_sets, '[]'::jsonb)) as x(exercise_id uuid)
+    where x.exercise_id is not null and not exists (
+      select 1 from strength_exercises e join strength_templates t on t.id = e.template_id
+      where e.id = x.exercise_id and t.profile_id = v_profile
+    )
+  ) then raise exception 'exercise_not_owned'; end if;
+
+  insert into session_logs(
+    session_id, completed_as_planned, rpe_actual, duration_actual_min,
+    block_results, notes, completed_at
+  ) values (
+    p_session, p_completed_as_planned, p_rpe, p_duration,
+    p_block_results, p_notes, coalesce(p_completed_at, now())
+  )
+  on conflict (session_id) do nothing returning id into v_log;
+  if v_log is null then return jsonb_build_object('created', false, 'strength_sets', 0); end if;
+
+  insert into strength_set_logs(
+    session_id, exercise_id, exercise_name, set_number, reps, load_kg, logged_at
+  )
+  select p_session, x.exercise_id, trim(x.exercise_name), x.set_number,
+    x.reps, x.load_kg, coalesce(p_completed_at, now())
+  from jsonb_to_recordset(coalesce(p_strength_sets, '[]'::jsonb)) as x(
+    exercise_id uuid, exercise_name text, set_number int, reps int, load_kg numeric
+  )
+  where trim(coalesce(x.exercise_name, '')) <> '' and (x.reps is not null or x.load_kg is not null);
+  get diagnostics v_sets = row_count;
+
+  update sessions set status = 'done' where id = p_session;
+  return jsonb_build_object('created', true, 'strength_sets', v_sets);
+end;
+$$;
+revoke all on function record_session_completion(uuid, boolean, int, int, jsonb, text, jsonb, timestamptz)
+  from public, anon;
+grant execute on function record_session_completion(uuid, boolean, int, int, jsonb, text, jsonb, timestamptz)
+  to authenticated, service_role;
+
+-- >>> generated: compromised running
+-- ============================================================================
+-- Compromised running: 60 sessions, five levels x four phases x three.
+--
+-- GENERATED from src/lib/engine/compromisedSessions.ts — do not edit by hand.
+--   WRITE_SEED=1 npx vitest run librarySeed
+--
+-- The ids are pinned in the catalogue, because the engine names them while
+-- building a plan: session_blocks.block_id points straight at these rows.
+-- ============================================================================
+
+insert into workout_blocks (id, slug, block_type, station, content, equipment_variant, difficulty_tier, session_types, tags) values
+('9f3f6a03-0910-50fa-9426-471bce36f344', 'cr_b1_squat_sandwich', 'main', null,
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Zone 2 run","distance_m":400,"is_run":true},{"exercise":"Goblet squats, light","reps":15},{"exercise":"Zone 2 run","distance_m":400,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,base}'),
+('b6c3d7c1-839e-542f-9764-1c11fe73c6c1', 'cr_b1_ski_to_run', 'main', 'ski_erg',
+ '[{"exercise":"4 rounds"},{"exercise":"SkiErg, aerobic — steady, not a sprint","distance_m":250},{"exercise":"Zone 2 run, straight off the erg","distance_m":500,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,base,ski_erg}'),
+('b08d6e5a-c82e-51ad-bcd8-2cf993da64d1', 'cr_b1_light_sled', 'main', 'sled_push',
+ '[{"exercise":"3 rounds"},{"exercise":"Sled push, light","distance_m":20,"load_by_division":{"open":"50 kg","pro":"75 kg"}},{"exercise":"Easy jog — let the legs come back","distance_m":600,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,base,sled_push}'),
+('2fc1f3aa-ae02-5b1c-924b-f019459ea528', 'cr_b2_deadlift_burpee', 'main', null,
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Run, Zone 3-4","distance_m":500,"is_run":true},{"exercise":"Kettlebell deadlifts","reps":12,"load_by_division":{"open":"24 kg","pro":"32 kg"}},{"exercise":"Burpees","reps":10}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,build}'),
+('2fd63911-d5bd-5ba1-98d8-2a3bf9680627', 'cr_b2_lunge_to_pace', 'main', 'sandbag_lunges',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sandbag lunges, light","distance_m":40,"load_by_division":{"open":"10 kg","pro":"20 kg"}},{"exercise":"Run at race pace, immediately","distance_m":800,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,build,sandbag_lunges}'),
+('e7e90191-e94e-5484-b9b8-cb1626c245d6', 'cr_b2_row_lunge_run', 'main', 'row',
+ '[{"exercise":"4 rounds"},{"exercise":"Row","distance_m":250},{"exercise":"Walking lunges","distance_m":20},{"exercise":"Run","distance_m":500,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,build,row}'),
+('2fddd0ea-787c-5939-9e54-83e6a9b2d10b', 'cr_b3_mini_sim', 'main', 'wall_balls',
+ '[{"exercise":"2 rounds"},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"SkiErg","distance_m":500},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Wall balls","reps":20,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,peak,wall_balls}'),
+('c92797c9-eaff-5c11-bb58-947dc99ddd0b', 'cr_b3_carry_jump_run', 'main', 'burpee_broad_jump',
+ '[{"exercise":"3 rounds"},{"exercise":"Farmers carry","distance_m":50,"load_by_division":{"open":"2×16 kg","pro":"2×24 kg"}},{"exercise":"Burpee broad jumps","reps":15},{"exercise":"Run at race pace, no walk-in","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,peak,burpee_broad_jump}'),
+('34f64495-a5bc-5902-aa46-2df26494ec9a', 'cr_b3_half_sim', 'main', null,
+ '[{"exercise":"Four runs, each broken by the next station in race order"},{"exercise":"Run 1 → SkiErg 1000 m","distance_m":1000,"is_run":true},{"exercise":"Run 2 → Sled push 50 m","distance_m":1000,"is_run":true},{"exercise":"Run 3 → Sled pull 50 m","distance_m":1000,"is_run":true},{"exercise":"Run 4 → Burpee broad jumps 80 m","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,peak}'),
+('e0a4ba47-01aa-5657-a18c-ba4435bbb990', 'cr_b4_short_sharp', 'main', 'wall_balls',
+ '[{"exercise":"2 rounds"},{"exercise":"Run at race pace","distance_m":400,"is_run":true},{"exercise":"Wall balls","reps":10,"load_by_division":{"open":"6 kg","pro":"9 kg"}},{"exercise":"Run at easy","distance_m":400,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,taper,wall_balls}'),
+('caf7ab13-a6e1-509e-a14f-7231511edc85', 'cr_b4_transition_drill', 'main', 'ski_erg',
+ '[{"exercise":"3 rounds"},{"exercise":"SkiErg","distance_m":200},{"exercise":"Run at race pace — focus on how fast you get moving","distance_m":500,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,taper,ski_erg}'),
+('e73ee23e-b18b-5322-ad29-32242cc85e77', 'cr_b4_single_rehearsal', 'main', 'sled_push',
+ '[{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Sled push, light","distance_m":20,"load_by_division":{"open":"50 kg","pro":"75 kg"}},{"exercise":"Cool-down run","distance_m":500,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,beginner,taper,sled_push}'),
+('bf4524d0-9fec-5afb-94ba-b4648529bebd', 'cr_i1_squat_row', 'main', 'row',
+ '[{"exercise":"4 rounds"},{"exercise":"Zone 2 run","distance_m":800,"is_run":true},{"exercise":"Air squats","reps":20},{"exercise":"Row, aerobic","distance_m":200}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,base,row}'),
+('ea04c866-a724-5818-9df3-63ac7d353fdc', 'cr_i1_ski_sled_run', 'main', 'sled_push',
+ '[{"exercise":"3 rounds"},{"exercise":"SkiErg","distance_m":500},{"exercise":"Sled push at 60% of race weight","distance_m":30,"load_by_division":{"open":"90 kg","pro":"120 kg"}},{"exercise":"Zone 2 run","distance_m":800,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,base,sled_push}'),
+('24123a24-d994-5ce1-a5ef-89e9db5dcbcd', 'cr_i1_carry_kilometre', 'main', 'farmers_carry',
+ '[{"exercise":"4 rounds"},{"exercise":"Run at zone 2 to low Zone 3","distance_m":1000,"is_run":true},{"exercise":"Farmers walk, moderate","distance_m":40,"load_by_division":{"open":"2×20 kg","pro":"2×28 kg"}}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,base,farmers_carry}'),
+('7a3bba7a-941b-5e7d-b258-83f13328f509', 'cr_i2_sled_threshold', 'main', 'sled_push',
+ '[{"exercise":"4 rounds"},{"exercise":"Sled push at race weight","distance_m":30,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Run at threshold, Zone 4 — straight off the sled","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,build,sled_push}'),
+('b7e82c71-83d7-54c1-b36d-22c3ca50a3c2', 'cr_i2_row_bbj_5k', 'main', 'burpee_broad_jump',
+ '[{"exercise":"3 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Row","distance_m":500},{"exercise":"Burpee broad jumps","reps":20},{"exercise":"Run at 5k pace","distance_m":800,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,build,burpee_broad_jump}'),
+('2b7257c5-a6de-5e9d-a79d-00b59d23a8b0', 'cr_i2_lunge_race_pace', 'main', 'sandbag_lunges',
+ '[{"exercise":"4 rounds"},{"exercise":"Sandbag lunges at race weight","distance_m":50,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"Run at race pace","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,build,sandbag_lunges}'),
+('f91b83a1-cdfd-5d4d-bcb4-9382f24ae499', 'cr_i3_sled_sandwich', 'main', 'wall_balls',
+ '[{"exercise":"3 rounds"},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Sled push","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Wall balls","reps":25,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,peak,wall_balls}'),
+('35031523-055a-50f0-b078-e1632cbfd74d', 'cr_i3_ski_carry_chain', 'main', 'farmers_carry',
+ '[{"exercise":"4 rounds"},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"SkiErg","distance_m":500},{"exercise":"Farmers carry","distance_m":100,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,peak,farmers_carry}'),
+('710d912c-2a16-5bb0-866d-defbefc5af46', 'cr_i3_brick_density', 'main', 'burpee_broad_jump',
+ '[{"exercise":"5 rounds"},{"exercise":"Run at above race pace","distance_m":600,"is_run":true},{"exercise":"Burpee broad jumps","reps":15},{"exercise":"Wall balls","reps":15,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,peak,burpee_broad_jump}'),
+('073d2d29-9596-50ba-93fe-0ef81ec70e6e', 'cr_i4_row_sandwich', 'main', 'row',
+ '[{"exercise":"3 rounds"},{"exercise":"Run at race pace","distance_m":500,"is_run":true},{"exercise":"Row","distance_m":250},{"exercise":"Run at zone 2","distance_m":500,"is_run":true}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,taper,row}'),
+('0571705b-3b10-5cb0-9981-14aa87755545', 'cr_i4_sharpening_sled', 'main', 'sled_push',
+ '[{"exercise":"2 rounds"},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Sled push — sharpening, never to failure","distance_m":20,"load_by_division":{"open":"152 kg","pro":"202 kg"}}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,taper,sled_push}'),
+('05ef976e-b100-5209-95ef-3f22e8fb74d5', 'cr_i4_over_pace_touch', 'main', 'wall_balls',
+ '[{"exercise":"Three efforts, full recovery between"},{"exercise":"Run at above race pace","distance_m":400,"is_run":true},{"exercise":"Wall balls between efforts","reps":10,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{compromised_run}', '{compromised,intermediate,taper,wall_balls}'),
+('9324bc34-4403-5811-80b1-8c184d5d4b36', 'cr_a1_ski_carry_volume', 'main', 'farmers_carry',
+ '[{"exercise":"5 rounds"},{"exercise":"Zone 2 run","distance_m":1000,"is_run":true},{"exercise":"SkiErg, aerobic","distance_m":500},{"exercise":"Heavy kettlebell carry","distance_m":40,"load_by_division":{"open":"2×28 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,base,farmers_carry}'),
+('1df8d898-bfe3-51b5-b215-1f0b6bcd497a', 'cr_a1_double_sled', 'main', 'sled_pull',
+ '[{"exercise":"4 rounds"},{"exercise":"Run","distance_m":800,"is_run":true},{"exercise":"Heavy sled push","distance_m":30,"load_by_division":{"open":"175 kg","pro":"225 kg"}},{"exercise":"Heavy sled pull","distance_m":30,"load_by_division":{"open":"125 kg","pro":"175 kg"}}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,base,sled_pull}'),
+('cc041fcf-9847-5db8-bca1-5341fa91d00b', 'cr_a1_long_z2_brick', 'main', 'row',
+ '[{"exercise":"3 rounds"},{"exercise":"Zone 2 run","distance_m":1500,"is_run":true},{"exercise":"Goblet squats","reps":30,"load_by_division":{"open":"24 kg","pro":"32 kg"}},{"exercise":"Row","distance_m":500}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,base,row}'),
+('1436392a-8bc4-5c62-a061-14c488810303', 'cr_a2_sled_pace_discipline', 'main', 'sled_push',
+ '[{"exercise":"4 rounds"},{"exercise":"Sled push at competition weight","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Run at threshold — hold 4:45-5:00 min/km, no faster off the sled","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,build,sled_push}'),
+('cc8b0e21-2fdf-554d-9b68-e9e3a324e212', 'cr_a2_row_lunge_race', 'main', 'sandbag_lunges',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Row at race pace","distance_m":500},{"exercise":"Sandbag lunges","distance_m":60,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"Run at race pace","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,build,sandbag_lunges}'),
+('66fe6ee5-a914-51da-b625-2d87532749e5', 'cr_a2_jumps_walls_5k', 'main', 'burpee_broad_jump',
+ '[{"exercise":"4 rounds"},{"exercise":"Burpee broad jumps","reps":20},{"exercise":"Wall balls","reps":25,"load_by_division":{"open":"6 kg","pro":"9 kg"}},{"exercise":"Run at 5k pace","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,build,burpee_broad_jump}'),
+('20cc220c-3d30-5091-8480-2736e5d84fe2', 'cr_a3_split_consistency', 'main', 'sled_pull',
+ '[{"exercise":"4 rounds"},{"exercise":"Run at race pace — note the split","distance_m":1000,"is_run":true},{"exercise":"Sled push","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Run at race pace — within 5 s of the first","distance_m":1000,"is_run":true},{"exercise":"Sled pull","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,peak,sled_pull}'),
+('3da94aa0-999c-5428-8be3-8658004e0149', 'cr_a3_race_intensity_chain', 'main', 'wall_balls',
+ '[{"exercise":"3 rounds"},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"SkiErg","distance_m":500},{"exercise":"Farmers carry","distance_m":100,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Wall balls at race intensity","reps":50,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,peak,wall_balls}'),
+('c6810fd0-4c00-5003-9db1-ecdcb3a95993', 'cr_a3_pacing_stress', 'main', 'sandbag_lunges',
+ '[{"exercise":"Six efforts, alternating the station between them"},{"exercise":"Run 5-10 s/km faster than race pace","distance_m":800,"is_run":true},{"exercise":"Lunges (odd rounds)","distance_m":40,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"Burpee broad jumps (even rounds)","reps":20}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,peak,sandbag_lunges}'),
+('8f68273c-af1c-5eb8-976a-63cc345c2aa3', 'cr_a4_ski_sandwich', 'main', 'ski_erg',
+ '[{"exercise":"3 rounds"},{"exercise":"Run at race pace","distance_m":600,"is_run":true},{"exercise":"SkiErg","distance_m":250},{"exercise":"Run at zone 2","distance_m":400,"is_run":true}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,taper,ski_erg}'),
+('15a76eec-83e8-586a-aefb-af26e45db07c', 'cr_a4_kilometre_touch', 'main', 'sled_push',
+ '[{"exercise":"2 rounds"},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Sled push, short","distance_m":25,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Wall balls","reps":15,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,taper,sled_push}'),
+('c18b695b-dc1d-56c6-a217-51413c89fb81', 'cr_a4_roxzone_drills', 'main', null,
+ '[{"exercise":"Four accelerations with a full transition rehearsal after each"},{"exercise":"Run: accelerate to race pace and beyond","distance_m":300,"is_run":true},{"exercise":"Transition drill — into and out of the station area, fast"}]'::jsonb,
+ 'gym', 2, '{compromised_run}', '{compromised,advanced,taper}'),
+('cc1394cb-130c-5627-ae61-2bcd46264d16', 'cr_e1_ski_drag_volume', 'main', 'ski_erg',
+ '[{"exercise":"5 rounds"},{"exercise":"Zone 2 run","distance_m":1200,"is_run":true},{"exercise":"SkiErg, aerobic","distance_m":500},{"exercise":"Sled drag","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,base,ski_erg}'),
+('5894ccfe-fe02-5bd5-855f-e56865dcc9cc', 'cr_e1_heavy_double_sled', 'main', 'sled_push',
+ '[{"exercise":"4 rounds"},{"exercise":"Run","distance_m":1000,"is_run":true},{"exercise":"Heavy sled push","distance_m":40,"load_by_division":{"open":"120+ kg","pro":"180+ kg"}},{"exercise":"Heavy sled pull","distance_m":40,"load_by_division":{"open":"120 kg","pro":"160 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,base,sled_push}'),
+('48f71c48-800a-5eb2-825d-4b4621dbe421', 'cr_e1_long_aerobic_chain', 'main', 'farmers_carry',
+ '[{"exercise":"3 rounds"},{"exercise":"Zone 2 run","distance_m":2000,"is_run":true},{"exercise":"Row","distance_m":1000},{"exercise":"Farmers carry","distance_m":100,"load_by_division":{"open":"2×32 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,base,farmers_carry}'),
+('02077719-5b5b-56cf-bf4f-aad5b8c9828d', 'cr_e2_lactate_accumulation', 'main', 'sled_push',
+ '[{"exercise":"4 rounds"},{"exercise":"Sled push, maximum pressure","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Run at 4:15-4:25 min/km — no transition, straight into it","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,build,sled_push}'),
+('28b0603c-8908-5890-830e-b6c899963e55', 'cr_e2_row_bbj_subthreshold', 'main', 'burpee_broad_jump',
+ '[{"exercise":"4 rounds — 3 min between rounds","rest_sec":180},{"exercise":"Row at race pace","distance_m":500},{"exercise":"Burpee broad jumps","reps":25},{"exercise":"Run at sub-threshold","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,build,burpee_broad_jump}'),
+('dd93d730-85f1-5fbb-b28f-31a08f41f927', 'cr_e2_lunge_split_drift', 'main', 'sandbag_lunges',
+ '[{"exercise":"4 rounds"},{"exercise":"Sandbag lunges","distance_m":80,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"Run — splits may drift by 5 s across the session, no more","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,build,sandbag_lunges}'),
+('0b69458f-1739-5194-a356-baeedae5d51d', 'cr_e3_race_density', 'main', 'sled_pull',
+ '[{"exercise":"3 rounds"},{"exercise":"Row","distance_m":500},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Sled push","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Sled pull","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Burpee broad jumps","reps":25},{"exercise":"Run at race pace","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,peak,sled_pull}'),
+('369fe786-8848-5aea-bd6f-4c91db65e918', 'cr_e3_lactate_washout', 'main', 'wall_balls',
+ '[{"exercise":"5 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Run at 4:05 min/km","distance_m":1000,"is_run":true},{"exercise":"Wall balls, unbroken","reps":30,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,peak,wall_balls}'),
+('320d444b-a26e-5076-817e-4a0ca1e91eb5', 'cr_e3_high_velocity_brick', 'main', 'farmers_carry',
+ '[{"exercise":"Six efforts, the station rotates between them"},{"exercise":"Run at under 3:20","distance_m":800,"is_run":true},{"exercise":"Farmers carry (round 1, 4)","distance_m":200,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Lunges (round 2, 5)","distance_m":50,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"SkiErg (round 3, 6)","distance_m":500}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,peak,farmers_carry}'),
+('d612d12f-31ab-591e-ad07-2a98e50051fd', 'cr_e4_race_pace_ski', 'main', 'ski_erg',
+ '[{"exercise":"3 rounds"},{"exercise":"Run at race pace, 4:15 min/km","distance_m":800,"is_run":true},{"exercise":"SkiErg","distance_m":250},{"exercise":"Wall balls","reps":10,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,taper,ski_erg}'),
+('1d98c844-90c7-519e-a052-cd752a7d5e59', 'cr_e4_neuromuscular_sled', 'main', 'sled_push',
+ '[{"exercise":"2 rounds"},{"exercise":"Run at race pace","distance_m":1000,"is_run":true},{"exercise":"Sled push at 80% — activation, not fatigue","distance_m":25,"load_by_division":{"open":"122 kg","pro":"162 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,taper,sled_push}'),
+('4982d9ca-e7e3-563f-bfc5-290cc62d6dc5', 'cr_e4_explosive_touch', 'main', 'burpee_broad_jump',
+ '[{"exercise":"Four efforts, full recovery between"},{"exercise":"Run at race pace","distance_m":400,"is_run":true},{"exercise":"Burpee broad jumps, explosive","reps":5}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,elite,taper,burpee_broad_jump}'),
+('d9b88256-114f-53c7-b742-798678464608', 'cr_w1_ski_carry_volume', 'main', 'ski_erg',
+ '[{"exercise":"6 rounds"},{"exercise":"Zone 2 run","distance_m":1200,"is_run":true},{"exercise":"SkiErg, aerobic","distance_m":1000},{"exercise":"Heavy carry","distance_m":60,"load_by_division":{"open":"2×32 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,base,ski_erg}'),
+('a678349f-53cb-5c1c-8094-e30c77a4de95', 'cr_w1_overload_sled', 'main', 'sled_push',
+ '[{"exercise":"5 rounds"},{"exercise":"Run at aerobic threshold","distance_m":1000,"is_run":true},{"exercise":"Heavy overload sled push","distance_m":50,"load_by_division":{"open":"150+ kg","pro":"200+ kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,base,sled_push}'),
+('9b1a6fa2-415c-5236-a524-0130f683cd83', 'cr_w1_lt1_row_squat', 'main', 'row',
+ '[{"exercise":"4 rounds"},{"exercise":"Run","distance_m":1500,"is_run":true},{"exercise":"Row at LT1","distance_m":1000},{"exercise":"Back squats, heavy","reps":30}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,base,row}'),
+('625db2ec-b925-5784-84d9-e8600f72408d', 'cr_w2_glycolytic_stress', 'main', 'sled_push',
+ '[{"exercise":"5 rounds"},{"exercise":"Sled push at Pro weight","distance_m":50,"load_by_division":{"open":"202 kg","pro":"202 kg"}},{"exercise":"Transition — under 5 seconds"},{"exercise":"Run at 3:45-3:55 min/km","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,build,sled_push}'),
+('1420db8a-26a7-5d18-9060-70f2d1bc208f', 'cr_w2_lunge_split_precision', 'main', 'sandbag_lunges',
+ '[{"exercise":"4 rounds"},{"exercise":"Sandbag lunges","distance_m":100,"load_by_division":{"open":"30 kg","pro":"30 kg"}},{"exercise":"Run at 3:50 min/km — split variance under 3 s","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,build,sandbag_lunges}'),
+('a8b55089-828a-55d6-b37f-17adac2fc1bb', 'cr_w2_ski_bbj_vo2', 'main', 'burpee_broad_jump',
+ '[{"exercise":"5 rounds"},{"exercise":"SkiErg — under 1:40 / 500 m","distance_m":500},{"exercise":"Burpee broad jumps","reps":30},{"exercise":"Run at VO₂max pace","distance_m":1000,"is_run":true}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,build,burpee_broad_jump}'),
+('2c0c9deb-e1b4-5f7e-9b9f-e105b4884f0e', 'cr_w3_roxzone_precision', 'main', null,
+ '[{"exercise":"Six efforts, a different station after each — race order, race conditions"},{"exercise":"Run at sub-3:50 min/km","distance_m":1000,"is_run":true},{"exercise":"Station after each run: Ski, Sled Push, Sled Pull, Row, Lunges, Wall Balls"}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,peak}'),
+('dfced421-fb61-5923-a42d-b8387899dda2', 'cr_w3_lactate_buffer', 'main', 'wall_balls',
+ '[{"exercise":"4 rounds"},{"exercise":"Run at 3:40 min/km","distance_m":1000,"is_run":true},{"exercise":"Wall balls, unbroken","reps":50,"load_by_division":{"open":"6 kg","pro":"9 kg"}},{"exercise":"Farmers carry","distance_m":100,"load_by_division":{"open":"2×32 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,peak,wall_balls}'),
+('48a269ed-c932-5a62-98f0-fe89d425b542', 'cr_w3_dynamic_integration', 'main', 'sled_pull',
+ '[{"exercise":"Eight efforts, station rotates, rest minimised to zero"},{"exercise":"Run at 3:30 min/km","distance_m":600,"is_run":true},{"exercise":"Sled drag (rounds 1, 4, 7)","distance_m":30,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Burpee broad jumps (rounds 2, 5, 8)","reps":15},{"exercise":"SkiErg (rounds 3, 6)","distance_m":250}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,peak,sled_pull}'),
+('964c9dbe-dfde-5f13-a898-ec1eeee00bc9', 'cr_w4_cadence_focus', 'main', 'row',
+ '[{"exercise":"3 rounds"},{"exercise":"Run at race pace, 3:45 min/km — cadence and breathing","distance_m":600,"is_run":true},{"exercise":"Row","distance_m":250},{"exercise":"Wall balls","reps":10,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,taper,row}'),
+('893102c6-00e1-55d1-90e1-6cf71d3ff3ec', 'cr_w4_short_sharp_stimuli', 'main', 'sled_push',
+ '[{"exercise":"2 rounds"},{"exercise":"Run at race pace","distance_m":800,"is_run":true},{"exercise":"Sled push, short","distance_m":20,"load_by_division":{"open":"202 kg","pro":"202 kg"}},{"exercise":"Carry","distance_m":100,"load_by_division":{"open":"2×32 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,taper,sled_push}'),
+('5407b926-4932-574f-9288-e8196a3f5791', 'cr_w4_cns_activation', 'main', 'burpee_broad_jump',
+ '[{"exercise":"Three efforts, full recovery between"},{"exercise":"Run at competition tempo","distance_m":400,"is_run":true},{"exercise":"Dynamic box or broad jumps","reps":5}]'::jsonb,
+ 'gym', 3, '{compromised_run}', '{compromised,world_class,taper,burpee_broad_jump}')
+on conflict (slug) do update set
+  content = excluded.content,
+  station = excluded.station,
+  difficulty_tier = excluded.difficulty_tier,
+  session_types = excluded.session_types,
+  tags = excluded.tags;
+-- <<< generated: compromised running
+
+-- >>> generated: station work
+-- ============================================================================
+-- Isolated station work: 60 sessions, five levels x four phases x three.
+--
+-- GENERATED from src/lib/engine/stationSessions.ts — do not edit by hand.
+--   WRITE_SEED=1 npx vitest run librarySeed
+--
+-- The ids are pinned in the catalogue, because the engine names them while
+-- building a plan: session_blocks.block_id points straight at these rows.
+-- ============================================================================
+
+insert into workout_blocks (id, slug, block_type, station, content, equipment_variant, difficulty_tier, session_types, tags) values
+('5fa7f714-965e-5c22-bca1-2fe7a0d9143f', 'sw_b1_erg_basics', 'main', 'ski_erg',
+ '[{"exercise":"4 rounds"},{"exercise":"SkiErg — hold one pace, do not chase it","distance_m":250,"rest_sec":90},{"exercise":"RowErg — legs, hips, arms, in that order","distance_m":250,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,base,ski_erg}'),
+('2ce816c1-0c6e-5726-aeeb-01147740a769', 'sw_b1_sled_mechanics', 'main', 'sled_push',
+ '[{"exercise":"4 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sled push, light — low centre of gravity, small fast steps","distance_m":20,"load_by_division":{"open":"75 kg","pro":"100 kg"}},{"exercise":"Sled pull, hand over hand — stay seated back, do not stand up","distance_m":20,"load_by_division":{"open":"50 kg","pro":"75 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,base,sled_push}'),
+('ce6bd7f4-5089-5ede-b5fe-865fb600524b', 'sw_b1_squat_carry_base', 'main', 'farmers_carry',
+ '[{"exercise":"3 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Goblet squats — full depth, chest up","reps":12},{"exercise":"Farmers carry, light","distance_m":40,"load_by_division":{"open":"2×16 kg","pro":"2×20 kg"}},{"exercise":"Walking lunges, bodyweight","reps":10}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,base,farmers_carry}'),
+('85404794-ddef-5e07-9bf0-9b269369bdd8', 'sw_b2_ski_wallball', 'main', 'wall_balls',
+ '[{"exercise":"4 rounds — 1 min between rounds","rest_sec":60},{"exercise":"SkiErg","distance_m":500},{"exercise":"Wall balls, light — hip crease below the knee every rep","reps":15,"load_by_division":{"open":"4 kg","pro":"6 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,build,wall_balls}'),
+('a601a2f0-78fb-5548-a380-8ddd19659ec2', 'sw_b2_emom_stations', 'main', 'sled_push',
+ '[{"exercise":"4 rounds"},{"exercise":"Minute 1 — sled push, moderate","distance_m":15,"load_by_division":{"open":"100 kg","pro":"125 kg"}},{"exercise":"Minute 2 — farmers carry","distance_m":30,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Minute 3 — burpee broad jumps","reps":8},{"exercise":"Minute 4 — rest","rest_sec":60}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,build,sled_push}'),
+('fb6db75c-bf8b-5875-8144-49f825ccae35', 'sw_b2_row_lunge_ball', 'main', 'row',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"RowErg","distance_m":500},{"exercise":"Walking lunges, light","distance_m":20},{"exercise":"Wall balls","reps":12,"load_by_division":{"open":"4 kg","pro":"6 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,build,row}'),
+('e1057bc1-5369-5927-805d-f18cc2807793', 'sw_b3_circuit_a', 'main', 'sled_push',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"SkiErg","distance_m":500},{"exercise":"Sled push at race weight","distance_m":25,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Sled pull at race weight","distance_m":25,"load_by_division":{"open":"103 kg","pro":"153 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,peak,sled_push}'),
+('cdf74a54-6c23-530f-bb45-baf554289d6d', 'sw_b3_circuit_b', 'main', 'wall_balls',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"RowErg","distance_m":500},{"exercise":"Farmers carry","distance_m":50,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Burpee broad jumps","reps":15},{"exercise":"Wall balls","reps":25,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,peak,wall_balls}'),
+('37c720b8-7516-52f7-9f44-d88df27740b4', 'sw_b3_half_sim', 'main', 'burpee_broad_jump',
+ '[{"exercise":"SkiErg","distance_m":1000,"rest_sec":120},{"exercise":"Sled push at race weight","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"},"rest_sec":120},{"exercise":"Sled pull at race weight","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"},"rest_sec":120},{"exercise":"Burpee broad jumps","distance_m":80}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,peak,burpee_broad_jump}'),
+('9f6fa682-f7a8-5694-ac8c-461b55bb1b6a', 'sw_b4_race_pace_touch', 'main', 'ski_erg',
+ '[{"exercise":"2 rounds — 90 s between rounds","rest_sec":90},{"exercise":"SkiErg at race pace","distance_m":250},{"exercise":"Wall balls","reps":10,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,taper,ski_erg}'),
+('838306bc-6d4f-5837-8760-a4e00ec28d01', 'sw_b4_sled_primer', 'main', 'sled_push',
+ '[{"exercise":"3 rounds"},{"exercise":"Sled push at race weight","distance_m":12.5,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Farmers carry","distance_m":25,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Full recovery before the next set","rest_sec":180}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,taper,sled_push}'),
+('1c068c95-b901-5924-9f61-9decc3fb17fa', 'sw_b4_row_jumps', 'main', 'burpee_broad_jump',
+ '[{"exercise":"2 rounds"},{"exercise":"RowErg, controlled","distance_m":250},{"exercise":"Burpee broad jumps — clean chest-to-floor, full jump","reps":5}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,beginner,taper,burpee_broad_jump}'),
+('dac5d3ea-fa22-554a-9a0f-c6c0d63ee4d5', 'sw_i1_erg_aerobic_power', 'main', 'row',
+ '[{"exercise":"5 rounds — 90 s between rounds","rest_sec":90},{"exercise":"500 m at threshold pace — alternate RowErg and SkiErg each round","distance_m":500}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,base,row}'),
+('2a07f711-5eb7-56d7-8c33-b477148880ff', 'sw_i1_heavy_sled_foundations', 'main', 'sled_push',
+ '[{"exercise":"5 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sled push, +20% over race weight","distance_m":25,"load_by_division":{"open":"182 kg","pro":"242 kg"}},{"exercise":"Sled pull, heavy","distance_m":25,"load_by_division":{"open":"123 kg","pro":"183 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,base,sled_push}'),
+('bbac570a-e0a1-529a-8eed-b58da57e9c4e', 'sw_i1_volume_accumulation', 'main', 'sandbag_lunges',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Sandbag lunges","distance_m":40,"load_by_division":{"open":"10 kg","pro":"20 kg"}},{"exercise":"Farmers carry","distance_m":60,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Burpee broad jumps","reps":15}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,base,sandbag_lunges}'),
+('64eb2196-979a-5bab-9ea4-b4429c2e8dc5', 'sw_i2_ski_push_wallball', 'main', 'wall_balls',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"SkiErg under 2:00 / 500 m","distance_m":500},{"exercise":"Sled push at race weight","distance_m":25,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Wall balls, unbroken","reps":20,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,build,wall_balls}'),
+('8e5afd3b-61a8-5e94-8fd6-3f5391ad0117', 'sw_i2_row_pull_carry', 'main', 'sled_pull',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"RowErg","distance_m":500},{"exercise":"Sled pull at race weight","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Farmers carry","distance_m":50,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,build,sled_pull}'),
+('abb01c23-f88f-5048-9853-66d80bbf369e', 'sw_i2_lactate_tolerance', 'main', 'burpee_broad_jump',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Burpee broad jumps","reps":30},{"exercise":"Wall balls at open weight","reps":30,"load_by_division":{"open":"6 kg","pro":"6 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,build,burpee_broad_jump}'),
+('2f7ecc5a-d586-5291-97e1-0c86a33cfaec', 'sw_i3_upper_pull_chain', 'main', 'sled_pull',
+ '[{"exercise":"3 rounds — 150 s between rounds","rest_sec":150},{"exercise":"SkiErg","distance_m":1000},{"exercise":"Sled pull at race weight","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"RowErg","distance_m":1000}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,peak,sled_pull}'),
+('7c11346b-d362-5f7a-af2c-d2fd8cc88e74', 'sw_i3_lower_push_chain', 'main', 'sled_push',
+ '[{"exercise":"3 rounds — 150 s between rounds","rest_sec":150},{"exercise":"Sled push at race weight","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Sandbag lunges","distance_m":50,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"Wall balls","reps":50,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,peak,sled_push}'),
+('d692e099-2a13-53d1-b0cf-37bf9a6529aa', 'sw_i3_station_sim', 'main', null,
+ '[{"exercise":"SkiErg","distance_m":500,"rest_sec":60},{"exercise":"Sled push at race weight","distance_m":25,"load_by_division":{"open":"152 kg","pro":"202 kg"},"rest_sec":60},{"exercise":"Sled pull at race weight","distance_m":25,"load_by_division":{"open":"103 kg","pro":"153 kg"},"rest_sec":60},{"exercise":"Burpee broad jumps","distance_m":40,"rest_sec":60},{"exercise":"RowErg","distance_m":500,"rest_sec":60},{"exercise":"Farmers carry","distance_m":100,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"},"rest_sec":60},{"exercise":"Sandbag lunges","distance_m":50,"load_by_division":{"open":"20 kg","pro":"30 kg"},"rest_sec":60},{"exercise":"Wall balls","reps":50,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,peak}'),
+('d4c4c3d5-f6ea-552c-a0eb-8865c4ca5208', 'sw_i4_ski_explosive_push', 'main', 'ski_erg',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"SkiErg at race pace","distance_m":250},{"exercise":"Sled push, explosive — accelerate, do not grind","distance_m":10,"load_by_division":{"open":"152 kg","pro":"202 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,taper,ski_erg}'),
+('d10405ef-0ee0-52bf-b96a-3cb6d45eb9cf', 'sw_i4_row_unbroken_balls', 'main', 'wall_balls',
+ '[{"exercise":"2 rounds"},{"exercise":"RowErg","distance_m":200},{"exercise":"Wall balls, unbroken","reps":15,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,taper,wall_balls}'),
+('daafa156-c974-5a6a-a7df-832b6af8d7e1', 'sw_i4_carry_jump_touch', 'main', 'farmers_carry',
+ '[{"exercise":"3 rounds"},{"exercise":"Farmers carry, brisk","distance_m":20,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Burpee broad jumps — maximum distance per jump","reps":4}]'::jsonb,
+ 'gym', 1, '{station_work}', '{station,intermediate,taper,farmers_carry}'),
+('2bda770b-7238-5a08-a150-2dab202c5940', 'sw_a1_erg_threshold', 'main', 'ski_erg',
+ '[{"exercise":"6 rounds — 1 min between rounds","rest_sec":60},{"exercise":"SkiErg, sub 1:55 / 500 m","distance_m":500}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,base,ski_erg}'),
+('14cbdef0-5dbd-56d7-a1f6-f577bc3c7f1f', 'sw_a1_overload_sled_grip', 'main', 'sled_push',
+ '[{"exercise":"5 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sled push, race weight +30 kg","distance_m":25,"load_by_division":{"open":"182 kg","pro":"232 kg"}},{"exercise":"Sled pull, heavy","distance_m":25,"load_by_division":{"open":"123 kg","pro":"173 kg"}},{"exercise":"Farmers carry, heavy","distance_m":60,"load_by_division":{"open":"2×28 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,base,sled_push}'),
+('b4f8299c-432c-58d1-b807-91d62ada541e', 'sw_a1_metcon_row_jumps', 'main', 'row',
+ '[{"exercise":"4 rounds — 2 min between rounds","rest_sec":120},{"exercise":"RowErg","distance_m":500},{"exercise":"Burpee broad jumps — hold the distance per jump","reps":20},{"exercise":"Goblet squats, heavy","reps":20,"load_by_division":{"open":"24 kg","pro":"32 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,base,row}'),
+('703043ea-96ab-5636-8094-fd68fc631d01', 'sw_a2_push_wallball_interference', 'main', 'wall_balls',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Sled push at race weight","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Wall balls, unbroken","reps":30,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,build,wall_balls}'),
+('558c80de-8e18-53eb-b20f-836e7a1506de', 'sw_a2_pull_grip_complex', 'main', 'sled_pull',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"RowErg, sub 1:45 / 500 m","distance_m":500},{"exercise":"Sled pull at race weight","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Farmers carry","distance_m":100,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,build,sled_pull}'),
+('e6627339-32a5-580f-9033-418a5b8cbbee', 'sw_a2_locomotor_stamina', 'main', 'sandbag_lunges',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sandbag lunges","distance_m":60,"load_by_division":{"open":"20 kg","pro":"30 kg"}},{"exercise":"Burpee broad jumps","reps":25}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,build,sandbag_lunges}'),
+('7b02d46d-7ac2-512b-839a-17d9a554d63c', 'sw_a3_cardio_race_pace', 'main', 'row',
+ '[{"exercise":"3 rounds — 3 min between rounds","rest_sec":180},{"exercise":"SkiErg at 3:45–3:55 / 1000 m","distance_m":1000},{"exercise":"RowErg at 3:45–3:55 / 1000 m","distance_m":1000}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,peak,row}'),
+('005f27a0-c281-58f7-a9e9-f7a911c5cc3e', 'sw_a3_resistance_triad', 'main', 'sled_push',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sled push at race weight","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Sled pull at race weight","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Sandbag lunges at race weight","distance_m":100,"load_by_division":{"open":"20 kg","pro":"30 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,peak,sled_push}'),
+('9668f3bc-962b-5b22-9a00-fcc0bad6eef3', 'sw_a3_burnout_finisher', 'main', 'wall_balls',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Burpee broad jumps","reps":25},{"exercise":"Wall balls at race weight, unbroken","reps":35,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,peak,wall_balls}'),
+('e95418bd-2f8c-5e88-b35e-92b273bb7450', 'sw_a4_pace_precision', 'main', 'ski_erg',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"SkiErg at race pace","distance_m":250},{"exercise":"Sled push at race weight","distance_m":12.5,"load_by_division":{"open":"152 kg","pro":"202 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,taper,ski_erg}'),
+('18a1d02c-7250-5aee-982b-9a098a15be8e', 'sw_a4_match_speed_balls', 'main', 'wall_balls',
+ '[{"exercise":"2 rounds"},{"exercise":"RowErg","distance_m":250},{"exercise":"Wall balls at match speed","reps":15,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,taper,wall_balls}'),
+('74ad923b-7b68-5562-9c26-96c386136b88', 'sw_a4_jump_carry_activation', 'main', 'burpee_broad_jump',
+ '[{"exercise":"3 rounds"},{"exercise":"Burpee broad jumps, explosive","reps":4},{"exercise":"Farmers carry","distance_m":20,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 2, '{station_work}', '{station,advanced,taper,burpee_broad_jump}'),
+('e185bf56-34d9-5e9f-9ad0-e238917bada3', 'sw_e1_aerobic_engine', 'main', 'ski_erg',
+ '[{"exercise":"SkiErg, strictly below LT1 — 10 min"},{"exercise":"RowErg, strictly below LT1 — 10 min"},{"exercise":"Echo bike or equivalent, strictly below LT1 — 10 min"},{"exercise":"SkiErg, strictly below LT1 — 10 min"}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,base,ski_erg}'),
+('8d6edd34-f1a9-5967-87fb-1d74e10ecc78', 'sw_e1_heavy_resistance_overload', 'main', 'sled_push',
+ '[{"exercise":"6 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Sled push, race weight +30 kg","distance_m":25,"load_by_division":{"open":"182 kg","pro":"232 kg"}},{"exercise":"Sled pull, race weight +20 kg","distance_m":25,"load_by_division":{"open":"123 kg","pro":"173 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,base,sled_push}'),
+('f23b46e3-d43e-54e2-81e1-f60cc63836fd', 'sw_e1_grip_posterior_endurance', 'main', 'farmers_carry',
+ '[{"exercise":"5 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Farmers carry, heavy","distance_m":100,"load_by_division":{"open":"2×32 kg","pro":"2×32 kg"}},{"exercise":"Sandbag lunges","distance_m":40,"load_by_division":{"open":"30 kg","pro":"30 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,base,farmers_carry}'),
+('412bb939-db65-524f-8a01-d60222fa3936', 'sw_e2_station_cluster_one', 'main', 'sled_push',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"SkiErg, sub 1:48 / 500 m","distance_m":500},{"exercise":"Sled push at race weight — 25 m out, 25 m back","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Sled pull at race weight, hand over hand","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Sandbag lunges","distance_m":40,"load_by_division":{"open":"20 kg","pro":"30 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,build,sled_push}'),
+('9d033fc0-e85e-50da-bc19-eb976fc97bc1', 'sw_e2_station_cluster_two', 'main', 'wall_balls',
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"RowErg, sub 1:45 / 500 m","distance_m":500},{"exercise":"Burpee broad jumps — keep one rhythm","reps":25},{"exercise":"Farmers carry","distance_m":100,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Wall balls","reps":30,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,build,wall_balls}'),
+('d7d84c15-6432-5493-ae6c-e15800412efb', 'sw_e2_lactate_sled_erg', 'main', 'sled_pull',
+ '[{"exercise":"5 rounds — 2 min between rounds","rest_sec":120},{"exercise":"SkiErg, all out","distance_m":250},{"exercise":"Sled push at race pace","distance_m":25,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"RowErg, all out — straight on","distance_m":250},{"exercise":"Sled pull at race weight","distance_m":25,"load_by_division":{"open":"103 kg","pro":"153 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,build,sled_pull}'),
+('caa6ac22-a8ee-5e86-a513-5295de3d2793', 'sw_e3_erg_wallball_density', 'main', 'wall_balls',
+ '[{"exercise":"3 rounds — 2 min between rounds","rest_sec":120},{"exercise":"SkiErg at race pace, 3:45–3:55 / 1000 m","distance_m":1000},{"exercise":"RowErg at race pace, 3:45–3:55 / 1000 m","distance_m":1000},{"exercise":"Wall balls, unbroken","reps":40,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,peak,wall_balls}'),
+('897603b6-08fe-590d-82fe-8821dadb8533', 'sw_e3_resistance_gauntlet', 'main', 'sled_pull',
+ '[{"exercise":"2 rounds — 3 min between rounds","rest_sec":180},{"exercise":"Sled push at race weight","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"},"rest_sec":15},{"exercise":"Sled pull at race weight","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"},"rest_sec":15},{"exercise":"Sandbag lunges","distance_m":100,"load_by_division":{"open":"20 kg","pro":"30 kg"},"rest_sec":15},{"exercise":"Farmers carry","distance_m":200,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,peak,sled_pull}'),
+('4a4327b5-a728-55c5-8224-9cde919a61f2', 'sw_e3_burpee_wallball_climax', 'main', 'burpee_broad_jump',
+ '[{"exercise":"3 rounds — 3 min between rounds","rest_sec":180},{"exercise":"Burpee broad jumps","distance_m":80},{"exercise":"Wall balls at race weight, unbroken","reps":50,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,peak,burpee_broad_jump}'),
+('fe6d57ff-8dce-5e7c-a62e-2544042df695', 'sw_e4_sharpening_ski_push', 'main', 'ski_erg',
+ '[{"exercise":"3 rounds — 90 s between rounds","rest_sec":90},{"exercise":"SkiErg at race pace","distance_m":250},{"exercise":"Sled push at race weight","distance_m":12.5,"load_by_division":{"open":"152 kg","pro":"202 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,taper,ski_erg}'),
+('4b251fb0-8782-5951-9b83-e15159a65f28', 'sw_e4_breathing_rhythm', 'main', 'wall_balls',
+ '[{"exercise":"2 rounds"},{"exercise":"RowErg, smooth","distance_m":250},{"exercise":"Wall balls, unbroken — breathe on the catch","reps":20,"load_by_division":{"open":"6 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,taper,wall_balls}'),
+('48ee54ea-2c37-5b57-9cfa-54351075b733', 'sw_e4_explosive_activation', 'main', 'burpee_broad_jump',
+ '[{"exercise":"4 rounds"},{"exercise":"Broad jumps, explosive — no burpee, full recovery","reps":3},{"exercise":"Farmers walk, fast","distance_m":20,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,elite,taper,burpee_broad_jump}'),
+('4fa121e2-9fd0-516e-bec3-8e3ba173a4ba', 'sw_w1_erg_threshold_volume', 'main', 'ski_erg',
+ '[{"exercise":"8 rounds — 45 s between rounds","rest_sec":45},{"exercise":"SkiErg, sub 1:42 / 500 m — active rest between","distance_m":500}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,base,ski_erg}'),
+('f98452d2-101b-5fa1-ad7f-ca3e34bc4dfa', 'sw_w1_extreme_sled_overload', 'main', 'sled_push',
+ '[{"exercise":"6 rounds — 150 s between rounds","rest_sec":150},{"exercise":"Sled push, at or above pro race weight","distance_m":20,"load_by_division":{"open":"202 kg","pro":"252 kg"}},{"exercise":"Heavy rope pull — maximum tension, hand over hand","distance_m":20,"load_by_division":{"open":"133 kg","pro":"183 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,base,sled_push}'),
+('46579852-bf22-5af7-a44d-7c1f5792fc6d', 'sw_w1_fatigue_buffer', 'main', 'sandbag_lunges',
+ '[{"exercise":"5 rounds — 90 s between rounds","rest_sec":90},{"exercise":"Sandbag lunges","distance_m":60,"load_by_division":{"open":"30 kg","pro":"30 kg"}},{"exercise":"Farmers carry, heavy","distance_m":100,"load_by_division":{"open":"2×36 kg","pro":"2×36 kg"}},{"exercise":"Weighted squats","reps":30,"load_by_division":{"open":"32 kg","pro":"40 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,base,sandbag_lunges}'),
+('33cf657f-6d81-56da-bd16-430018ffcfc1', 'sw_w2_maximal_split_resistance', 'main', 'sled_push',
+ '[{"exercise":"5 rounds — 1 min between rounds","rest_sec":60},{"exercise":"Sled push at pro weight, sub 1:15","distance_m":50,"load_by_division":{"open":"202 kg","pro":"202 kg"}},{"exercise":"Sled pull, sub 1:20","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Wall balls, unbroken","reps":30,"load_by_division":{"open":"9 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,build,sled_push}'),
+('824deed9-d862-5081-90da-4282aad39511', 'sw_w2_ergometer_acidosis', 'main', 'sled_pull',
+ '[{"exercise":"4 rounds — 2 min between rounds","rest_sec":120},{"exercise":"SkiErg, sub 1:38 / 500 m","distance_m":750},{"exercise":"Sled pull at race weight","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"RowErg, sub 1:36 / 500 m","distance_m":750}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,build,sled_pull}'),
+('8ba7a6ad-e279-55b6-80d3-4b2cb52e12a5', 'sw_w2_high_velocity_locomotion', 'main', 'burpee_broad_jump',
+ '[{"exercise":"4 rounds — 2 min between rounds","rest_sec":120},{"exercise":"Burpee broad jumps, under 2:40","distance_m":80},{"exercise":"Sandbag lunges, under 3:15","distance_m":100,"load_by_division":{"open":"20 kg","pro":"30 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,build,burpee_broad_jump}'),
+('1f6021ff-3f44-5f56-b488-5580fed7ceec', 'sw_w3_erg_race_simulation', 'main', 'wall_balls',
+ '[{"exercise":"2 rounds — 2 min between rounds","rest_sec":120},{"exercise":"SkiErg at race pace, sub 3:35 / 1000 m","distance_m":1000},{"exercise":"RowErg at race pace, sub 3:35 / 1000 m","distance_m":1000},{"exercise":"Wall balls, unbroken","reps":50,"load_by_division":{"open":"9 kg","pro":"9 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,peak,wall_balls}'),
+('4c763652-1f81-5fe2-a035-f76bd6d660b9', 'sw_w3_heavy_station_lockout', 'main', 'sled_push',
+ '[{"exercise":"Sled push at race weight","distance_m":50,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Sled pull at race weight — no rest","distance_m":50,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Farmers carry — no rest","distance_m":200,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Sandbag lunges — no rest","distance_m":100,"load_by_division":{"open":"20 kg","pro":"30 kg"}}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,peak,sled_push}'),
+('8e0faff7-8dd3-5603-ad90-dbdee1b65c4a', 'sw_w3_metabolic_capacity_cap', 'main', 'wall_balls',
+ '[{"exercise":"Wall balls, unbroken, for time","reps":100,"load_by_division":{"open":"9 kg","pro":"9 kg"},"rest_sec":180},{"exercise":"Burpee broad jumps, all out","distance_m":80}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,peak,wall_balls}'),
+('744e23f3-a158-5593-bae2-5128843f50b8', 'sw_w4_ski_push_tune', 'main', 'ski_erg',
+ '[{"exercise":"2 rounds"},{"exercise":"SkiErg at race pace","distance_m":300},{"exercise":"Sled push at race weight","distance_m":12.5,"load_by_division":{"open":"152 kg","pro":"202 kg"}},{"exercise":"Wall balls","reps":15,"load_by_division":{"open":"9 kg","pro":"9 kg"},"rest_sec":240}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,taper,ski_erg}'),
+('22961c9e-e587-53da-8eea-f7031d1de470', 'sw_w4_row_pull_tune', 'main', 'sled_pull',
+ '[{"exercise":"2 rounds"},{"exercise":"RowErg at race pace","distance_m":300},{"exercise":"Sled pull at race weight","distance_m":12.5,"load_by_division":{"open":"103 kg","pro":"153 kg"}},{"exercise":"Burpee broad jumps","reps":5}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,taper,sled_pull}'),
+('ba40af17-2d3d-555c-9311-170139748a5b', 'sw_w4_reactivity_drills', 'main', 'farmers_carry',
+ '[{"exercise":"3 rounds"},{"exercise":"Farmers carry at high tempo","distance_m":20,"load_by_division":{"open":"2×24 kg","pro":"2×32 kg"}},{"exercise":"Reactivity drills — pogo hops, short contacts, quick feet","reps":20}]'::jsonb,
+ 'gym', 3, '{station_work}', '{station,world_class,taper,farmers_carry}')
+on conflict (slug) do update set
+  content = excluded.content,
+  station = excluded.station,
+  difficulty_tier = excluded.difficulty_tier,
+  session_types = excluded.session_types,
+  tags = excluded.tags;
+-- <<< generated: station work
+
+-- >>> generated: interval running
+-- ============================================================================
+-- Threshold and VO2max intervals: 86 sessions across five levels and four phases.
+--
+-- GENERATED from src/lib/engine/intervalSessions.ts — do not edit by hand.
+--   WRITE_SEED=1 npx vitest run librarySeed
+--
+-- The ids are pinned in the catalogue, because the engine names them while
+-- building a plan: session_blocks.block_id points straight at these rows.
+-- ============================================================================
+
+insert into workout_blocks (id, slug, block_type, station, content, equipment_variant, difficulty_tier, session_types, tags) values
+('50e38da6-c91c-55f2-a409-7407ffe60520', 'ri_b1_lt1_blocks', 'main', null,
+ '[{"exercise":"6 min at LT1 / early Zone 3","is_run":true,"sets":3,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,base}'),
+('497c185d-4fae-521f-89b0-726fc68123b9', 'ri_b1_controlled_tempo', 'main', null,
+ '[{"exercise":"3 min at controlled tempo, RPE 7","is_run":true,"sets":5,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,base}'),
+('9d9f536f-3de5-51c4-b607-975727b64dd2', 'ri_b1_progression_run', 'main', null,
+ '[{"exercise":"10 min building from easy to steady","is_run":true},{"exercise":"5 min at threshold, RPE 7–8","is_run":true}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,base}'),
+('6adf727b-11ae-5e33-84f3-bafd773ddfdf', 'ri_b1_aerobic_400s', 'main', null,
+ '[{"exercise":"400 m, aerobic and brisk","is_run":true,"sets":8,"distance_m":400,"rest_sec":60}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,base}'),
+('799f0786-922b-563c-bdc9-44455d962b16', 'ri_b2_lt2_cruise', 'main', null,
+ '[{"exercise":"1000 m at 10 k race pace, RPE 8","is_run":true,"sets":4,"distance_m":1000,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,build}'),
+('66db52fe-378e-5632-a472-4bef9c4d0dd2', 'ri_b2_vo2_short', 'main', null,
+ '[{"exercise":"2 min at 95–100% HRmax, RPE 9","is_run":true,"sets":6,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,build}'),
+('902a1b95-6562-512b-8291-0bce3fa10a1a', 'ri_b2_threshold_1500s', 'main', null,
+ '[{"exercise":"1500 m at threshold pace","is_run":true,"sets":3,"distance_m":1500,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,build}'),
+('7a19da05-8f96-5a73-a055-f6fe1ed56883', 'ri_b2_pyramid', 'main', null,
+ '[{"exercise":"400 m at 5 k pace","is_run":true,"distance_m":400,"rest_sec":60},{"exercise":"800 m at 5 k pace","is_run":true,"distance_m":800,"rest_sec":120},{"exercise":"1200 m at 5 k pace","is_run":true,"distance_m":1200,"rest_sec":180},{"exercise":"800 m at 5 k pace","is_run":true,"distance_m":800,"rest_sec":120},{"exercise":"400 m at 5 k pace","is_run":true,"distance_m":400}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,build}'),
+('9f7288b5-35cb-5916-bfef-dd963fce6ced', 'ri_b3_race_pace_1000s', 'main', null,
+ '[{"exercise":"1000 m at target race running pace, RPE 7–8","is_run":true,"sets":5,"distance_m":1000,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,peak}'),
+('41ea9551-8806-59d5-8851-f37606819129', 'ri_b3_vo2_threes', 'main', null,
+ '[{"exercise":"3 min at VO2max intensity","is_run":true,"sets":4,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,peak}'),
+('4ca0a167-380c-5a67-bbbd-a482cee70a7b', 'ri_b3_lt2_doubles', 'main', null,
+ '[{"exercise":"2000 m at LT2 pace","is_run":true,"sets":2,"distance_m":2000,"rest_sec":150}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,peak}'),
+('57974083-6a41-585b-814a-4fd15425ed72', 'ri_b3_over_race_pace_500s', 'main', null,
+ '[{"exercise":"500 m faster than Hyrox race pace","is_run":true,"sets":8,"distance_m":500,"rest_sec":60}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,peak}'),
+('8297c1a5-86a0-5f9f-a4b6-7f352c5ad619', 'ri_b4_race_pace_800s', 'main', null,
+ '[{"exercise":"800 m at race pace","is_run":true,"sets":3,"distance_m":800,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,taper}'),
+('2a616402-8995-5edc-8809-3e44dcd3b6ed', 'ri_b4_sharpening_400s', 'main', null,
+ '[{"exercise":"400 m at 5 k pace","is_run":true,"sets":4,"distance_m":400,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,taper}'),
+('aaab7dd5-0c32-5171-8478-cabbf4fc8321', 'ri_b4_rhythm_kilometres', 'main', null,
+ '[{"exercise":"1000 m at race pace — rhythm and ease, shoulders down","is_run":true,"sets":2,"distance_m":1000,"rest_sec":180}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,taper}'),
+('ce552df9-70c2-5fbf-8611-78d016e8aa10', 'ri_b4_strides_200s', 'main', null,
+ '[{"exercise":"200 m brisk, relaxed and fast","is_run":true,"sets":5,"distance_m":200,"rest_sec":60}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,beginner,taper}'),
+('e821ad47-66d3-5567-aec5-e812edb5c48f', 'ri_i1_lt2_eights', 'main', null,
+ '[{"exercise":"8 min at LT2","is_run":true,"sets":3,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,base}'),
+('75265ce7-f5d4-52a5-be84-30bbfdd2699b', 'ri_i1_tempo_twenty', 'main', null,
+ '[{"exercise":"20 min continuous at threshold, RPE 7–8","is_run":true}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,base}'),
+('73bccf8c-c91e-5ebc-b7a0-7a0ab0bd7384', 'ri_i1_tenk_800s', 'main', null,
+ '[{"exercise":"800 m at 10 k pace","is_run":true,"sets":6,"distance_m":800,"rest_sec":75}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,base}'),
+('766951b8-4cc6-5d97-a018-f2e7b34d7975', 'ri_i1_minute_alternations', 'main', null,
+ '[{"exercise":"10 rounds"},{"exercise":"1 min fast","is_run":true},{"exercise":"1 min easy — keep running","is_run":true}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,base}'),
+('c2ae3c70-7c4d-52a5-af9d-5a20813e4aaf', 'ri_i2_classic_vo2', 'main', null,
+ '[{"exercise":"3 min at 95–100% HRmax, 3 k–5 k pace","is_run":true,"sets":5,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,build}'),
+('3ceec6b8-2f24-5282-ad95-fcf9428b890a', 'ri_i2_lt2_kilometres', 'main', null,
+ '[{"exercise":"1000 m at 10 k pace","is_run":true,"sets":5,"distance_m":1000,"rest_sec":75}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,build}'),
+('7d6d6247-075d-5f9c-a073-d7d22a687fdd', 'ri_i2_threshold_1500s', 'main', null,
+ '[{"exercise":"1500 m at threshold pace","is_run":true,"sets":4,"distance_m":1500,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,build}'),
+('e8265db1-b732-56c6-b108-0723ab016846', 'ri_i2_vo2_600s', 'main', null,
+ '[{"exercise":"600 m at VO2max pace","is_run":true,"sets":8,"distance_m":600,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,build}'),
+('d8954bc0-edc3-5d39-a712-19540881f392', 'ri_i3_race_pace_density', 'main', null,
+ '[{"exercise":"1000 m at Hyrox race pace","is_run":true,"sets":6,"distance_m":1000,"rest_sec":60}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,peak}'),
+('04bf4d09-b143-5ebb-9288-ccf00a15342d', 'ri_i3_threshold_2000s', 'main', null,
+ '[{"exercise":"2000 m at threshold pace","is_run":true,"sets":3,"distance_m":2000,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,peak}'),
+('18c03bb6-6b9e-5f7a-94b2-aa23d300c931', 'ri_i3_threek_400s', 'main', null,
+ '[{"exercise":"400 m at 3 k pace","is_run":true,"sets":10,"distance_m":400,"rest_sec":60}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,peak}'),
+('6e8ab61b-6f94-5235-a75a-158f0cf2a53e', 'ri_i3_negative_split_1200s', 'main', null,
+ '[{"exercise":"4 rounds — 2 min between rounds","rest_sec":120},{"exercise":"800 m at race pace","is_run":true,"distance_m":800},{"exercise":"400 m at 5 k pace — straight on, no break","is_run":true,"distance_m":400}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,peak}'),
+('b2f868ff-1382-5ed1-a208-eed43f740a42', 'ri_i4_race_pace_kilometres', 'main', null,
+ '[{"exercise":"1000 m at race pace","is_run":true,"sets":3,"distance_m":1000,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,taper}'),
+('6e132174-dbc9-5088-be76-e177adf9fd0f', 'ri_i4_over_pace_500s', 'main', null,
+ '[{"exercise":"500 m slightly faster than race pace","is_run":true,"sets":4,"distance_m":500,"rest_sec":90}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,taper}'),
+('0895eba0-86c1-5e99-9ff4-2271b8813f0a', 'ri_i4_dynamic_300s', 'main', null,
+ '[{"exercise":"300 m with a dynamic acceleration through the middle","is_run":true,"sets":5,"distance_m":300,"rest_sec":120}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,taper}'),
+('949340c7-1c92-59a2-9d64-05b661ec797a', 'ri_i4_race_pace_strides', 'main', null,
+ '[{"exercise":"800 m at race pace","is_run":true,"sets":2,"distance_m":800,"rest_sec":150},{"exercise":"100 m stride, relaxed and fast","is_run":true,"sets":4,"distance_m":100,"rest_sec":60}]'::jsonb,
+ 'gym', 1, '{run_intervals}', '{intervals,intermediate,taper}'),
+('422f5075-bcb9-5684-b6ea-c2705a00349f', 'ri_a1_lt2_volume', 'main', null,
+ '[{"exercise":"8 min at LT2","is_run":true,"sets":4,"rest_sec":90}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,base}'),
+('36b26aaa-237c-5dc4-a74b-b965a62687ff', 'ri_a1_continuous_threshold', 'main', null,
+ '[{"exercise":"25 min continuous at LT2","is_run":true}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,base}'),
+('1ccc2621-f493-5788-aa3a-0256b0b5343b', 'ri_a1_tenk_1500s', 'main', null,
+ '[{"exercise":"1500 m at 10 k pace","is_run":true,"sets":5,"distance_m":1500,"rest_sec":75}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,base}'),
+('fc339a7d-4665-5f99-8192-f787fb4b535f', 'ri_a1_fivek_400s', 'main', null,
+ '[{"exercise":"400 m at 5 k pace","is_run":true,"sets":12,"distance_m":400,"rest_sec":45}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,base}'),
+('7634f911-e898-50be-8f54-1a3ba04c0c7a', 'ri_a2_vo2_density', 'main', null,
+ '[{"exercise":"3 min at 95–100% HRmax","is_run":true,"sets":6,"rest_sec":90}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,build}'),
+('f394df47-29bf-50a9-b3c5-77ff198d0464', 'ri_a2_even_kilometres', 'main', null,
+ '[{"exercise":"1000 m at 5 k–10 k pace — hold split variance under 3 s","is_run":true,"sets":6,"distance_m":1000,"rest_sec":60}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,build}'),
+('0e31ce35-e299-51e6-81f2-7e4954860671', 'ri_a2_lactate_shuttle', 'main', null,
+ '[{"exercise":"4 rounds — 2 min between rounds","rest_sec":120},{"exercise":"1200 m at LT2","is_run":true,"distance_m":1200},{"exercise":"400 m at 3 k pace — straight on, no break","is_run":true,"distance_m":400}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,build}'),
+('95a00750-1ee3-5ca6-82a9-0ab3aec19dd6', 'ri_a2_vo2_800s', 'main', null,
+ '[{"exercise":"800 m at VO2max intensity","is_run":true,"sets":8,"distance_m":800,"rest_sec":75}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,build}'),
+('324b65fd-f6cd-5e49-b7ad-91399584c5ee', 'ri_a3_race_pace_sevens', 'main', null,
+ '[{"exercise":"1000 m at target race pace, 4:45–5:00 / km","is_run":true,"sets":7,"distance_m":1000,"rest_sec":60}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,peak}'),
+('794badc4-d585-5fc0-a045-3d076853071d', 'ri_a3_threshold_2500s', 'main', null,
+ '[{"exercise":"2500 m at threshold pace","is_run":true,"sets":3,"distance_m":2500,"rest_sec":120}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,peak}'),
+('430bb3bf-9699-5582-ab31-dd9de980acda', 'ri_a3_threek_dozen', 'main', null,
+ '[{"exercise":"400 m at 3 k pace","is_run":true,"sets":12,"distance_m":400,"rest_sec":45}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,peak}'),
+('f235115a-7d47-5cd4-8f15-e7cc41157fd4', 'ri_a3_kick_1200s', 'main', null,
+ '[{"exercise":"5 rounds — 90 s between rounds","rest_sec":90},{"exercise":"800 m at race pace","is_run":true,"distance_m":800},{"exercise":"400 m kick — faster, straight on","is_run":true,"distance_m":400}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,peak}'),
+('05078d1f-c23c-591b-8e79-8e6e52579778', 'ri_a4_race_pace_800s', 'main', null,
+ '[{"exercise":"800 m at race pace","is_run":true,"sets":4,"distance_m":800,"rest_sec":90}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,taper}'),
+('3ddfdf73-2037-5520-9474-ea4f7ad34ec4', 'ri_a4_race_pace_kilometres', 'main', null,
+ '[{"exercise":"1000 m at race pace","is_run":true,"sets":3,"distance_m":1000,"rest_sec":120}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,taper}'),
+('613b113f-5e63-5aa8-9681-80be589e3150', 'ri_a4_activation_300s', 'main', null,
+ '[{"exercise":"300 m at 3 k pace","is_run":true,"sets":6,"distance_m":300,"rest_sec":60}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,taper}'),
+('73971e83-03d7-5e62-8018-1b66883474f0', 'ri_a4_race_pace_strides', 'main', null,
+ '[{"exercise":"600 m at race pace","is_run":true,"sets":2,"distance_m":600,"rest_sec":150},{"exercise":"Dynamic stride — build to fast, stay relaxed","is_run":true,"sets":4,"distance_m":100,"rest_sec":60}]'::jsonb,
+ 'gym', 2, '{run_intervals}', '{intervals,advanced,taper}'),
+('310a7dd8-36ce-5347-9bbc-a63832498a54', 'ri_e1_lt2_2000s', 'main', null,
+ '[{"exercise":"2000 m at LT2 pace","is_run":true,"sets":5,"distance_m":2000,"rest_sec":90}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,base}'),
+('1ec824a4-5374-58ac-be74-fdb037730c55', 'ri_e1_tempo_thirty', 'main', null,
+ '[{"exercise":"30 min continuous at the anaerobic threshold","is_run":true}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,base}'),
+('6802ff95-7591-552b-a0b3-d650707dd3db', 'ri_e1_tenk_1600s', 'main', null,
+ '[{"exercise":"1600 m at 10 k pace","is_run":true,"sets":6,"distance_m":1600,"rest_sec":60}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,base}'),
+('2c6d8e30-e347-5a9a-8222-06b5c093d780', 'ri_e1_fifteen_400s', 'main', null,
+ '[{"exercise":"400 m at 5 k pace","is_run":true,"sets":15,"distance_m":400,"rest_sec":40}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,base}'),
+('d3289d90-b202-5699-b297-b911145237de', 'ri_e1_lt2_tens', 'main', null,
+ '[{"exercise":"10 min at LT2","is_run":true,"sets":3,"rest_sec":120}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,base}'),
+('e07b63bc-d802-55b1-8e99-aa676bcf333a', 'ri_e2_norwegian_sixes', 'main', null,
+ '[{"exercise":"6 min at the top of the threshold","is_run":true,"sets":5,"rest_sec":60}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,build}'),
+('3aff06bd-ae40-54d3-aa74-8e8dc461896a', 'ri_e2_vo2_peak_kilometres', 'main', null,
+ '[{"exercise":"1000 m at 3 k–5 k pace, 3:20–3:30 / km","is_run":true,"sets":6,"distance_m":1000,"rest_sec":90}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,build}'),
+('8b560283-256c-53af-8fc6-2c87b13fc96c', 'ri_e2_alternating_threshold', 'main', null,
+ '[{"exercise":"4 rounds"},{"exercise":"1000 m at 10 k pace","is_run":true,"distance_m":1000},{"exercise":"1000 m at marathon pace — active recovery, keep running","is_run":true,"distance_m":1000}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,build}'),
+('4518e51f-d84b-5602-aa3d-fc4190f1aace', 'ri_e2_vo2_800s', 'main', null,
+ '[{"exercise":"800 m at VO2max pace","is_run":true,"sets":8,"distance_m":800,"rest_sec":60}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,build}'),
+('fce0ca6e-cfd0-56ce-8d2b-5f058e2a9633', 'ri_e2_allout_500s', 'main', null,
+ '[{"exercise":"500 m all out at VO2max","is_run":true,"sets":10,"distance_m":500,"rest_sec":60}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,build}'),
+('d2444c30-c1cf-57fa-a56d-831184b2abd5', 'ri_e3_eight_at_race_pace', 'main', null,
+ '[{"exercise":"1000 m at exact Hyrox race pace, 4:15–4:30 / km","is_run":true,"sets":8,"distance_m":1000,"rest_sec":45}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,peak}'),
+('50616117-23af-53df-ab10-6b79bc3d0677', 'ri_e3_negative_2000s', 'main', null,
+ '[{"exercise":"4 rounds — 90 s between rounds","rest_sec":90},{"exercise":"1600 m at race pace","is_run":true,"distance_m":1600},{"exercise":"400 m faster — negative split, no break","is_run":true,"distance_m":400}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,peak}'),
+('c746fe41-87ac-56b6-9c40-b0d036bec401', 'ri_e3_sixteen_400s', 'main', null,
+ '[{"exercise":"400 m at 3 k pace","is_run":true,"sets":16,"distance_m":400,"rest_sec":40}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,peak}'),
+('68a79d52-3e5d-5257-b95b-f5e939a2c13e', 'ri_e3_over_pace_1200s', 'main', null,
+ '[{"exercise":"1200 m slightly faster than race pace","is_run":true,"sets":6,"distance_m":1200,"rest_sec":60}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,peak}'),
+('ad13dad9-1302-5832-bd50-d9beb8c9f0f3', 'ri_e3_threshold_3000s', 'main', null,
+ '[{"exercise":"3000 m at threshold pace","is_run":true,"sets":3,"distance_m":3000,"rest_sec":120}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,peak}'),
+('3eed8f4d-b297-5a55-99cf-61f4768e7586', 'ri_e4_race_pace_kilometres', 'main', null,
+ '[{"exercise":"1000 m at race pace","is_run":true,"sets":4,"distance_m":1000,"rest_sec":90}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,taper}'),
+('464bb5b9-4c5e-5ff2-855b-fb65de4ec385', 'ri_e4_threek_400s', 'main', null,
+ '[{"exercise":"400 m at 3 k pace","is_run":true,"sets":5,"distance_m":400,"rest_sec":75}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,taper}'),
+('15f54eeb-fd82-56c0-9700-30fe61edc500', 'ri_e4_full_recovery_1200s', 'main', null,
+ '[{"exercise":"1200 m at race pace — full recovery between","is_run":true,"sets":2,"distance_m":1200,"rest_sec":300}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,taper}'),
+('dbdf6bf2-7e31-57c1-ae13-eb2429bd3941', 'ri_e4_cns_sprints', 'main', null,
+ '[{"exercise":"200 m activation sprint — walk back","is_run":true,"sets":6,"distance_m":200,"rest_sec":120}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,elite,taper}'),
+('555c08ee-652f-5e5c-857c-bd7c62e8e37c', 'ri_w1_lt2_2000s', 'main', null,
+ '[{"exercise":"2000 m at LT2, sub 3:30 / km","is_run":true,"sets":6,"distance_m":2000,"rest_sec":60}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,base}'),
+('34ca8b4c-e0da-58dc-9898-a79dc6f35be9', 'ri_w1_tempo_thirtyfive', 'main', null,
+ '[{"exercise":"35 min continuous, strictly at the anaerobic threshold","is_run":true}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,base}'),
+('829f6f8b-62c1-55a2-af7d-9d1c0786c277', 'ri_w1_tenk_1500s', 'main', null,
+ '[{"exercise":"1500 m at 10 k pace","is_run":true,"sets":8,"distance_m":1500,"rest_sec":45}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,base}'),
+('a77396c3-89f2-5998-ac81-201fe212c835', 'ri_w1_twenty_400s', 'main', null,
+ '[{"exercise":"400 m at 5 k pace","is_run":true,"sets":20,"distance_m":400,"rest_sec":30}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,base}'),
+('0db3eb55-ffe5-52c1-a997-9503234907fb', 'ri_w1_threshold_blocks', 'main', null,
+ '[{"exercise":"10 min at threshold","is_run":true,"sets":4,"rest_sec":90}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,base}'),
+('ee3701a6-999c-594e-9d87-9be19db6085d', 'ri_w2_threek_kilometres', 'main', null,
+ '[{"exercise":"1000 m at 3 k pace, sub 3:15 / km","is_run":true,"sets":7,"distance_m":1000,"rest_sec":75}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,build}'),
+('cc6670a1-9e36-54ca-86df-4a0990a3cfec', 'ri_w2_double_threshold', 'main', null,
+ '[{"exercise":"1200 m at LT2","is_run":true,"sets":6,"distance_m":1200,"rest_sec":45}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,build}'),
+('8b6c3b51-6666-5ca9-8223-4f6fcec5ef1b', 'ri_w2_lactate_washout', 'main', null,
+ '[{"exercise":"5 rounds"},{"exercise":"1000 m at 5 k pace","is_run":true,"distance_m":1000},{"exercise":"1000 m at LT1 — clear it while still running","is_run":true,"distance_m":1000}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,build}'),
+('25824129-246f-5555-8c84-0b28e1fe4ed3', 'ri_w2_ten_800s', 'main', null,
+ '[{"exercise":"800 m at VO2max pace","is_run":true,"sets":10,"distance_m":800,"rest_sec":50}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,build}'),
+('7bd7428d-5628-511c-bb28-0ba194688fb2', 'ri_w2_twelve_600s', 'main', null,
+ '[{"exercise":"600 m at 3 k pace","is_run":true,"sets":12,"distance_m":600,"rest_sec":60}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,build}'),
+('8ce47eb9-1b95-5ff3-aea7-82559f51b6ea', 'ri_w3_precision_kilometres', 'main', null,
+ '[{"exercise":"1000 m at race pace, 3:45–3:55 / km — split variance 1–2 s, no more","is_run":true,"sets":8,"distance_m":1000,"rest_sec":30}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,peak}'),
+('ef3d1957-11e1-5646-b1f6-52e5515b1b45', 'ri_w3_lt2_2500s', 'main', null,
+ '[{"exercise":"2500 m at LT2 pace","is_run":true,"sets":4,"distance_m":2500,"rest_sec":75}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,peak}'),
+('f5a12fed-5acc-5a5c-b1ba-5c4c713f5b5d', 'ri_w3_twenty_400s', 'main', null,
+ '[{"exercise":"400 m at 3 k pace","is_run":true,"sets":20,"distance_m":400,"rest_sec":30}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,peak}'),
+('6cfd3a3b-f355-55ea-87a4-4ccabd799f85', 'ri_w3_progressive_1500s', 'main', null,
+ '[{"exercise":"6 rounds — 1 min between rounds","rest_sec":60},{"exercise":"1000 m at race pace","is_run":true,"distance_m":1000},{"exercise":"500 m all out — straight on","is_run":true,"distance_m":500}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,peak}'),
+('1dea9e19-3dc5-5955-8fad-0a394f34d03d', 'ri_w3_ten_threshold_kilometres', 'main', null,
+ '[{"exercise":"1000 m at threshold pace","is_run":true,"sets":10,"distance_m":1000,"rest_sec":45}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,peak}'),
+('f5a00925-6b50-53c0-976c-b6faabef1b0b', 'ri_w4_race_pace_800s', 'main', null,
+ '[{"exercise":"800 m at race pace","is_run":true,"sets":4,"distance_m":800,"rest_sec":90}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,taper}'),
+('893f3cb4-7526-5246-8a2f-f3c2e83353b8', 'ri_w4_race_pace_kilometres', 'main', null,
+ '[{"exercise":"1000 m at race pace","is_run":true,"sets":3,"distance_m":1000,"rest_sec":120}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,taper}'),
+('6361febe-748b-51af-b1ce-843293307e77', 'ri_w4_fast_300s', 'main', null,
+ '[{"exercise":"300 m fast — walk back","is_run":true,"sets":6,"distance_m":300,"rest_sec":90}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,taper}'),
+('0cdf0adf-746d-5e9d-bc37-e86852183e1f', 'ri_w4_explosive_finish', 'main', null,
+ '[{"exercise":"500 m at race pace","is_run":true,"sets":2,"distance_m":500,"rest_sec":180},{"exercise":"Explosive acceleration run — build hard, stay tall","is_run":true,"sets":4,"distance_m":120,"rest_sec":120}]'::jsonb,
+ 'gym', 3, '{run_intervals}', '{intervals,world_class,taper}')
+on conflict (slug) do update set
+  content = excluded.content,
+  station = excluded.station,
+  difficulty_tier = excluded.difficulty_tier,
+  session_types = excluded.session_types,
+  tags = excluded.tags;
+-- <<< generated: interval running

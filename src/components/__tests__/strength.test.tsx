@@ -123,7 +123,7 @@ describe("StrengthClient", () => {
   const html = renderToStaticMarkup(<StrengthClient templates={[template]} />);
 
   it("carries the shared header — the way back to the week view", () => {
-    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>Hyrox/);
+    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>HYROX/);
   });
 
   it("puts an open suggestion up front, with both answers", () => {

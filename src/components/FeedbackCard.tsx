@@ -39,7 +39,7 @@ export function FeedbackCard({ feedback, onClose }: Props) {
           <h3 className="text-xl font-bold">{feedback.headline}</h3>
           <p className="mt-2 text-sm text-ash">{feedback.coachText}</p>
           {feedback.aiGenerated && (
-            <span className="mt-2 inline-block text-[10px] uppercase tracking-wide text-ash">
+            <span className="mt-2 inline-block text-meta font-bold text-bone">
               AI coach · numbers computed by the plan engine
             </span>
           )}
@@ -60,7 +60,7 @@ export function FeedbackCard({ feedback, onClose }: Props) {
           </div>
           <div className="text-3xl font-bold">
             {feedback.score}
-            <span className="text-floor font-normal text-ash"> / 100</span>
+            <span className="font-normal text-ash"> / 100</span>
           </div>
         </div>
         <div className="relative mt-3 h-2 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-go">
@@ -84,7 +84,7 @@ export function FeedbackCard({ feedback, onClose }: Props) {
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-ash">
+                <div className="w-20 shrink-0 text-meta font-bold text-bone">
                   {m.label}
                 </div>
                 <div className="flex-1">

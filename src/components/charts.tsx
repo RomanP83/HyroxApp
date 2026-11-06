@@ -4,16 +4,16 @@
 // <=24px with 4px rounded data-ends, 1px solid recessive gridlines, text in
 // text tokens (never series colors), legend for two series / none for one,
 // native <title> tooltips per mark, and a <details> table view per chart.
-// Palette (validated against surface #141b24 with the skill's validator):
-// series-1 #3987e5 (blue), series-2 #c98500 (yellow).
+// Palette: the whiteboard's markers on panel white — ink for the main series
+// (load, strength, a measured value), running blue for the second.
 // ============================================================================
 
 export const VIZ = {
-  surface: "#141b24",
-  grid: "#26333f",
-  text: "#8fa1b0",
-  series1: "#3987e5",
-  series2: "#c98500",
+  surface: "#ffffff",
+  grid: "#d6dadc",
+  text: "#5f666b",
+  series1: "#1b1d20",
+  series2: "#1f4fb8",
 };
 
 const W = 640;
@@ -209,7 +209,7 @@ export function LineChart({
           y={scale.y(series[series.length - 1].y) - 8}
           textAnchor="end"
           fontSize={10}
-          fill="#e8eef3"
+          fill="#1b1d20"
         >
           {fmt(series[series.length - 1].y)}
         </text>
@@ -259,7 +259,7 @@ export function BarChart({
           );
         })}
         {/* direct label: latest bar only */}
-        <text x={scale.x(bars.length - 1)} y={scale.y(bars[bars.length - 1].y) - 6} textAnchor="middle" fontSize={10} fill="#e8eef3">
+        <text x={scale.x(bars.length - 1)} y={scale.y(bars[bars.length - 1].y) - 6} textAnchor="middle" fontSize={10} fill="#1b1d20">
           {fmt(bars[bars.length - 1].y)}
         </text>
         <XLabels labels={bars.map((b) => b.label)} scale={scale} />

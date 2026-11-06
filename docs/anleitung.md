@@ -64,9 +64,37 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 | `/settings` | Setup & Tools: Wochenform, Laufvolumen, Verbindungen, Verletzung | nein |
 | `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
 
-Alle eingeloggten Seiten teilen sich **eine Kopfzeile**: das Logo führt immer zurück auf `/plan`
-(die Wochenansicht), daneben stehen die sechs Bereiche als Tabs, der aktuelle ist markiert. Auch die
+Alle eingeloggten Seiten teilen sich **einen Rahmen** im Look des HyroxTraining-Trackers (die
+„Box-Whiteboard"-Optik, siehe [Das Aussehen](#das-aussehen)):
+
+- **Am Desktop** (breiter als 900 px) steht links eine graue Aluminium-Spalte: oben das Logo
+  „HYROX / HUB" (führt immer zurück auf `/plan`), darunter die sechs Bereiche mit Symbol, unten
+  **Setup**. Der Countdown steht oben rechts über dem Inhalt.
+- **Am Handy** (900 px und schmaler) ist der Rahmen eine Leiste oben — Logo links, Countdown und ein
+  Zahnrad für **Setup** rechts — und die sechs Bereiche sitzen als Tab-Leiste am unteren Rand
+  (kurze Namen: Week, Season, Strength, Progress, Race, Tests).
+
+Der Bereich, auf dem du bist, ist in beiden Fällen schwarz gefüllt. Auch die
 Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
+
+### Das Aussehen
+
+HyroxApp sieht aus wie der HyroxTraining-Tracker: ein heller, kühler Whiteboard-Grund im grauen
+Aluminiumrahmen, weiße Tafeln mit dünnen grauen Linien, Überschriften und Zahlen in schmalen
+Großbuchstaben (Barlow Condensed), Text in Barlow. Nur hell — einen Dunkelmodus gibt es nicht.
+
+Jede Markerfarbe bedeutet genau eine Sache:
+
+| Farbe | Bedeutung |
+|---|---|
+| Schwarz | Alles, was du drücken kannst; ausgewählte Chips und Tage sind schwarz gefüllt |
+| Rot | Harte Einheiten, Ziele und offene Lücken, Fehler |
+| Blau | Laufen — und Links sowie der Fokusrahmen beim Tippen mit der Tastatur |
+| Grün | Erledigt (und schon erreichte Ziele), sonst nichts |
+| Orange | HYROX-Stationen und Kraft |
+
+Schaltflächen sind 48 px hoch, Eingabefelder 50 px, Chips 44 px — mit Handschuhen und verschwitzten
+Fingern treffbar.
 
 ---
 
@@ -135,9 +163,9 @@ Die Hauptseite. Links die Einheiten der Woche, rechts die Kontextkarten.
 
 ### Was oben steht
 
-Kopfzeile: die Navigation zeigt, auf welcher Seite du bist, und rechts steht der **Countdown** —
-nicht das Renndatum, sondern wie viele Tage bleiben. Darunter der **Zyklus-Streifen**: eine Linie
-pro Woche in der Farbe ihrer Phase, die aktuelle Woche hervorgehoben, ein Bernsteinpunkt über jeder
+Oben rechts (am Handy in der Leiste oben) steht der **Countdown** — nicht das Renndatum, sondern
+wie viele Tage bleiben. Darunter der **Zyklus-Streifen**: eine Linie
+pro Woche in der Farbe ihrer Phase, die aktuelle Woche hervorgehoben, ein orangefarbener Punkt über jeder
 Deload- und Benchmark-Woche. Anklicken springt in die Woche.
 
 ### Die Wochenansicht
@@ -274,10 +302,12 @@ Wall Balls in geplanten Sätzen. Sie braucht ein Ergometer.
 
 
 Links an jeder Einheit sitzt eine **Intensitäts-Leiste** in der Farbe dessen, was der Tag verlangt:
-orange = hart, grün = aerob, bernstein = Kraft und Stationen, grau = Erholung. Die Wochenform ist
-damit sichtbar, bevor ein Wort gelesen ist — zwei orange Leisten heißen: harte Woche.
+rot = hart, blau = aerob (Laufen), orange = Kraft und Stationen, grau = Erholung. Die Wochenform ist
+damit sichtbar, bevor ein Wort gelesen ist — zwei rote Leisten heißen: harte Woche.
 
-**Die Einheit von heute** ist hervorgehoben und trägt als einzige einen gefüllten Knopf. Alle
+**Die Einheit von heute** hat einen schwarzen Rahmen und als einziges Element der Seite einen
+Schatten — sie „hebt sich" vom Board ab — und trägt als einzige einen gefüllten Knopf. Eine
+erledigte Einheit wird grün durchgestrichen, eine geloggte sitzt grau auf dem Board. Alle
 anderen Einheiten haben dieselben vier Knöpfe, nur ruhiger — sonst gäbe es sechs Blickfänge, also
 keinen.
 
@@ -288,7 +318,7 @@ Zugeklappt: Titel, Typ, Dauer, RPE-Ziel. Bei Laufeinheiten zusätzlich direkt si
 - Bei kompromittierten Läufen: **die Eröffnungspace** (+20 s/km über die ersten 400 m)
 
 Aufgeklappt: alle Blöcke als **Abschnitte** — „Warm-up" (grau), „Main set" (in der Farbe der
-Intensitäts-Leiste), „Finisher" (orange), „Mobility" (grün). Jeder Abschnitt hat eine farbige
+Intensitäts-Leiste), „Finisher" (rot), „Mobility" (grau). Jeder Abschnitt hat eine farbige
 Kopfzeile mit Station, Tier, Zielpace oder Lastfaktor rechts daneben; darunter die Schritte,
 **über die ganze Einheit durchnummeriert** (1, 2, 3 … vom Warm-up bis zum letzten Block), je mit
 Übung, Dosis (z. B. „3 × 8", „4 × 60 m", „rest 90s") und Gewicht rechts — gerendert auf deine
@@ -714,7 +744,8 @@ Kalender überlebt auch einen Rebase.
 
 ## 8. `/settings` — Setup & Tools
 
-Erreichbar über **Setup** rechts oben, auf jeder Seite. Vier Gruppen, nach dem sortiert, was du
+Erreichbar über **Setup** — am Desktop unten in der linken Spalte, am Handy über das Zahnrad oben
+rechts — auf jeder Seite. Vier Gruppen, nach dem sortiert, was du
 entscheidest.
 
 ### Deine Trainingswoche
@@ -1362,6 +1393,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Neues Design wie HyroxTraining („Box Whiteboard"):** heller Whiteboard-Grund, Barlow-Schriften, Markerfarben mit je einer Bedeutung (Laufen jetzt blau, hart rot); Navigation am Desktop in einer Aluminium-Spalte links, am Handy als Tab-Leiste unten mit Setup-Zahnrad oben; die heutige Einheit hebt sich mit Schatten ab, Erledigtes wird grün durchgestrichen | [2](#2-seitenübersicht), [4](#eine-einheitenkarte), [8](#8-settings--setup--tools) |
 | **Zusammengeführt:** die Härtung vom 04.09. — „heute" in der Trainingszeitzone, Rückfrage vor Reha-Modus und Neuaufbau, ein Log wird mit Sätzen und Status in einem Schritt gespeichert (doppeltes Loggen legt nichts doppelt an), der Nachtlauf passt jede Woche nur einmal an, Garmin-Webhook mit Secret | [4](#4-plan--die-trainingswoche), [13](#13-verbindungen-strava-garmin-telegram) |
 | **Zusammengeführt:** die Arbeit vom 23.–30.08. (Datum auf jeder Karte, Ruhetage in der Woche, Level/Division/Zielzeit änderbar, Startdatum, Doppeltage festlegbar, `/race` mit Pacing-Blatt, Übergangsblock, Stationen tauschen, Export, Offline, Kataloge nach Level) liegt jetzt auf derselben Version wie Rennanalyse, KI-Coach, Verona-Plan, Kraft-Tage, Spieltag und Urlaub | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
 | **Eine Zielzeit:** Setup und *Target time* auf `/benchmarks` schreiben dieselbe Zahl; ein auf `/race` geloggtes Rennen erscheint unter Rennen & Simulationen und in der Rennanalyse | [8](#8-settings--setup--tools), [10](#rennen--simulationen), [12](#12-race--renntag-pacing-und-ergebnis) |

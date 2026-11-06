@@ -3,77 +3,95 @@
 @tailwind utilities;
 
 /* ============================================================================
-   Depth strategy: SURFACE SHIFTS + hairline edges. No drop shadows.
-   On a near-black ground a shadow is invisible and a border is everything, so
-   elevation is carried by a few percent of lightness and a 1px rgba edge that
-   you feel rather than see. One strategy, held everywhere.
+   The box whiteboard (docs/design.md) — the HyroxTraining tracker's design.
+   The board is flat: depth comes from tone (enamel, white panel, sunk panel)
+   and 1px rules. One lift marks what is happening today; sheets get one
+   shadow. Light only, by decision.
    ========================================================================= */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   @apply bg-floor text-chalk antialiased;
+  font-weight: 500;
   text-rendering: optimizeLegibility;
 }
 
-/* Headings balance; body text loses its orphans. */
+/* The board's writing: view titles and section heads in condensed caps. */
+h1, h2 {
+  @apply font-display font-extrabold uppercase;
+}
 h1, h2, h3 { text-wrap: balance; }
 p { text-wrap: pretty; }
 
 /* A number that changes must not move the layout under it. */
-.tnum, table, time { font-variant-numeric: tabular-nums; }
+.tnum, table, time, .font-mono { font-variant-numeric: tabular-nums; }
+.font-mono { font-weight: 800; }
+
+/* Links are blue — the one interaction job running blue has. */
+a { -webkit-tap-highlight-color: transparent; }
 
 @layer components {
   /* ── Surfaces ─────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-panel border border-edge bg-lane p-4;
+    @apply rounded-panel border border-edge bg-lane p-4 sm:p-5;
   }
-  /* A panel that carries the page's one focal element. */
+  /* The page's focus block: an ink border, not a glow. */
   .card-focal {
-    @apply card border-edge-strong bg-rack;
+    @apply rounded-panel border-[1.5px] border-chalk bg-lane p-4 sm:p-5;
+  }
+  /* Today — the only thing on the board that lifts. */
+  .lift {
+    @apply shadow-lift;
   }
 
   /* ── Controls ─────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-control px-3.5 py-2 text-base font-semibold;
+    @apply inline-flex items-center justify-center gap-2 rounded-control border-[1.5px] px-4 py-2.5 text-base font-bold;
     @apply transition-[background-color,border-color,color,transform] duration-150 ease-out;
-    @apply active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45;
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-flame/70 focus-visible:ring-offset-2 focus-visible:ring-offset-floor;
-    min-height: 40px; /* hit area — never smaller than a thumb */
+    @apply active:translate-y-px disabled:pointer-events-none disabled:opacity-45;
+    @apply focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-run;
+    min-height: 48px;
   }
+  /* Marker black: a pressed board magnet, not a glossy pill. */
   .btn-primary {
-    @apply btn bg-flame text-floor hover:bg-[#ff6c38];
+    @apply btn border-chalk bg-chalk text-lane hover:border-black hover:bg-black;
   }
   .btn-ghost {
-    @apply btn border border-edge bg-lane text-bone hover:border-edge-strong hover:text-chalk;
+    @apply btn border-chalk bg-lane text-chalk hover:bg-rack;
   }
   /* A destructive or state-changing action that should not look inviting. */
   .btn-quiet {
-    @apply btn text-ash hover:bg-rack hover:text-chalk;
+    @apply btn border-transparent bg-transparent text-chalk underline decoration-[1.5px] underline-offset-4 hover:decoration-run;
+  }
+  .btn-danger {
+    @apply btn border-flame bg-lane text-flame hover:bg-rack;
   }
 
   .chip {
-    @apply inline-flex cursor-pointer items-center justify-center rounded-control border border-edge bg-lane px-3 py-2 text-base font-medium text-bone;
+    @apply inline-flex cursor-pointer items-center justify-center rounded-control border-[1.5px] border-edge-strong bg-lane px-3 py-2 text-base font-semibold text-chalk;
     @apply transition-[background-color,border-color,color,transform] duration-150 ease-out;
-    @apply hover:border-edge-strong hover:text-chalk active:scale-[0.97];
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-flame/70;
+    @apply hover:border-chalk active:translate-y-px;
+    @apply focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-run;
     @apply disabled:pointer-events-none disabled:opacity-40;
-    min-height: 40px;
+    font-variant-numeric: tabular-nums;
+    min-height: 44px;
   }
   .chip-active {
-    @apply border-flame/70 bg-flame/10 text-chalk;
+    @apply border-chalk bg-chalk text-lane;
   }
 
-  /* Inputs are sunk INTO the surface — a well, not a raised block. */
   .input {
-    @apply w-full rounded-control border border-edge bg-well px-3 py-2 text-base text-chalk;
+    @apply w-full rounded-control border-[1.5px] border-edge-strong bg-lane px-3 py-2.5 text-lead text-chalk;
     @apply transition-colors duration-150 ease-out placeholder:text-smoke;
-    @apply focus:border-flame/60 focus:outline-none focus:ring-2 focus:ring-flame/25;
+    @apply focus:border-chalk focus:outline focus:outline-[3px] focus:outline-offset-0 focus:outline-run;
+    caret-color: #1f4fb8;
+    min-height: 50px;
   }
   .label {
-    @apply mb-1 block text-micro font-semibold uppercase tracking-wider text-ash;
+    @apply mb-1 block text-meta font-bold text-bone;
   }
 
   /* A number field in a table row: the value is the point, not the stepper. */
@@ -87,30 +105,73 @@ p { text-wrap: pretty; }
     margin: 0;
   }
 
-  /* ── Markers ──────────────────────────────────────────────────────────── */
+  /* ── Tags: outlined, never filled — the outline and text share a colour. ── */
   .pill {
-    @apply inline-flex items-center gap-1 rounded-full border border-edge px-2.5 py-1 text-micro font-semibold uppercase tracking-wider text-ash;
+    @apply inline-flex items-center gap-1 rounded-[4px] border-[1.5px] border-current px-2 py-[3px] text-meta font-bold text-bone;
   }
 
   .skeleton {
     @apply rounded-control bg-rack;
-    background-image: linear-gradient(
-      90deg,
-      transparent 0,
-      rgba(255, 255, 255, 0.04) 40px,
-      transparent 80px
-    );
+    background-image: linear-gradient(90deg, transparent 0, rgba(27, 29, 32, 0.05) 40px, transparent 80px);
     background-size: 400px 100%;
     animation: shimmer 1.4s linear infinite;
   }
 
-  /* ── The signature: an effort rail. ───────────────────────────────────────
-     Every session carries a 3px bar in the colour of what it demands. Read
-     down the list and the week's shape is visible before a single word:
-     two flame bars is a hard week, a wall of green is a base block. */
+  /* ── The effort rail: a 3px bar in the colour of what the day demands. ── */
   .rail {
-    @apply w-[3px] shrink-0 rounded-full;
+    @apply w-[3px] shrink-0 rounded-[2px];
     background: currentColor;
+  }
+
+  /* ── The frame: brushed aluminium, only ever on chrome. ───────────────── */
+  .rail-frame {
+    background: linear-gradient(180deg, #d4d8da 0%, #b6bbbe 100%);
+    @apply border-rail-edge;
+  }
+  .rail-frame-side {
+    background: linear-gradient(90deg, #d4d8da 0%, #b6bbbe 100%);
+    @apply border-rail-edge;
+  }
+
+  /* ── The marker strike: a tapered green stroke across a done item. ────── */
+  .strike {
+    position: relative;
+    display: inline-block;
+    @apply text-ash;
+  }
+  .strike::after {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 50%;
+    height: 8px;
+    margin-top: -4px;
+    background: #18794a;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M0 5.2 C 20 3.6, 60 2.2, 100 2.6 L 100 4.6 C 60 4.4, 22 5.4, 0 7 Z' fill='black'/></svg>") center / 100% 100% no-repeat;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M0 5.2 C 20 3.6, 60 2.2, 100 2.6 L 100 4.6 C 60 4.4, 22 5.4, 0 7 Z' fill='black'/></svg>") center / 100% 100% no-repeat;
+    transform: rotate(-1.5deg);
+    transform-origin: left center;
+    pointer-events: none;
+  }
+  .strike-in::after {
+    @apply animate-strike;
+  }
+}
+
+/* Desktop: the aluminium side column sits on the left of every app page. */
+@media (min-width: 901px) {
+  body:has(.app-rail) .app-shell {
+    margin-left: 0;
+    padding-left: calc(232px + clamp(24px, 4.5vw, 64px));
+    padding-right: clamp(24px, 4.5vw, 64px);
+    max-width: calc(1160px + 232px + 2 * clamp(24px, 4.5vw, 64px));
+  }
+}
+/* Phone: room for the bottom tab bar. */
+@media (max-width: 900px) {
+  body:has(.app-rail) .app-shell {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 }
 

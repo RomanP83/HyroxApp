@@ -103,7 +103,7 @@ export function AiCoachCard({
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2">
           <SparkIcon size={15} className="text-amber" />
-          <span className="text-micro font-semibold uppercase tracking-widest text-ash">AI coach</span>
+          <span className="text-meta font-bold text-bone">AI coach</span>
         </span>
         {enabled && (
           <button className="btn-ghost text-xs" disabled={busy === "review"} onClick={review}>

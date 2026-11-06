@@ -23,7 +23,8 @@ export const RPE_SCALE: Record<number, { label: string; feel: string }> = {
 
 /** The colour of an effort: aerobic green through amber to the flame. */
 export function rpeColor(rpe: number): string {
-  if (rpe <= 3) return PALETTE.go;
+  // Green is for done; an easy effort is running blue.
+  if (rpe <= 3) return PALETTE.run;
   if (rpe <= 6) return PALETTE.amber;
   return PALETTE.flame;
 }
@@ -95,7 +96,7 @@ export function EffortPicker({ value, target, onChange, onSave, onCancel, saving
               fill="none"
               strokeWidth={12}
               strokeLinecap="butt"
-              stroke={i < value ? rpeColor(i + 1) : "rgba(255,255,255,0.08)"}
+              stroke={i < value ? rpeColor(i + 1) : "#d6dadc"}
               style={{ transition: "stroke 150ms ease-out" }}
             />
           ))}

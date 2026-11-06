@@ -299,9 +299,11 @@ export function SessionCard({
       data-session-title={session.title}
       className={`group relative flex gap-3.5 rounded-panel border p-4 transition-colors duration-150 ease-out ${
         focal
-          ? "border-edge-strong bg-rack"
-          : "border-transparent bg-lane/60 hover:border-edge hover:bg-lane"
-      } ${logged ? "opacity-70" : ""}`}
+          ? "lift border-[1.5px] border-chalk bg-lane"
+          : logged
+            ? "border-edge bg-rack"
+            : "border-edge bg-lane hover:border-edge-strong"
+      }`}
     >
       {/* The effort rail: what this day asks of you, before a word is read. */}
       <span
@@ -321,10 +323,20 @@ export function SessionCard({
               {WEEKDAY_LABELS[session.day_hint]}
               {date && <span className="ml-1.5 font-normal text-smoke">{fmtDayDate(date)}</span>}
               {showSlot && (
-                <span className="ml-1 text-amber">{(session.day_slot ?? "am").toUpperCase()}</span>
+                <span className="ml-1 text-bone">{(session.day_slot ?? "am").toUpperCase()}</span>
               )}
             </span>
-            <span className="text-lead font-semibold leading-tight text-chalk">{session.title}</span>
+            <span
+              className={`text-lead font-bold leading-tight ${
+                status === "done"
+                  ? "text-ash line-through decoration-go decoration-[3px]"
+                  : logged
+                    ? "text-ash"
+                    : "text-chalk"
+              }`}
+            >
+              {session.title}
+            </span>
             {status === "done" && <CheckIcon size={16} className="shrink-0 text-go" />}
             {status === "skipped" && <span className="text-meta text-smoke">skipped</span>}
             {status === "moved" && <span className="text-meta text-ash">moved</span>}
@@ -334,7 +346,7 @@ export function SessionCard({
             // hours and the second session is training on unrecovered fatigue
             // rather than a second stimulus. It belongs on the card, where the
             // athlete decides when to go, not in a document.
-            <div className="mt-1 text-meta text-amber">
+            <div className="mt-1 text-meta text-ash">
               {DOUBLE_DAY_GAP_HOURS.min}–{DOUBLE_DAY_GAP_HOURS.max} h after the morning session
             </div>
           )}
@@ -514,7 +526,7 @@ export function SessionCard({
               </div>
               <table className="w-full text-meta">
                 <thead>
-                  <tr className="text-micro font-semibold uppercase tracking-wider text-smoke">
+                  <tr className="text-meta font-bold text-bone">
                     <th className="w-10 py-1 pl-3 text-left font-semibold">Set</th>
                     <th className="py-1 text-left font-semibold">Previous</th>
                     <th className="w-[4.5rem] py-1 text-center font-semibold">kg</th>
@@ -535,7 +547,7 @@ export function SessionCard({
                       <tr
                         key={setNumber}
                         className={`border-t border-edge transition-colors duration-150 ${
-                          done ? "bg-go/10" : ""
+                          done ? "bg-wash" : ""
                         }`}
                       >
                         <td className="py-1.5 pl-3 font-mono font-semibold text-ash">{setNumber}</td>
@@ -580,7 +592,7 @@ export function SessionCard({
                             aria-label={`${exercise.name} set ${setNumber} done`}
                             className={`inline-flex h-8 w-8 items-center justify-center rounded-control border transition-colors duration-150 ${
                               done
-                                ? "border-go bg-go text-floor"
+                                ? "border-go bg-wash text-go"
                                 : "border-edge bg-well text-smoke hover:border-edge-strong hover:text-bone"
                             }`}
                           >

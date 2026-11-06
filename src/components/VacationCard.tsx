@@ -132,7 +132,7 @@ export function VacationCard({
             aria-checked={mode === id}
             onClick={() => setMode(id)}
             className={`rounded-control border px-3 py-1.5 text-meta font-semibold ${
-              mode === id ? "border-amber/70 bg-amber/15 text-chalk" : "border-edge text-ash hover:border-edge-strong"
+              mode === id ? "border-chalk bg-chalk text-lane" : "border-edge text-ash hover:border-edge-strong"
             }`}
           >
             {label}

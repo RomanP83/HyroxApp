@@ -48,7 +48,7 @@ const SECTION: Record<string, { label: string; color?: string }> = {
   warmup: { label: "Warm-up", color: PALETTE.ash },
   main: { label: "Main set" }, // takes the session's own demand colour
   finisher: { label: "Finisher", color: PALETTE.flame },
-  mobility: { label: "Mobility", color: PALETTE.go },
+  mobility: { label: "Mobility", color: PALETTE.bone },
 };
 
 /** How many numbered steps a block contributes — for numbering across blocks. */
@@ -103,7 +103,7 @@ export function BlockView({
             {section.label}
           </span>
           {block.station && block.station !== "general" && (
-            <span className="text-micro font-semibold uppercase tracking-wider text-bone">
+            <span className="text-meta font-bold text-bone">
               {titleCase(block.station)}
             </span>
           )}
@@ -143,7 +143,7 @@ export function BlockView({
             <b className="text-go">Keeps:</b> {substitution.keeps}{" "}
             <b className="text-amber">Costs:</b> {substitution.costs}
           </p>
-          <div className="mt-2 text-micro font-semibold uppercase tracking-wider text-smoke">Instead of</div>
+          <div className="mt-2 text-meta font-bold text-bone">Instead of</div>
         </div>
       )}
 

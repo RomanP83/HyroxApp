@@ -16,7 +16,7 @@ describe("chart components", () => {
     expect(html).toContain("<svg");
     expect(html).toContain('stroke-width="2"'); // 2px line spec
     // markers carry the 2px surface ring
-    expect(html).toContain('stroke="#141b24"');
+    expect(html).toContain('stroke="#ffffff"');
     expect(html).toContain("<title>W1: 75%</title>");
     expect(html).toContain("Data table");
   });
@@ -39,7 +39,7 @@ describe("chart components", () => {
     const bars = html.match(/<path/g) ?? [];
     expect(bars.length).toBe(3);
     expect(html).toContain("<title>W3: 50%</title>");
-    expect(html).toContain('stroke="#26333f"'); // recessive 1px gridlines
+    expect(html).toContain('stroke="#d6dadc"'); // recessive 1px gridlines
   });
 
   it("empty series render a guiding empty state with one clear action", () => {

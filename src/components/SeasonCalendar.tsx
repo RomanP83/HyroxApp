@@ -102,7 +102,7 @@ export function SeasonCalendar(props: Props) {
                 if (!day) return <div key={`pad-${i}`} />;
                 const block = blockAt(day);
                 const race = raceAt(day);
-                const color = block ? (SEASON_BLOCK_COLORS[block.kind] ?? "#4b5563") : undefined;
+                const color = block ? (SEASON_BLOCK_COLORS[block.kind] ?? "#b6bbbe") : undefined;
                 const isToday = day === props.today;
                 const label = [
                   day,
@@ -121,14 +121,14 @@ export function SeasonCalendar(props: Props) {
                     onClick={props.onPickDate ? () => props.onPickDate?.(day) : undefined}
                     className={`relative flex h-6 items-center justify-center rounded text-[10px] tabular-nums transition ${
                       props.onPickDate ? "hover:ring-1 hover:ring-flame" : ""
-                    } ${isToday ? "font-bold ring-1 ring-white/70" : ""}`}
+                    } ${isToday ? "font-bold ring-2 ring-chalk" : ""}`}
                     style={{
                       background: race
-                        ? color ?? "#4b5563"
+                        ? color ?? "#b6bbbe"
                         : color
                           ? `${color}2e` // the block colour at ~18% — a tint, not a fill
                           : "transparent",
-                      color: race ? "rgba(0,0,0,.85)" : undefined,
+                      color: race ? "#ffffff" : undefined,
                     }}
                   >
                     {race ? race.priority : Number(day.slice(8, 10))}

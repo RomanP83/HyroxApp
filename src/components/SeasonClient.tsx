@@ -192,7 +192,7 @@ export function SeasonClient(props: Props) {
   const raceEditor = (
     <div className="card space-y-4">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+        <span className="text-meta font-bold text-bone">
           Your races
         </span>
         <span className="text-meta text-smoke">
@@ -356,14 +356,14 @@ export function SeasonClient(props: Props) {
                           <div
                             className="absolute inset-0"
                             style={{
-                              background: SEASON_BLOCK_COLORS[b.kind] ?? "#3b4653",
+                              background: SEASON_BLOCK_COLORS[b.kind] ?? "#b6bbbe",
                               opacity: isCurrent(b, props.currentWeek) ? 0.95 : 0.4,
                             }}
                           />
                           {b.weeks >= 2 && (
                             <span
                               className={`relative font-mono text-micro font-bold ${
-                                isCurrent(b, props.currentWeek) ? "text-floor" : "text-bone"
+                                isCurrent(b, props.currentWeek) ? "text-lane" : "text-bone"
                               }`}
                             >
                               {b.weeks}W
@@ -414,7 +414,7 @@ export function SeasonClient(props: Props) {
           {/* ── The months, with the races on the days they happen. ───────── */}
           <div className="card space-y-3">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+              <span className="text-meta font-bold text-bone">
                 Calendar
               </span>
               <span className="text-meta text-smoke">
@@ -450,7 +450,7 @@ export function SeasonClient(props: Props) {
           {/* ── Blocks as a list, not a wall of identical cards. ──────────── */}
           {macrocycles.map((m) => (
             <div key={`detail-${m.sort}`} className="space-y-2">
-              <h2 className="text-micro font-semibold uppercase tracking-widest text-ash">
+              <h2 className="text-h2 text-chalk">
                 {m.label}
               </h2>
               <div className="space-y-1.5">
@@ -466,7 +466,7 @@ export function SeasonClient(props: Props) {
                       <summary className="flex cursor-pointer list-none items-start gap-3">
                         <span
                           className="rail mt-1 h-4"
-                          style={{ color: SEASON_BLOCK_COLORS[b.kind] ?? "#3b4653" }}
+                          style={{ color: SEASON_BLOCK_COLORS[b.kind] ?? "#b6bbbe" }}
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -522,7 +522,7 @@ export function SeasonClient(props: Props) {
             <div className="card">
               <div className="mb-2.5 flex items-center gap-2">
                 <SparkIcon size={15} className="text-amber" />
-                <span className="text-micro font-semibold uppercase tracking-widest text-ash">
+                <span className="text-meta font-bold text-bone">
                   How this year was planned
                 </span>
               </div>

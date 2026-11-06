@@ -257,7 +257,7 @@ export default function Onboarding() {
       {/* progress that moves — a small "something is happening" moment */}
       <div className="h-1 w-full overflow-hidden rounded-full bg-rack">
         <div
-          className="h-full rounded-full bg-flame transition-all duration-500"
+          className="h-full rounded-[2px] bg-chalk transition-all duration-500"
           style={{ width: step === 1 ? "50%" : "100%" }}
         />
       </div>

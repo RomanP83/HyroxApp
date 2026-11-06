@@ -5,6 +5,7 @@ import { tgSendMessage } from "@/lib/telegram";
 import { sendEmail, emailConfigured } from "@/lib/email";
 import { geminiConfigured } from "@/lib/gemini";
 import { generateCoachSuggestions } from "@/lib/aiCoach";
+import { syncPlanWeekStatuses } from "@/lib/planClock";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -28,11 +29,12 @@ export async function POST(req: Request) {
 
   const { data: plans } = await admin
     .from("plans")
-    .select("id, profile_id")
+    .select("id, profile_id, generated_at, total_weeks")
     .eq("status", "active");
 
   let sent = 0;
   for (const plan of plans ?? []) {
+    await syncPlanWeekStatuses(admin, plan);
     const review = await buildWeeklyReview(admin, plan.id);
     if (!review) continue;
 

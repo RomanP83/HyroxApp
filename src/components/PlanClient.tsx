@@ -197,6 +197,12 @@ export function PlanClient(props: Props) {
   const viewingThisWeek = !thisWeek || thisWeek.week_number === props.currentWeek.week_number;
 
   async function injury(action: "activate" | "recover") {
+    // Both directions rebuild or restrict the plan; a stray tap must not.
+    const question =
+      action === "activate"
+        ? "Switch to rehab mode? The plan goes low-impact until you come back."
+        : "Rebuild the remaining plan from today?";
+    if (typeof window !== "undefined" && !window.confirm(question)) return;
     const res = await fetch("/api/plans/injury", {
       method: "POST",
       headers: { "content-type": "application/json" },

@@ -22,15 +22,18 @@ import { geminiConfigured } from "@/lib/gemini";
 import type { SuggestionRow } from "@/lib/aiCoach";
 import { currentWeekNumber, raceIsBehind, weekStartOf } from "@/lib/planWeek";
 import { PlanFinished } from "@/components/PlanFinished";
+import { dateInTrainingZone } from "@/lib/planClock";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: { week?: string };
+  searchParams: Promise<{ week?: string }>;
 }) {
-  const supabase = supabaseServer();
+  // Next 15: searchParams arrive as a promise.
+  const wantedWeek = (await searchParams).week;
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -125,11 +128,11 @@ export default async function PlanPage({
   // on week 1 forever.
   const thisWeek = currentWeekNumber({
     startsOn: String(plan.starts_on).slice(0, 10),
-    today: new Date().toISOString().slice(0, 10),
+    today: dateInTrainingZone(),
     totalWeeks: plan.total_weeks,
   });
   const current =
-    weekList.find((w) => String(w.week_number) === searchParams.week) ??
+    weekList.find((w) => String(w.week_number) === wantedWeek) ??
     weekList.find((w) => w.week_number === thisWeek) ??
     weekList[0];
 

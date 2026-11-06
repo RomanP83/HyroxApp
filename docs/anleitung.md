@@ -125,6 +125,12 @@ einer einzigen Transaktion gespeichert (`persist_plan`), damit kein halber Plan 
 
 ## 4. `/plan` — die Trainingswoche
 
+Ohne ausdrücklich gewählte Woche zeigt die App die aktuelle Kalenderwoche des Plans. Woche 1
+beginnt am **Startdatum** des Plans (ein Montag, unter Setup änderbar); montags schaltet die
+Ansicht weiter. Vergangene Wochen bleiben einsehbar und ihre Logs erhalten. Welcher Tag „heute"
+ist, rechnet der Server in der Trainingszeitzone `APP_TIME_ZONE` (Standard: Europe/Berlin) — das
+gilt für die aktuelle Woche, die abendlichen Check-ins und automatisch zugeordnete Läufe.
+
 Die Hauptseite. Links die Einheiten der Woche, rechts die Kontextkarten.
 
 ### Was oben steht
@@ -496,6 +502,15 @@ und der Kraftfaktor in kleinen Schritten nachgeführt (±5 s/km, ±5 % Last), ge
 Woche, damit nichts davonläuft.
 
 **Schicht 2 — nachts (Makro).** Ein Hintergrundlauf prüft die Belastungsentwicklung:
+
+Eine Skalierung wird je Plan, Woche und Direktive nur einmal angewendet. Wiederholte Cron-Aufrufe
+verkürzen die gleichen Einheiten nicht Nacht für Nacht erneut. Unterschiedliche Direktiven
+(z. B. Trim und Deload) bleiben unterschiedliche Entscheidungen.
+
+**ACWR-Kaltstart:** Solange seit dem ersten verwertbaren Log noch keine 28 Beobachtungstage
+vorliegen, bleibt ACWR neutral bei 1,0; die chronische Last wird vorläufig mit der akuten Last
+angezeigt. Fehlende Historie erzeugt damit keinen künstlichen Belastungssprung. RPE- und
+Inaktivitätsregeln gelten trotzdem. Der Makro-Cron berechnet die Lastfenster vor jeder Prüfung neu.
 
 | Signal | Reaktion |
 |---|---|
@@ -1213,6 +1228,16 @@ markieren geht in der Liste auf `/benchmarks`.
 Einheit zugeordnet und geloggt. Die tatsächlich gelaufene Pace fließt direkt in die
 Pace-Kalibrierung. Neue Aktivitäten kommen per Webhook an — kein Polling, keine manuelle Eingabe.
 
+Automatisch zugeordnet werden nur Läufe mit gültigem Startzeitpunkt nach dem Planstart, in der
+aktuellen Planwoche und im passenden Tag-/AM-PM-Slot. Alte oder nicht passende Aktivitäten werden
+nicht auf eine andere offene Einheit umgebucht. Nicht zugeordnete Läufe kannst du manuell loggen.
+
+**Garmin-Einrichtung:** Zusätzlich zu Client-ID und Client-Secret ist `GARMIN_WEBHOOK_SECRET`
+erforderlich. Die Push-URL wird mit `?token=<Secret>` registriert (alternativ Header
+`x-garmin-webhook-secret`). Ohne oder mit falschem Secret antwortet der Endpunkt mit 401, auch
+bei der Erreichbarkeitsprüfung. URL samt Token nicht teilen oder in öffentliche Logs übernehmen.
+Pro Push sind höchstens 20 Aktivitäten erlaubt; Datenbankfehler werden nicht mehr still bestätigt.
+
 **Telegram.** Abends kommt ein Check-in mit vier Knöpfen (dieselben wie in der App). Antippen loggt
 die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-Mail.
 
@@ -1337,6 +1362,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Zusammengeführt:** die Härtung vom 04.09. — „heute" in der Trainingszeitzone, Rückfrage vor Reha-Modus und Neuaufbau, ein Log wird mit Sätzen und Status in einem Schritt gespeichert (doppeltes Loggen legt nichts doppelt an), der Nachtlauf passt jede Woche nur einmal an, Garmin-Webhook mit Secret | [4](#4-plan--die-trainingswoche), [13](#13-verbindungen-strava-garmin-telegram) |
 | **Zusammengeführt:** die Arbeit vom 23.–30.08. (Datum auf jeder Karte, Ruhetage in der Woche, Level/Division/Zielzeit änderbar, Startdatum, Doppeltage festlegbar, `/race` mit Pacing-Blatt, Übergangsblock, Stationen tauschen, Export, Offline, Kataloge nach Level) liegt jetzt auf derselben Version wie Rennanalyse, KI-Coach, Verona-Plan, Kraft-Tage, Spieltag und Urlaub | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
 | **Eine Zielzeit:** Setup und *Target time* auf `/benchmarks` schreiben dieselbe Zahl; ein auf `/race` geloggtes Rennen erscheint unter Rennen & Simulationen und in der Rennanalyse | [8](#8-settings--setup--tools), [10](#rennen--simulationen), [12](#12-race--renntag-pacing-und-ergebnis) |
 | **Erg-Leiter bleibt:** Stationseinheiten kommen aus dem Level-Katalog; zielt eine Build-Woche auf schwache Wall Balls, kommt die Erg-Leiter mit 100 Wall Balls | [4](#4-plan--die-trainingswoche) |

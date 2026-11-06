@@ -1,4 +1,5 @@
 import { loadVacations } from "@/lib/vacations";
+import { dateInTrainingZone } from "@/lib/planClock";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
   }
   const body = parsed.data;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
   // 3) Generate + persist the plan. Any race already in the athlete's calendar
   // that falls inside this cycle bends the training days around it (a B race
   // buys a short taper, a C race replaces the week's hard session).
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateInTrainingZone();
   const raceDate = body.race_date.slice(0, 10);
   // Week 1 begins on a Monday the athlete chose, defaulting to the coming one.
   // The plan is still built from today — what starts_on decides is which

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   }
   const body = parsed.data;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

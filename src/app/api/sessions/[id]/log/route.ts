@@ -5,7 +5,7 @@ import { applyMicroForSession } from "@/lib/adaptiveRunner";
 import { computeSessionFeedback, type FeedbackInput } from "@/lib/engine";
 import { enrichFeedbackWithAI } from "@/lib/coachFeedback";
 import { resetSessionLog } from "@/lib/resetSession";
-import { recordStrengthSets } from "@/lib/strength/record";
+import { refreshStrengthSuggestions } from "@/lib/strength/record";
 
 // 1-Tap logging (PP5). Default is "completed as planned" — the engine writes
 // planned values as actuals. Deviations arrive via rpe_actual / block_results.
@@ -35,15 +35,15 @@ const Body = z.object({
     .optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const sessionId = params.id;
-  const parsed = Body.safeParse(await req.json().catch(() => ({})));
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const sessionId = (await params).id;
+  const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
   const body = parsed.data;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -58,7 +58,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (sErr || !session) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   if (body.skip) {
-    await supabase.from("sessions").update({ status: "skipped" }).eq("id", sessionId);
+    const { error } = await supabase.from("sessions").update({ status: "skipped" })
+      .eq("id", sessionId).in("status", ["planned", "moved", "skipped"]);
+    if (error) return NextResponse.json({ error: "skip_failed" }, { status: 500 });
     return NextResponse.json({ ok: true, skipped: true });
   }
 
@@ -70,11 +72,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     ? session.planned_duration_min
     : (body.duration_actual_min ?? session.planned_duration_min);
 
-  // Strength detail first: block_results then carries the real sets, so the
-  // engine and the feedback card see what was actually lifted.
-  const strength = body.strength_sets?.length
-    ? await recordStrengthSets(supabase, sessionId, body.strength_sets)
-    : null;
   const blockResults = body.strength_sets?.length
     ? body.strength_sets.map((s) => ({
         exercise: s.exercise_name,
@@ -86,21 +83,34 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ? null
       : (body.block_results ?? null);
 
-  const { error: logErr } = await supabase.from("session_logs").upsert(
-    {
-      session_id: sessionId,
-      completed_as_planned: body.completed_as_planned,
-      rpe_actual: rpe,
-      duration_actual_min: duration,
-      block_results: blockResults,
-      notes: body.notes ?? null,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_id" },
-  );
+  const { data: writeResult, error: logErr } = await supabase.rpc("record_session_completion", {
+    p_session: sessionId,
+    p_completed_as_planned: body.completed_as_planned,
+    p_rpe: rpe,
+    p_duration: duration,
+    p_block_results: blockResults,
+    p_notes: body.notes ?? null,
+    p_strength_sets: body.strength_sets ?? [],
+  });
   if (logErr) return NextResponse.json({ error: "log_failed", detail: logErr.message }, { status: 500 });
 
-  await supabase.from("sessions").update({ status: "done" }).eq("id", sessionId);
+  if (!writeResult?.created) {
+    const { data: existing } = await supabase
+      .from("session_logs")
+      .select("feedback")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+    return NextResponse.json({ ok: true, already_logged: true, feedback: existing?.feedback ?? null });
+  }
+
+  const exerciseIds = (body.strength_sets ?? [])
+    .map((set) => set.exercise_id)
+    .filter((id): id is string => Boolean(id));
+  // Optional suggestions must not prevent calibration after a successful log.
+  const suggestions = await refreshStrengthSuggestions(supabase, exerciseIds).catch(() => []);
+  const strength = body.strength_sets?.length
+    ? { sets: Number(writeResult.strength_sets ?? 0), suggestions }
+    : null;
 
   // Fire Layer-1 micro-calibration (service role writes state + adjustments).
   const outcome = await applyMicroForSession(supabaseAdmin(), sessionId);
@@ -143,10 +153,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 // Deleting the log is not enough: the log was calibrated into athlete_state.
 // resetSessionLog() restores the pre-log snapshot and replays every later log,
 // so the plan ends up exactly where it would be had the day never been logged.
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const sessionId = params.id;
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const sessionId = (await params).id;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

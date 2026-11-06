@@ -13,7 +13,7 @@ import { RaceClient, type LoggedResult } from "@/components/RaceClient";
 export const dynamic = "force-dynamic";
 
 export default async function RacePage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

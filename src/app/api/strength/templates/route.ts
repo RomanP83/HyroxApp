@@ -20,7 +20,7 @@ const PatchBody = z.object({
   load_kg: z.number().min(0).max(1000).nullable().optional(),
 });
 
-async function profileOf(supabase: ReturnType<typeof supabaseServer>) {
+async function profileOf(supabase: Awaited<ReturnType<typeof supabaseServer>>) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -34,7 +34,7 @@ async function profileOf(supabase: ReturnType<typeof supabaseServer>) {
 }
 
 export async function GET() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const profileId = await profileOf(supabase);
   if (!profileId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   const parsed = CreateBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const profileId = await profileOf(supabase);
   if (!profileId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
@@ -119,7 +119,7 @@ export async function PATCH(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   const { exercise_id, action, load_kg } = parsed.data;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const profileId = await profileOf(supabase);
   if (!profileId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
@@ -151,7 +151,7 @@ export async function DELETE(req: Request) {
   const templateId = new URL(req.url).searchParams.get("template");
   if (!templateId) return NextResponse.json({ error: "template is required" }, { status: 400 });
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const profileId = await profileOf(supabase);
   if (!profileId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 

@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 // Setup & tools. Reachable without a plan: the week shape and the volume are
 // exactly what someone wants to set BEFORE generating one.
 export default async function SettingsPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

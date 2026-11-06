@@ -16,6 +16,7 @@ import { loadDayOverrides } from "@/lib/dayOverrides";
 import { raceIsBehind, weekStartOf } from "@/lib/planWeek";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 import { buildTransitionBlock } from "@/lib/transitionBlock";
+import { dateInTrainingZone } from "@/lib/planClock";
 
 export async function rebasePlan(
   admin: SupabaseClient,
@@ -47,7 +48,7 @@ export async function rebasePlan(
 
   // A rebase must not lose the race calendar: the B and C races the athlete
   // entered are part of the plan, not decoration on the season page.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateInTrainingZone();
   const start = weekStartOf(startsOn?.slice(0, 10) ?? today, 1);
   const raceDate = String(plan.race_date).slice(0, 10);
 
@@ -113,17 +114,11 @@ export async function rebasePlan(
       raceDate: plan.race_date,
       raceId: plan.race_id,
       startsOn: start,
+      rebaseFrom: planId,
+      rebaseReason: reason,
     },
     generated,
   );
-
-  await admin.from("plan_adjustments").insert({
-    plan_id: newPlanId,
-    layer: "macro",
-    trigger: "pause",
-    action_taken: { type: "rebase", from_plan: planId },
-    reason,
-  });
 
   return newPlanId;
 }

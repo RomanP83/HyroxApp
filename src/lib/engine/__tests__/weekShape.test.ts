@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { applyDayOverrides, assessWeekPreferences, distributeSlots, layoutWeek } from "../micro";
 import type { SessionType } from "../types";
 import { weekStartOf } from "@/lib/dayOverrides";
@@ -169,12 +169,18 @@ describe("manual moves survive a rebase", () => {
 });
 
 describe("weekStartOf", () => {
+  beforeEach(() => vi.stubEnv("APP_TIME_ZONE", "Europe/Berlin"));
+  afterEach(() => vi.unstubAllEnvs());
+
   it("maps a plan week to the Monday it starts on", () => {
     // Plan generated on a Thursday: week 1 is the week containing it.
     expect(weekStartOf("2026-08-27T09:12:00Z", 1)).toBe("2026-08-24");
     expect(weekStartOf("2026-08-27T09:12:00Z", 4)).toBe("2026-09-14");
-    // Generated on a Sunday — still that week's Monday, not the next one.
-    expect(weekStartOf("2026-08-30T22:00:00Z", 1)).toBe("2026-08-24");
+    // The grid is anchored on plans.starts_on, a calendar date with no time
+    // of day, so there is no midnight for a time zone to move. "Today" is
+    // resolved in the training time zone before it gets here (planClock.ts).
+    expect(weekStartOf("2026-08-31", 1)).toBe("2026-08-31");
+    expect(weekStartOf("2026-08-30", 1)).toBe("2026-08-24");
   });
 
   it("is what makes an override survive renumbering", () => {

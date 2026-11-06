@@ -4,6 +4,7 @@ import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { predictRaceTime, type AthleteProfile, type BenchmarkSample } from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 import { currentWeekNumber } from "@/lib/planWeek";
+import { dateInTrainingZone } from "@/lib/planClock";
 
 // B2 (fixes M6): record a benchmark result and recalibrate the race-time
 // prognosis from it — closes the loop the schema always had tables for.
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
   if (plan) {
     const thisWeek = currentWeekNumber({
       startsOn: String(plan.starts_on).slice(0, 10),
-      today: new Date().toISOString().slice(0, 10),
+      today: dateInTrainingZone(),
       totalWeeks: plan.total_weeks,
     });
     const { data: cur } = await supabase

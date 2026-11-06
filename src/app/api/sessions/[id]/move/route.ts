@@ -17,17 +17,18 @@ const Body = z.object({
   day_slot: z.enum(["am", "pm"]).optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const sessionId = (await params).id;
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const out = await moveSession(supabase, params.id, parsed.data.day_hint, parsed.data.day_slot);
+  const out = await moveSession(supabase, sessionId, parsed.data.day_hint, parsed.data.day_slot);
   if (!out.ok) {
     return NextResponse.json({ error: out.error, detail: out.detail }, { status: out.status });
   }

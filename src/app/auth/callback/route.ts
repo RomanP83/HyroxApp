@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   const forwardedProto = req.headers.get("x-forwarded-proto") ?? "https";
   const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin;
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
 
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);

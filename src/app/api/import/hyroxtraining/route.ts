@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "not_a_tracker_backup" }, { status: 400 });
   }
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

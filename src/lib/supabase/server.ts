@@ -1,5 +1,5 @@
 // Server-side Supabase clients.
-//   supabaseServer()  — RLS-scoped to the signed-in user (cookies).
+//   await supabaseServer()  — RLS-scoped to the signed-in user (cookies).
 //   supabaseAdmin()   — service-role, bypasses RLS. Use ONLY in trusted server
 //                       code (webhooks, engine writes to athlete_state /
 //                       plan_adjustments). Never expose to the browser.
@@ -12,8 +12,8 @@ import { createClient } from "@supabase/supabase-js";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
 
-export function supabaseServer() {
-  const cookieStore = cookies();
+export async function supabaseServer() {
+  const cookieStore = await cookies();
   return createServerClient(url, anon, {
     cookies: {
       getAll() {

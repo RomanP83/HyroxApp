@@ -25,11 +25,9 @@ import {
 import { DEMO_LIBRARY } from "@/lib/demoLibrary";
 import { SessionCard, type LogAction } from "@/components/SessionCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
-import { fmtClock, fmtPace, PHASE_COLORS, titleCase } from "@/lib/format";
+import { fmtClock, fmtPace, PHASE_COLORS, titleCase, WEEKDAY_LABELS } from "@/lib/format";
 import { SparkIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
-
-const DEMO_DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** Everything a logged day touches — snapshotted so a single day can be undone. */
 interface DemoWorld {
@@ -276,7 +274,7 @@ export default function DemoPage() {
     setFeed((f) => [
       other
         ? `Swapped "${session.title}" with "${other.title}" — the week bends, the plan doesn't break.`
-        : `Moved "${session.title}" to ${DEMO_DAY_LABELS[day]} — the week bends, the plan doesn't break.`,
+        : `Moved "${session.title}" to ${WEEKDAY_LABELS[day]} — the week bends, the plan doesn't break.`,
       ...f,
     ]);
   }
@@ -311,7 +309,7 @@ export default function DemoPage() {
   return (
     <main className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-ash hover:text-chalk">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <span className="pill">Live engine · runs entirely in your browser</span>

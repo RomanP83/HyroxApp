@@ -1,9 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import type { DaySlot, GeneratedSession } from "@/lib/engine";
-import { runSpec } from "@/lib/engine";
-import { DEMAND_COLORS, DEMAND_LABELS, demandOf, fmtPace } from "@/lib/format";
+import type { DaySlot, GeneratedSession, Station, StationAlternative } from "@/lib/engine";
+import { DOUBLE_DAY_GAP_HOURS, runSpec } from "@/lib/engine";
+import {
+  DEMAND_COLORS,
+  DEMAND_LABELS,
+  demandOf,
+  fmtDayDate,
+  fmtPace,
+  PACE_ZONE_HR,
+  PACE_ZONE_LABEL,
+  WEEKDAY_LABELS,
+} from "@/lib/format";
 import { BlockView, stepCount } from "./BlockView";
 import { EffortPicker } from "./EffortPicker";
 import {
@@ -12,13 +21,10 @@ import {
   FeatherIcon,
   MoveIcon,
   SkipIcon,
-  LockIcon,
   SpinnerIcon,
   UndoIcon,
 } from "./icons";
 import { haptic } from "@/lib/haptics";
-
-const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export type LogAction = "planned" | "harder" | "easier" | "skip";
 
@@ -60,7 +66,6 @@ interface Props {
    */
   strength?: { templateName: string; exercises: StrengthExerciseInput[] } | null;
   status?: "planned" | "done" | "skipped" | "moved";
-  locked?: boolean;
   /** Which action is in flight — shows a spinner on that button (speed #6). */
   busyAction?: LogAction | null;
   /**
@@ -97,6 +102,15 @@ interface Props {
   focal?: boolean;
   /** Start expanded — the details are the point, not a tap away. */
   defaultOpen?: boolean;
+  /**
+   * The calendar date this session falls on, ISO. "Wednesday" is ambiguous the
+   * moment you page back a week; the date is not.
+   */
+  date?: string | null;
+  /** The athlete's standing station substitutions, resolved. */
+  substitutions?: Partial<Record<Station, StationAlternative>>;
+  /** Open the swap list for a station. Omitted where swapping is not offered. */
+  onSwap?: (station: Station) => void;
 }
 
 /** The variant the engine chose for this week's core session, if any. */
@@ -116,12 +130,14 @@ function variantOf(session: GeneratedSession) {
 /** The pace targets the plan wrote into this session's main block, if any. */
 function pacesOf(session: GeneratedSession): {
   pace?: number;
+  paceZone?: string;
   opening?: number;
   openingDistance?: number;
 } {
   const block = session.blocks.find((b) => b.load_adjustments.pace_sec_km != null);
   return {
     pace: block?.load_adjustments.pace_sec_km,
+    paceZone: block?.load_adjustments.pace_zone,
     opening: block?.load_adjustments.opening_pace_sec_km,
     openingDistance: block?.load_adjustments.opening_distance_m,
   };
@@ -131,7 +147,6 @@ export function SessionCard({
   session,
   onLog,
   status = "planned",
-  locked,
   busyAction,
   onReset,
   resetting,
@@ -142,6 +157,9 @@ export function SessionCard({
   occupied,
   focal,
   defaultOpen,
+  date,
+  substitutions,
+  onSwap,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -300,7 +318,8 @@ export function SessionCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
             <span className="font-mono text-micro font-bold uppercase tracking-widest text-ash">
-              {DAY_LABELS[session.day_hint] ?? `D${session.day_hint}`}
+              {WEEKDAY_LABELS[session.day_hint]}
+              {date && <span className="ml-1.5 font-normal text-smoke">{fmtDayDate(date)}</span>}
               {showSlot && (
                 <span className="ml-1 text-amber">{(session.day_slot ?? "am").toUpperCase()}</span>
               )}
@@ -310,6 +329,15 @@ export function SessionCard({
             {status === "skipped" && <span className="text-meta text-smoke">skipped</span>}
             {status === "moved" && <span className="text-meta text-ash">moved</span>}
           </div>
+          {showSlot && session.day_slot === "pm" && (
+            // The gap is the whole reason a double day works: closer than two
+            // hours and the second session is training on unrecovered fatigue
+            // rather than a second stimulus. It belongs on the card, where the
+            // athlete decides when to go, not in a document.
+            <div className="mt-1 text-meta text-amber">
+              {DOUBLE_DAY_GAP_HOURS.min}–{DOUBLE_DAY_GAP_HOURS.max} h after the morning session
+            </div>
+          )}
           <div className="mt-1 flex flex-wrap items-center gap-x-2 text-meta text-ash">
             <span style={{ color: DEMAND_COLORS[demand] }} className="font-semibold">
               {DEMAND_LABELS[demand]}
@@ -326,7 +354,7 @@ export function SessionCard({
             // is for and at what pace, not just how long it is.
             const spec = runSpec(session.session_type);
             if (!spec) return null;
-            const { pace, opening, openingDistance } = pacesOf(session);
+            const { pace, paceZone, opening, openingDistance } = pacesOf(session);
             const variant = variantOf(session);
             return (
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta">
@@ -337,8 +365,15 @@ export function SessionCard({
                     {variant.targeted && <span className="ml-1 text-flame">· your weak spot</span>}
                   </span>
                 )}
-                <span className="pill text-amber">{spec.hr_zone}</span>
-                {pace != null && <span className="pill">{fmtPace(pace)}</span>}
+                <span className="pill text-amber">
+                  {(paceZone && PACE_ZONE_HR[paceZone]) ?? spec.hr_zone}
+                </span>
+                {pace != null && (
+                  <span className="pill">
+                    {paceZone ? `${PACE_ZONE_LABEL[paceZone]} · ` : ""}
+                    {fmtPace(pace)}
+                  </span>
+                )}
                 {/* Coming out of a station you run slower on purpose — that
                     belongs on the front of the card, not one tap deeper. */}
                 {opening != null && (
@@ -360,16 +395,7 @@ export function SessionCard({
 
       {open && !isRest && (
         <div className="mt-4 space-y-2 animate-fade-up">
-          {locked ? (
-            <div className="flex items-start gap-3 rounded-lg border border-dashed border-edge p-4 text-sm text-ash">
-              <LockIcon size={18} className="mt-0.5 shrink-0" />
-              <span>
-                This week is part of your full race cycle. Unlock it to see every block, weight
-                and pace — week 1 stays free forever.
-              </span>
-            </div>
-          ) : (
-            <>
+          <>
               {session.session_type === "race_day" && (
                 <div className="rounded-lg border border-dashed border-edge p-4 text-sm">
                   <div className="font-semibold">Race day.</div>
@@ -380,17 +406,27 @@ export function SessionCard({
                   </p>
                 </div>
               )}
-              {/* One script, numbered 1…n from warm-up to the last block. */}
-              {session.blocks.map((b, i) => (
-                <BlockView
-                  key={`${b.block_id}-${b.sort_order}`}
-                  block={b}
-                  accent={DEMAND_COLORS[demand]}
-                  startAt={
-                    1 + session.blocks.slice(0, i).reduce((n, prev) => n + stepCount(prev), 0)
-                  }
-                />
-              ))}
+              {/* One script, numbered 1…n from warm-up to the last block — by
+                  sort_order, never by array order: a caller that rebuilds the
+                  list (swapping in an imported strength day, say) must not put
+                  the finisher before the work it finishes. */}
+              {(() => {
+                const ordered = [...session.blocks].sort((a, b) => a.sort_order - b.sort_order);
+                return ordered.map((b, i) => (
+                  <BlockView
+                    key={`${b.block_id}-${b.sort_order}`}
+                    block={b}
+                    accent={DEMAND_COLORS[demand]}
+                    startAt={1 + ordered.slice(0, i).reduce((n, prev) => n + stepCount(prev), 0)}
+                    substitution={b.station ? substitutions?.[b.station] : null}
+                    onSwap={
+                      onSwap && b.station && b.station !== "general"
+                        ? () => onSwap(b.station as Station)
+                        : undefined
+                    }
+                  />
+                ));
+              })()}
               {(() => {
                 const spec = runSpec(session.session_type);
                 const variant = variantOf(session);
@@ -415,7 +451,16 @@ export function SessionCard({
                       </p>
                     )}
                     <p>
-                      <b>{spec.focus}</b> {spec.pace_note}
+                      <b>{spec.focus}</b>{" "}
+                      {/* The type's pace note describes the category — "reps at
+                          3k–5k effort" for intervals. When the session names
+                          its own zone the note can flatly contradict it, and a
+                          card that argues with itself is worse than a quiet
+                          one: the variant's own `why` above already says what
+                          this session is for. */}
+                      {session.blocks.some((b) => b.load_adjustments.pace_zone)
+                        ? null
+                        : spec.pace_note}
                     </p>
                     {variant?.fallback && <p className="italic">{variant.fallback}</p>}
                     {variant?.original && (
@@ -424,8 +469,7 @@ export function SessionCard({
                   </div>
                 );
               })()}
-            </>
-          )}
+          </>
         </div>
       )}
 
@@ -667,8 +711,8 @@ export function SessionCard({
                         here
                           ? "This is where it already is"
                           : taken
-                            ? `${DAY_LABELS[day]} is taken — the two sessions swap days`
-                            : `Move to ${DAY_LABELS[day]}`
+                            ? `${WEEKDAY_LABELS[day]} is taken — the two sessions swap days`
+                            : `Move to ${WEEKDAY_LABELS[day]}`
                       }
                       onClick={() => {
                         haptic("confirm");
@@ -677,7 +721,7 @@ export function SessionCard({
                       }}
                     >
                       <span className={taken ? "text-amber" : undefined}>
-                        {DAY_LABELS[day].slice(0, 2)}
+                        {WEEKDAY_LABELS[day].slice(0, 2)}
                       </span>
                     </button>
                   );

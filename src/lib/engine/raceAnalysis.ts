@@ -32,7 +32,7 @@ export interface RaceResult {
   roxzone_sec: number | null;
 }
 
-export const STATION_LABELS: Record<Station, string> = {
+export const SEGMENT_LABELS: Record<Station, string> = {
   ski_erg: "SkiErg",
   sled_push: "Sled Push",
   sled_pull: "Sled Pull",
@@ -211,7 +211,7 @@ export function analyseRaces(results: RaceResult[], targetSec: number | null): R
 
   const segments: SegmentAnalysis[] = [
     line("run", "Running (8 × 1 km)", (s) => s.run),
-    ...STATIONS.map((st, i) => line(st, STATION_LABELS[st], (s) => s.stations[i])),
+    ...STATIONS.map((st, i) => line(st, SEGMENT_LABELS[st], (s) => s.stations[i])),
     line("roxzone", "Roxzone", (s) => s.roxzone),
   ];
 

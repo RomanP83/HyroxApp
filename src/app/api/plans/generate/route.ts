@@ -5,11 +5,21 @@ import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadDayOverrides } from "@/lib/dayOverrides";
 import { loadSeasonRaces, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
-import { generatePlan, initialAthleteState, type AthleteProfile } from "@/lib/engine";
+import {
+  generatePlan,
+  goalSecondsForLevel,
+  initialAthleteState,
+  PLAN_MAX_WEEKS,
+  raceBlockFits,
+  type AthleteProfile,
+} from "@/lib/engine";
+import { buildTransitionBlock } from "@/lib/transitionBlock";
+import { nextMonday, weekStartOf } from "@/lib/planWeek";
 
 const Body = z.object({
   division: z.enum(["open", "pro", "doubles", "masters_open", "masters_pro"]),
   experience_level: z.enum(["beginner", "intermediate", "advanced", "elite", "world_class"]),
+  target_time_sec: z.number().int().min(2400).max(14400).nullable().optional(),
   five_k_seconds: z.number().int().positive().nullable().optional(),
   station_estimates: z.record(z.number()).optional(),
   training_days_per_week: z.number().int().min(3).max(6),
@@ -19,6 +29,8 @@ const Body = z.object({
   equipment_access: z.enum(["full_gym", "home_minimal", "hybrid"]),
   telegram_chat_id: z.string().optional(),
   race_date: z.string(), // ISO date
+  /** The Monday week 1 begins on. Absent, the coming Monday. */
+  starts_on: z.string().optional(),
   race_id: z.string().uuid().nullable().optional(),
 });
 
@@ -43,6 +55,8 @@ export async function POST(req: Request) {
         user_id: user.id,
         division: body.division,
         experience_level: body.experience_level,
+        target_time_sec:
+          body.target_time_sec ?? goalSecondsForLevel(body.experience_level),
         five_k_seconds: body.five_k_seconds ?? null,
         station_estimates: body.station_estimates ?? {},
         training_days_per_week: body.training_days_per_week,
@@ -87,7 +101,15 @@ export async function POST(req: Request) {
   // buys a short taper, a C race replaces the week's hard session).
   const today = new Date().toISOString().slice(0, 10);
   const raceDate = body.race_date.slice(0, 10);
-  const weeksToRace = planWeeksTo(raceDate, today);
+  // Week 1 begins on a Monday the athlete chose, defaulting to the coming one.
+  // The plan is still built from today — what starts_on decides is which
+  // Monday the grid is counted from, and the weeks run to the race either way.
+  const startsOn = weekStartOf(body.starts_on?.slice(0, 10) ?? nextMonday(today), 1);
+  const weeksToRace = planWeeksTo(raceDate, startsOn);
+  // Same rule as /api/plans/from-season: a race beyond the block's own length
+  // gets transition work first rather than a cycle truncated into an early
+  // taper. See raceBlockFits.
+  const asTransition = !raceBlockFits(weeksToRace);
 
   // The target race is always in the plan, whether or not it is in the season
   // calendar yet — a plan that does not end on its race day is a plan with a
@@ -101,23 +123,73 @@ export async function POST(req: Request) {
     ? calendar
     : [...calendar, { date: raceDate, type: named ?? "Race day", priority: "A" as const, is_anchor: true }];
   const races = racesForPlan(withTarget, today, raceDate);
-  const library = await loadLibrary(supabase);
-  const dayOverrides = await loadDayOverrides(supabase, profile.id, today);
-  const plan = generatePlan({
-    profile,
-    state,
-    library,
-    weeksToRace,
-    startDate: today,
-    races,
-    dayOverrides,
-    vacations: await loadVacations(supabase, profile.id),
-  });
-  const planId = await persistPlan(
-    supabase,
-    { profileId: profile.id, raceDate: body.race_date, raceId: body.race_id ?? null },
-    plan,
-  );
+
+  if (asTransition) {
+    try {
+      const block = await buildTransitionBlock({
+        supabase,
+        profile,
+        state,
+        startsOn,
+        today,
+      });
+      return NextResponse.json({
+        planId: block.planId,
+        kind: "transition",
+        weeks: block.weeks,
+        ends_on: block.ends_on,
+        weeksToRace,
+        predicted_race_time_sec: state.predicted_race_time_sec,
+        reason:
+          `${raceDate} is more than ${PLAN_MAX_WEEKS} weeks out — too far to peak and taper for. ` +
+          `You start on a ${block.weeks}-week transition block; the race cycle begins when the race is in range.`,
+      });
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: "plan_build_failed",
+          detail: `Could not build the transition block: ${e instanceof Error ? e.message : "unknown error"}`,
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  let planId: string;
+  try {
+    const library = await loadLibrary(supabase);
+    const dayOverrides = await loadDayOverrides(supabase, profile.id, today);
+    const plan = generatePlan({
+      profile,
+      state,
+      library,
+      weeksToRace,
+      startDate: startsOn,
+      races,
+      dayOverrides,
+      vacations: await loadVacations(supabase, profile.id),
+    });
+    planId = await persistPlan(
+      supabase,
+      {
+        profileId: profile.id,
+        raceDate: body.race_date,
+        raceId: body.race_id ?? null,
+        startsOn,
+      },
+      plan,
+    );
+  } catch (e) {
+    // loadLibrary and persistPlan both throw; uncaught, that is a 500
+    // with no body and the browser can only call it a parse error.
+    return NextResponse.json(
+      {
+        error: "plan_build_failed",
+        detail: `Could not generate the plan: ${e instanceof Error ? e.message : "unknown error"}`,
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ planId, weeksToRace, predicted_race_time_sec: state.predicted_race_time_sec });
 }

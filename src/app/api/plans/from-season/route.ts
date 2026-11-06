@@ -7,13 +7,15 @@
 // — planWeeksTo() and the engine do, so the same calendar always produces the
 // same plan.
 // ============================================================================
-import { loadVacations } from "@/lib/vacations";
 import { NextResponse } from "next/server";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { loadLibrary, persistPlan } from "@/lib/persistPlan";
 import { loadDayOverrides } from "@/lib/dayOverrides";
 import { loadSeasonRaces, pickMainRace, planWeeksTo, racesForPlan } from "@/lib/seasonCalendar";
-import { generatePlan, type AthleteProfile } from "@/lib/engine";
+import { buildTransitionBlock } from "@/lib/transitionBlock";
+import { buildRaceBlock } from "@/lib/raceBlock";
+import { weekStartOf } from "@/lib/planWeek";
+import { generatePlan, raceBlockFits, type AthleteProfile } from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 
 export const runtime = "nodejs";
@@ -54,24 +56,64 @@ export async function POST() {
   if (!stateRow) return NextResponse.json({ error: "no_state" }, { status: 409 });
 
   const state = stateFromRow(stateRow as AthleteStateRow);
-  const library = await loadLibrary(supabase);
   const weeksToRace = planWeeksTo(main.date, today);
-  const plan = generatePlan({
-    profile,
-    state,
-    library,
-    weeksToRace,
-    startDate: today,
-    races: racesForPlan(calendar, today, main.date),
-    dayOverrides: await loadDayOverrides(supabase, profile.id, today),
-    vacations: await loadVacations(supabase, profile.id),
-  });
 
-  const planId = await persistPlan(
-    supabase,
-    { profileId: profile.id, raceDate: main.date },
-    plan,
-  );
+  // A race further out than the block's own length cannot be periodised for:
+  // the cycle would be truncated to PLAN_MAX_WEEKS and taper at the end of it,
+  // which is a taper weeks or months before the race it is aimed at. That gap
+  // is transition work, and the race block starts once the race is in range.
+  if (!raceBlockFits(weeksToRace)) {
+    try {
+      const block = await buildTransitionBlock({
+        supabase,
+        profile,
+        state,
+        startsOn: weekStartOf(today, 1),
+        today,
+      });
+      return NextResponse.json({
+        planId: block.planId,
+        kind: "transition",
+        weeks: block.weeks,
+        ends_on: block.ends_on,
+        main_race: { date: main.date, type: main.type, priority: main.priority },
+        reason:
+          `${main.date} is still ${weeksToRace}+ weeks out — too far to peak and taper for. ` +
+          `You get a ${block.weeks}-week transition block first; the race cycle starts when the race is in range.`,
+      });
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: "plan_build_failed",
+          detail: `Could not build the transition block: ${e instanceof Error ? e.message : "unknown error"}`,
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  let planId: string;
+  try {
+    ({ planId } = await buildRaceBlock({
+      supabase,
+      profile,
+      state,
+      raceDate: main.date,
+      calendar,
+      startsOn: today,
+      today,
+    }));
+  } catch (e) {
+    // loadLibrary and persistPlan both throw; uncaught, that is a 500
+    // with no body and the browser can only call it a parse error.
+    return NextResponse.json(
+      {
+        error: "plan_build_failed",
+        detail: `Could not build the plan: ${e instanceof Error ? e.message : "unknown error"}`,
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
     planId,

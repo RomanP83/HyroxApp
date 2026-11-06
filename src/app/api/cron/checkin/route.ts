@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { tgSendMessage, quickLogKeyboard } from "@/lib/telegram";
 import { sendEmail, checkinEmailHtml, emailConfigured } from "@/lib/email";
+import { currentWeekNumber } from "@/lib/planWeek";
 
 export const runtime = "nodejs";
 
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
   for (const profile of profiles ?? []) {
     const { data: plan } = await admin
       .from("plans")
-      .select("id")
+      .select("id, starts_on, total_weeks")
       .eq("profile_id", profile.id)
       .eq("status", "active")
       .order("generated_at", { ascending: false })
@@ -50,11 +51,16 @@ export async function POST(req: Request) {
       .maybeSingle();
     if (!plan) continue;
 
+    const thisWeek = currentWeekNumber({
+      startsOn: String(plan.starts_on).slice(0, 10),
+      today: new Date().toISOString().slice(0, 10),
+      totalWeeks: plan.total_weeks,
+    });
     const { data: week } = await admin
       .from("plan_weeks")
       .select("id")
       .eq("plan_id", plan.id)
-      .eq("status", "current")
+      .eq("week_number", thisWeek)
       .maybeSingle();
     if (!week) continue;
 

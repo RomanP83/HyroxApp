@@ -29,11 +29,27 @@ const profile = (over: Partial<AthleteProfile> = {}): AthleteProfile => ({
 });
 
 describe("weeklyVolumeTarget", () => {
-  it("peaks in the build block and yields to intensity in the peak", () => {
-    expect(VOLUME_CURVE_BY_PHASE.build).toBe(1);
-    expect(VOLUME_CURVE_BY_PHASE.peak).toBeLessThan(VOLUME_CURVE_BY_PHASE.build);
-    expect(VOLUME_CURVE_BY_PHASE.taper).toBeLessThan(VOLUME_CURVE_BY_PHASE.peak);
-    expect(weeklyVolumeTarget({ peakKm: 50, phase: "build", isDeload: false })).toBe(50);
+  it("peaks in the base block and falls the whole way to the race", () => {
+    // Distance early, specificity late. What rises towards the race is the
+    // compromised running and the station work the mix hands over to (30%
+    // running in an elite peak against 55% in its base) — mileage held up on
+    // top of that is the base giving way before the fitness arrives.
+    const curve = VOLUME_CURVE_BY_PHASE;
+    expect(curve.base).toBe(1);
+    expect(curve.build).toBeLessThan(curve.base);
+    expect(curve.peak).toBeLessThan(curve.build);
+    expect(curve.taper).toBeLessThan(curve.peak);
+    expect(weeklyVolumeTarget({ peakKm: 50, phase: "base", isDeload: false })).toBe(50);
+  });
+
+  it("lands a 50 km cycle where the prescription puts it", () => {
+    // base 40-50, build 35-45, peak 30-40, taper 15-22 for a peak week of 50.
+    const km = (phase: "base" | "build" | "peak" | "taper") =>
+      weeklyVolumeTarget({ peakKm: 50, phase, isDeload: false });
+    expect(km("base")).toBe(50);
+    expect(km("build")).toBe(45);
+    expect(km("peak")).toBe(40);
+    expect(km("taper")).toBe(20);
   });
 
   it("ramps into the first weeks instead of starting at full volume", () => {
@@ -195,5 +211,134 @@ describe("loggedDistanceKm", () => {
   it("falls back to minutes at the session's pace zone", () => {
     expect(loggedDistanceKm("run_easy", 40, null, ZONES)).toBeGreaterThan(5);
     expect(loggedDistanceKm("strength", 60, null, ZONES)).toBe(0);
+  });
+});
+
+describe("the volume a generated cycle actually carries", () => {
+  // The curve is a target; what the athlete sees is the sum of the sessions
+  // after they have been scaled and clamped to their own bounds. This is the
+  // test that says the two agree — a curve nobody's week follows is a comment.
+  const profile = (over: Partial<AthleteProfile> = {}): AthleteProfile => ({
+    id: "t",
+    division: "pro",
+    experience_level: "world_class",
+    five_k_seconds: 1140, // 19:00 — 3:48 / km
+    station_estimates: {},
+    training_days_per_week: 6,
+    doubles_per_week: 2,
+    equipment_access: "full_gym",
+    weekly_km_peak: 50,
+    ...over,
+  });
+
+  function weeks(over: Partial<AthleteProfile> = {}) {
+    const p = profile(over);
+    const state = initialAthleteState(p);
+    const plan = generatePlan({ profile: p, state, library: DEMO_LIBRARY, weeksToRace: 12 });
+    return plan.phases.flatMap((ph) =>
+      ph.weeks.map((w) => ({
+        phase: ph.phase_type,
+        week: w.week_number,
+        isDeload: w.is_deload,
+        // Counted the way the app counts it: the metres a session prescribes
+        // where it prescribes any, duration ÷ pace only where it does not.
+        km: weeklyRunSummary(
+          w.sessions.map((s) => ({
+            session_type: s.session_type,
+            planned_duration_min: s.planned_duration_min,
+            run_metres: s.blocks.map((b) => b.load_adjustments.run_metres).find((m) => m),
+          })),
+          state.pace_zones,
+          ph.phase_type,
+        ).total_km,
+      })),
+    );
+  }
+
+  it("never runs further than the athlete asked for", () => {
+    // The direction that costs an injury. Overshoot used to be invisible: the
+    // weekly total was duration ÷ pace, which reads a 75-minute interval
+    // session as 15.6 km when 5 × 1500 m is written on it.
+    for (const w of weeks()) {
+      const target = weeklyVolumeTarget({
+        peakKm: 50,
+        phase: w.phase,
+        isDeload: w.isDeload,
+        weekNumber: w.week,
+      });
+      expect(w.km, `W${w.week} ${w.phase} against a ${target} km target`).toBeLessThanOrEqual(
+        target * 1.15,
+      );
+    }
+  });
+
+  it("reaches the target where the week's runs can carry it", () => {
+    // Where they cannot, they cannot: the compromised and interval sessions run
+    // the metres they are written for, and only the long and easy runs stretch.
+    // A 50 km week out of five sessions of which three are strength, station
+    // work and a compromised run is a target the mix cannot carry — and the app
+    // says so (see "says so when the week cannot reach the target") rather than
+    // stretching one run to two and a half hours to fake it.
+    const rows = weeks().filter((w) => !w.isDeload && w.phase !== "taper");
+    const target = (w: (typeof rows)[number]) =>
+      weeklyVolumeTarget({ peakKm: 50, phase: w.phase, isDeload: w.isDeload, weekNumber: w.week });
+    const reached = rows.filter((w) => w.km >= target(w) * 0.85);
+    expect(reached.length, "no loading week reaches its target").toBeGreaterThan(0);
+  });
+
+  it("says so when the week cannot reach the target", () => {
+    const p = profile({ weekly_km_peak: 50 });
+    const state = initialAthleteState(p);
+    const plan = generatePlan({ profile: p, state, library: DEMO_LIBRARY, weeksToRace: 12 });
+    const notes: string[] = [];
+    for (const ph of plan.phases) {
+      for (const w of ph.weeks) {
+        const target = weeklyVolumeTarget({
+          peakKm: 50,
+          phase: ph.phase_type,
+          isDeload: w.is_deload,
+          weekNumber: w.week_number,
+        });
+        notes.push(
+          weeklyRunSummary(
+            w.sessions.map((s) => ({
+              session_type: s.session_type,
+              planned_duration_min: s.planned_duration_min,
+              run_metres: s.blocks.map((b) => b.load_adjustments.run_metres).find((m) => m),
+            })),
+            state.pace_zones,
+            ph.phase_type,
+            target,
+          ).note,
+        );
+      }
+    }
+    // A silently missed target is the failure this whole change exists to stop.
+    expect(notes.some((n) => n.includes("another running day"))).toBe(true);
+  });
+
+  it("falls from the base block to the race rather than rising into it", () => {
+    const rows = weeks();
+    const best = (phase: string) => Math.max(...rows.filter((r) => r.phase === phase).map((r) => r.km));
+    expect(best("base")).toBeGreaterThan(best("build"));
+    expect(best("build")).toBeGreaterThan(best("peak"));
+    expect(best("peak")).toBeGreaterThan(best("taper"));
+  });
+
+  it("keeps a 19:00 five-k athlete's loading weeks under the ceiling", () => {
+    // This used to assert a 35-50 km floor as well, and it passed because the
+    // weekly total was an estimate that over-counted by up to 4.6× on the
+    // sessions written as metres. Counting what the sessions prescribe, a
+    // five-session week whose runs are one long run plus fixed-distance work
+    // lands nearer 25-41 km. The ceiling is what protects the athlete; the
+    // floor is a conversation about adding a running day, and the summary now
+    // has it.
+    const loading = weeks().filter((w) => w.phase !== "taper" && !w.isDeload);
+    for (const w of loading) {
+      expect(w.km, `W${w.week} ${w.phase}`).toBeLessThanOrEqual(50);
+      expect(w.km, `W${w.week} ${w.phase}`).toBeGreaterThan(0);
+    }
+    const taper = weeks().find((w) => w.phase === "taper")!;
+    expect(taper.km).toBeLessThanOrEqual(23);
   });
 });

@@ -3,10 +3,20 @@ import { vacationDaysBetween } from "@/lib/engine";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { macroGuardrails } from "@/lib/engine";
+import {
+  macroGuardrails,
+  raceBlockFits,
+  type AthleteProfile,
+  type AthleteState,
+} from "@/lib/engine";
 import { stateFromRow, type AthleteStateRow } from "@/lib/dbTypes";
 import { rebasePlan } from "@/lib/rebasePlan";
 import { loadTuning } from "@/lib/engineConfig";
+import { currentWeekNumber, weekStartOf } from "@/lib/planWeek";
+import { raceIsBehind } from "@/lib/planWeek";
+import { loadSeasonRaces, pickMainRace, planWeeksTo } from "@/lib/seasonCalendar";
+import { buildTransitionBlock } from "@/lib/transitionBlock";
+import { buildRaceBlock } from "@/lib/raceBlock";
 
 export const runtime = "nodejs";
 
@@ -46,14 +56,27 @@ export async function POST(req: Request) {
 
   const { data: plans } = await admin
     .from("plans")
-    .select("id, profile_id, status, generated_at")
+    .select("id, profile_id, status, kind, generated_at, starts_on, total_weeks, race_date")
     .in("status", ["active", "paused"]);
 
   const now = Date.now();
   const results: Record<string, string[]> = {};
   const tuning = await loadTuning(admin);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   for (const plan of plans ?? []) {
+    // A plan whose race has been and gone is a record, not a plan. It gets
+    // closed here rather than adapted: planWeeksTo counts weeks TO the race,
+    // so rebasing against a past date clamps to the floor and produces a
+    // two-week taper aimed at a day that is over — and the seven-days-inactive
+    // rebase below is precisely what the week after a race triggers.
+    if (raceIsBehind(String(plan.race_date), today)) {
+      await admin.from("plans").update({ status: "completed" }).eq("id", plan.id);
+      results[plan.id] = ["race day passed — plan closed"];
+      continue;
+    }
+
     const { data: stateRow } = await admin
       .from("athlete_state")
       .select("*")
@@ -89,6 +112,18 @@ export async function POST(req: Request) {
 
     const state = stateFromRow(stateRow as AthleteStateRow);
 
+    // Is this plan still the right SHAPE? A race cycle ends in a peak and a
+    // taper, and both are promises about a date — so a cycle aimed at a race
+    // still far outside its own length was tapering months early, and a
+    // transition block whose race has come into range would never start
+    // periodising on its own. Reconciled here, nightly, before anything else:
+    // a plan of the wrong shape is not worth deloading or rebasing.
+    const reshaped = await reconcileBlockShape(admin, plan, state, today);
+    if (reshaped) {
+      results[plan.id] = [reshaped];
+      continue;
+    }
+
     const { directives, adjustments } = macroGuardrails({
       state,
       avgRpe14d,
@@ -121,11 +156,16 @@ export async function POST(req: Request) {
         }
       } else if (d.type === "trim_week") {
         // B3: actually reduce the remaining sessions of the current week.
+        const thisWeek = currentWeekNumber({
+          startsOn: String(plan.starts_on).slice(0, 10),
+          today: new Date().toISOString().slice(0, 10),
+          totalWeeks: plan.total_weeks,
+        });
         const { data: curWeek } = await admin
           .from("plan_weeks")
           .select("id")
           .eq("plan_id", plan.id)
-          .eq("status", "current")
+          .eq("week_number", thisWeek)
           .maybeSingle();
         if (curWeek) await scaleSessions(admin, [curWeek.id], d.multiplier);
       } else if (d.type === "ramp_up") {
@@ -172,3 +212,64 @@ export async function POST(req: Request) {
 
 // Vercel Cron invokes with GET; reuse the same handler.
 export const GET = POST;
+
+/**
+ * Put a plan into the shape its calendar actually calls for.
+ *
+ * Two directions, and both used to be dead ends. A race cycle built for a race
+ * beyond PLAN_MAX_WEEKS was truncated and tapered at the end of the truncation
+ * — a taper weeks or months before the race. And nothing ever turned a
+ * transition block back into a race cycle, so an athlete who entered a race a
+ * year out would have sat in transition work until they noticed.
+ *
+ * Returns a description when the plan was replaced, null when it was already
+ * the right shape.
+ */
+async function reconcileBlockShape(
+  admin: SupabaseClient,
+  plan: { id: string; profile_id: string; kind?: string | null; race_date: string },
+  state: AthleteState,
+  today: string,
+): Promise<string | null> {
+  const { data: profileRow } = await admin
+    .from("athlete_profiles")
+    .select("*")
+    .eq("id", plan.profile_id)
+    .single();
+  if (!profileRow) return null;
+  const profile = profileRow as AthleteProfile;
+  const startsOn = weekStartOf(today, 1);
+
+  if (plan.kind === "transition") {
+    // A transition block's race_date is its own end, so the real race has to
+    // come from the calendar.
+    const calendar = await loadSeasonRaces(admin, plan.profile_id);
+    const main = pickMainRace(calendar, today);
+    if (!main) return null;
+    const weeksToRace = planWeeksTo(main.date, startsOn);
+    if (!raceBlockFits(weeksToRace)) return null;
+
+    await buildRaceBlock({
+      supabase: admin,
+      profile,
+      state,
+      raceDate: main.date,
+      calendar,
+      startsOn,
+      today,
+    });
+    return `race in ${weeksToRace} weeks — transition block became a race cycle`;
+  }
+
+  const weeksToRace = planWeeksTo(String(plan.race_date).slice(0, 10), startsOn);
+  if (raceBlockFits(weeksToRace)) return null;
+
+  const block = await buildTransitionBlock({
+    supabase: admin,
+    profile,
+    state,
+    startsOn,
+    today,
+  });
+  return `race still ${weeksToRace}+ weeks out — race cycle became a ${block.weeks}-week transition block`;
+}

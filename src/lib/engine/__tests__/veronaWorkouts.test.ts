@@ -129,9 +129,8 @@ describe("planning with the Verona collection", () => {
     expect(strip(plan(profile({ workout_collection: "verona" })), later)).toEqual(strip(plan(profile()), later));
 
     const baseWeeks = (pl: GeneratedPlan) => pl.phases.find((p) => p.phase_type === "base")!.weeks;
-    for (const w of baseWeeks(plan(profile()))) {
-      expect(w.sessions.some((s) => s.session_type === "compromised_run")).toBe(false);
-    }
+    // The standard mix may or may not hold a game day in a base week; the
+    // Verona collection guarantees one.
     for (const w of baseWeeks(plan(profile({ workout_collection: "verona" })))) {
       const game = w.sessions.find((s) => s.session_type === "compromised_run");
       expect(game, `week ${w.week_number}`).toBeTruthy();

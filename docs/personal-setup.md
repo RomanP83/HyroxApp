@@ -25,8 +25,13 @@ Anthropic and Gemini keys can all stay unset; the app degrades gracefully withou
    definitions. It is safe to run more than once.
 
    Prefer the CLI? `npx supabase link --project-ref <ref> && npx supabase db push`
-   applies the migrations; you then still need the three files in
+   applies the migrations; you then still need the four files in
    `supabase/seed/` for the workout library.
+
+   **Re-run `setup.sql` after every update of the app.** The plan is stored as
+   references into the workout library, so a database that is behind the code
+   cannot save a plan the new engine builds — that shows up as a failed rebuild
+   with the reason named in the message.
 
 4. **Lock the door behind you.** Sign in to the app once (step 3 below), then in
    Supabase go to **Authentication → Providers → Email** and turn off
@@ -49,11 +54,10 @@ Anthropic and Gemini keys can all stay unset; the app degrades gracefully withou
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from Supabase |
    | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase |
    | `NEXT_PUBLIC_APP_URL` | `https://<your-app>.vercel.app` |
-   | `PERSONAL_MODE` | `1` |
    | `CRON_SECRET` | any long random string |
 
-   `PERSONAL_MODE=1` unlocks every week — the free-preview paywall exists for
-   the product, not for you.
+   There is no paywall and no `PERSONAL_MODE` flag any more: this app has one
+   athlete, so every week is simply there.
 
    > Chicken-and-egg on `NEXT_PUBLIC_APP_URL`: deploy once, copy the URL Vercel
    > gives you, paste it in, redeploy.

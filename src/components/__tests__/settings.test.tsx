@@ -3,20 +3,24 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SettingsClient, type SettingsProps } from "../SettingsClient";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: () => undefined }),
+  useRouter: () => ({ refresh: () => undefined, push: () => undefined }),
   usePathname: () => "/settings",
 }));
 
 const base: SettingsProps = {
   hasPlan: true,
+  planStart: { starts_on: "2026-03-02", race_date: "2026-05-24", total_weeks: 12 },
   planStatus: "active",
   experienceLevel: "advanced",
+  goalRaceTimeSec: null,
+  division: "open",
   weekShape: {
     training_days_per_week: 5,
     doubles_per_week: 0,
     long_run_day: 7,
     strength_days: [1, 4],
     rest_days: [3],
+    double_days: [],
   },
   volume: {
     weekly_km_peak: 45,
@@ -41,12 +45,20 @@ describe("the setup page", () => {
   });
 
   it("shows the pinned days as pressed, and the rest as not", () => {
-    // Sunday long run, Monday and Thursday strength, Wednesday rest — plus the
-    // two chip rows, which each have exactly one pressed option.
+    // Four pinned days (Sunday long run, Monday and Thursday strength,
+    // Wednesday rest), plus one pressed option in each of the four single-
+    // choice rows: training days, doubles, level and division.
     const pressed = (html.match(/aria-pressed="true"/g) ?? []).length;
-    expect(pressed).toBe(4 + 2);
+    expect(pressed).toBe(4 + 4);
     expect(html).toContain('aria-label="Long run: Sunday"');
     expect(html).toContain('aria-label="Rest (max 2): Wednesday"');
+    // Level and goal are two controls now: the level says what the athlete can
+    // carry, the goal what they are chasing.
+    expect(html).toContain('aria-label="Level — what you can carry now: Competitive"');
+    expect(html).toContain('aria-label="Goal finish time"');
+    // Nothing stored yet, so the goal opens on what the level has always implied.
+    expect(html).toContain('value="1:20:00"');
+    expect(html).toContain('aria-label="Division: Open"');
   });
 
   it("puts the training days and the doubles where the week is shaped", () => {
@@ -151,5 +163,18 @@ describe("vacations on the setup page", () => {
 
   it("is hidden on a database without the table", () => {
     expect(render()).not.toContain('data-testid="vacation-card"');
+  });
+});
+
+describe("signing out", () => {
+  const html = render();
+
+  it("offers a way out of the session, and says what it costs", () => {
+    expect(html).toContain("Sign out");
+    // The reassurance is the point: someone signing out on a shared laptop
+    // needs to know the plan is not what is being cleared.
+    expect(html).toContain("This device");
+    expect(html).toMatch(/plan and everything you have logged\s+stay where they are/);
+    expect(html).toMatch(/other\s+devices stay signed in/);
   });
 });

@@ -215,6 +215,15 @@ export function pickVariant<V extends SessionVariant>(
 }
 
 /** The run catalogue, through the shared picker. */
+/**
+ * The easy run that trades impact for the same aerobic work — 20-40% of base
+ * endurance volume belongs on a SkiErg, rower or bike at high training loads,
+ * and this is the session that carries it.
+ */
+export function ergOffloadVariant(): SessionVariant | null {
+  return RUN_VARIANTS.find((v) => v.slug === "er_cross_combo") ?? null;
+}
+
 export function pickRunVariant(opts: VariantQuery): VariantPick<RunVariant> | null {
   return pickVariant(RUN_VARIANTS, opts);
 }

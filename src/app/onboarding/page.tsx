@@ -4,7 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { frequencyAdvice, initialAthleteState, splitPhases, type AthleteProfile } from "@/lib/engine";
+import { readApi } from "@/lib/apiResult";
+import { nextMonday, weekStartOf } from "@/lib/planWeek";
+import {
+  frequencyAdvice,
+  goalSecondsForLevel,
+  initialAthleteState,
+  splitPhases,
+  type AthleteProfile,
+} from "@/lib/engine";
 import { fmtClock, PHASE_COLORS, titleCase } from "@/lib/format";
 import { CheckIcon, SpinnerIcon } from "@/components/icons";
 import { haptic } from "@/lib/haptics";
@@ -32,6 +40,10 @@ export default function Onboarding() {
 
   const [division, setDivision] = useState<Division>("open");
   const [level, setLevel] = useState<Level>("intermediate");
+  // The goal starts where the level suggests and stops following it the moment
+  // the athlete picks one — ability proposes, ambition decides.
+  const [goalSeconds, setGoalSeconds] = useState(goalSecondsForLevel("intermediate"));
+  const [goalTouched, setGoalTouched] = useState(false);
   const [days, setDays] = useState(4);
   const [doubles, setDoubles] = useState(0);
   const [kmPeak, setKmPeak] = useState("");
@@ -39,16 +51,49 @@ export default function Onboarding() {
   const [fiveKMin, setFiveKMin] = useState(22);
   const [fiveKSec, setFiveKSec] = useState(30);
   const [raceDate, setRaceDate] = useState("");
+  const [startsOn, setStartsOn] = useState(() => nextMonday(new Date().toISOString().slice(0, 10)));
   const [raceId, setRaceId] = useState<string | null>(null);
   const [races, setRaces] = useState<
     { id: string; name: string; city: string | null; event_date: string }[]
   >([]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setSignedIn(!!data.user);
-      setReady(true);
-    });
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (!data.user) {
+        setSignedIn(false);
+        setReady(true);
+        return;
+      }
+      setSignedIn(true);
+
+      // Signing in on a second device lands here, because this is the only
+      // page that sends a sign-in link. Someone who already has a plan came
+      // to look at it, not to fill in this form again — and filling it in
+      // would abandon the plan they came for. Send them to it instead.
+      // ?new=1 is the way back in for a deliberate fresh start.
+      if (!new URLSearchParams(window.location.search).has("new")) {
+        const { data: profile } = await supabase
+          .from("athlete_profiles")
+          .select("id")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+        const { data: plan } = profile
+          ? await supabase
+              .from("plans")
+              .select("id")
+              .eq("profile_id", profile.id)
+              .in("status", ["active", "paused", "rehab"])
+              .limit(1)
+              .maybeSingle()
+          : { data: null };
+        // Stay unready through the redirect: the form must not flash up.
+        if (plan && !cancelled) return router.replace("/plan");
+      }
+      if (!cancelled) setReady(true);
+    })();
     // B5: real event calendar (races is public-read); empty table degrades to
     // the free date picker.
     supabase
@@ -58,18 +103,23 @@ export default function Onboarding() {
       .order("event_date", { ascending: true })
       .limit(60)
       .then(({ data }) => setRaces(data ?? []));
-  }, [supabase]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, router]);
 
   // Live preview: the same engine that builds the real plan, in the browser.
   const preview = useMemo(() => {
     if (!raceDate) return null;
-    const ms = new Date(raceDate).getTime() - Date.now();
+    const ms = new Date(raceDate).getTime() - new Date(startsOn).getTime();
     if (Number.isNaN(ms) || ms <= 0) return null;
     const weeks = Math.max(4, Math.min(20, Math.ceil(ms / (7 * 86_400_000))));
     const profile: AthleteProfile = {
       id: "preview",
       division,
       experience_level: level,
+      target_time_sec: goalSeconds,
       five_k_seconds: fiveKMin * 60 + fiveKSec,
       station_estimates: {},
       training_days_per_week: days,
@@ -82,7 +132,7 @@ export default function Onboarding() {
       split: splitPhases(weeks),
       predicted: initialAthleteState(profile).predicted_race_time_sec,
     };
-  }, [raceDate, division, level, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
+  }, [raceDate, startsOn, division, level, goalSeconds, days, doubles, kmPeak, equipment, fiveKMin, fiveKSec]);
 
   async function sendMagicLink() {
     setError(null);
@@ -105,16 +155,19 @@ export default function Onboarding() {
         body: JSON.stringify({
           division,
           experience_level: level,
+          target_time_sec: goalSeconds,
           five_k_seconds: fiveKMin * 60 + fiveKSec,
           training_days_per_week: days,
           doubles_per_week: doubles,
           weekly_km_peak: kmPeak ? Number(kmPeak) : null,
           equipment_access: equipment,
           race_date: raceDate,
+          starts_on: startsOn,
           race_id: raceId,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? "generation failed");
+      const result = await readApi(res);
+      if (!result.ok) throw new Error(result.message);
       router.push("/plan");
     } catch (e) {
       setError((e as Error).message);
@@ -135,19 +188,24 @@ export default function Onboarding() {
   if (!signedIn) {
     return (
       <main className="mx-auto max-w-md space-y-4 pt-16 animate-fade-up">
-        <Link href="/" className="text-sm text-ash hover:text-chalk">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
-        <h1 className="text-2xl font-bold">Create your account</h1>
+        <h1 className="text-2xl font-bold">Sign in</h1>
         <p className="text-ash">
-          We&apos;ll email you a sign-in link — no password to remember, nothing to forget.
+          We&apos;ll email you a sign-in link — no password to remember, and it creates your
+          account if you don&apos;t have one yet.
+        </p>
+        <p className="text-sm text-ash">
+          Open the link <b className="text-bone">on this device</b> — it only works in the browser
+          that asked for it. A link requested on your computer will not sign you in on your phone.
         </p>
         {sent ? (
           <div className="card flex items-center gap-3 text-go animate-pop-in">
             <CheckIcon size={20} />
             <div>
               <div className="font-semibold">Link is on its way!</div>
-              <div className="text-sm text-ash">Check your inbox and tap it to continue.</div>
+              <div className="text-sm text-ash">Check your inbox on this device and tap it to continue.</div>
             </div>
           </div>
         ) : (
@@ -178,7 +236,7 @@ export default function Onboarding() {
   return (
     <main className="mx-auto max-w-xl space-y-6 pt-8">
       <div className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-ash hover:text-chalk">
+        <Link href="/plan" className="text-sm text-ash hover:text-chalk">
           ← Home
         </Link>
         <span className="pill">{step === 1 ? "Step 1 of 2 · About you" : "Step 2 of 2 · Your race"}</span>
@@ -213,16 +271,34 @@ export default function Onboarding() {
             onChange={(v) => setDivision(v as Division)}
           />
           <ChipGroup
-            label="How seasoned are you? (target finish time)"
+            label="How seasoned are you? (what you can carry today)"
             options={[
-              ["beginner", "New · 1:40+"],
-              ["intermediate", "Trained · sub 1:30"],
-              ["advanced", "Competitive · sub 1:20"],
-              ["elite", "Elite · sub 70 min"],
-              ["world_class", "World class · sub 60"],
+              ["beginner", "New"],
+              ["intermediate", "Trained"],
+              ["advanced", "Competitive"],
+              ["elite", "Elite"],
+              ["world_class", "World class"],
             ]}
             value={level}
-            onChange={(v) => setLevel(v as Level)}
+            onChange={(v) => {
+              setLevel(v as Level);
+              if (!goalTouched) setGoalSeconds(goalSecondsForLevel(v as Level));
+            }}
+          />
+          <ChipGroup
+            label="Goal finish time (what you are chasing)"
+            options={[
+              [String(100 * 60), "1:40"],
+              [String(90 * 60), "1:30"],
+              [String(80 * 60), "1:20"],
+              [String(70 * 60), "1:10"],
+              [String(60 * 60), "1:00"],
+            ]}
+            value={String(goalSeconds)}
+            onChange={(v) => {
+              setGoalSeconds(Number(v));
+              setGoalTouched(true);
+            }}
           />
           <ChipGroup
             label="Training days per week"
@@ -341,17 +417,34 @@ export default function Onboarding() {
               </select>
             </div>
           )}
-          <div>
-            <label className="label">Race date</label>
-            <input
-              className="input"
-              type="date"
-              value={raceDate}
-              onChange={(e) => {
-                setRaceDate(e.target.value);
-                setRaceId(null); // manual date overrides the event pick
-              }}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label">Race date</label>
+              <input
+                className="input"
+                type="date"
+                value={raceDate}
+                onChange={(e) => {
+                  setRaceDate(e.target.value);
+                  setRaceId(null); // manual date overrides the event pick
+                }}
+              />
+            </div>
+            <div>
+              <label className="label">Start the plan on</label>
+              <input
+                className="input"
+                type="date"
+                value={startsOn}
+                onChange={(e) => setStartsOn(weekStartOf(e.target.value, 1))}
+              />
+              {/* Week 1 runs Monday to Sunday. Starting mid-week would give it
+                  two days, so the date snaps to the Monday of whatever is
+                  picked, and defaults to the coming one. */}
+              <p className="mt-1 text-micro text-ash">
+                Week 1 begins on this Monday — the coming one unless you pick another.
+              </p>
+            </div>
           </div>
 
           {/* Show value quickly: the plan skeleton, generated live. */}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { fmtClock, parseClock } from "@/lib/format";
-import { STATIONS, STATION_LABELS, type RaceResult } from "@/lib/engine";
+import { STATIONS, SEGMENT_LABELS, type RaceResult } from "@/lib/engine";
 
 /**
  * Races and full simulations with their splits, plus the target time they are
@@ -198,7 +198,7 @@ export function RaceResultsCard({
                   onChange={(v) => setRuns((xs) => xs.map((x, j) => (j === i ? v : x)))}
                 />
                 <SplitInput
-                  label={STATION_LABELS[st]}
+                  label={SEGMENT_LABELS[st]}
                   value={stations[i]}
                   onChange={(v) => setStations((xs) => xs.map((x, j) => (j === i ? v : x)))}
                 />

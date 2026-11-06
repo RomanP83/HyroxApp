@@ -20,6 +20,7 @@ const Body = z.object({
   /** Migration 0031. Omitted = left as it is. */
   strength_per_week: z.number().int().min(1).max(2).optional(),
   preferred_game_day: Day.nullable().optional(),
+  preferred_double_days: z.array(Day).max(3).default([]),
 });
 
 export async function PATCH(req: Request) {
@@ -82,6 +83,25 @@ export async function PATCH(req: Request) {
       { status: 400 },
     );
   }
+  if (body.preferred_double_days.some((d) => rest.has(d))) {
+    return NextResponse.json(
+      {
+        error: "rest_day_clash",
+        detail:
+          "You pinned a double day on a rest day. A second session needs a first one — pick one or the other.",
+      },
+      { status: 400 },
+    );
+  }
+  if (body.preferred_double_days.length > body.doubles_per_week) {
+    return NextResponse.json(
+      {
+        error: "too_many_double_days",
+        detail: `You pinned ${body.preferred_double_days.length} double days but train twice on ${body.doubles_per_week} day${body.doubles_per_week === 1 ? "" : "s"} a week.`,
+      },
+      { status: 400 },
+    );
+  }
   if (body.preferred_strength_days.length > trainingDays) {
     return NextResponse.json(
       {
@@ -114,6 +134,7 @@ export async function PATCH(req: Request) {
       preferred_rest_days: body.preferred_rest_days,
       ...(body.strength_per_week !== undefined ? { strength_per_week: body.strength_per_week } : {}),
       ...(body.preferred_game_day !== undefined ? { preferred_game_day: body.preferred_game_day } : {}),
+      preferred_double_days: body.preferred_double_days,
     })
     .eq("id", profile.id);
   if (error) return NextResponse.json({ error: "update_failed", detail: error.message }, { status: 500 });
@@ -124,6 +145,7 @@ export async function PATCH(req: Request) {
       longRunDay: body.preferred_long_run_day,
       strengthDays: body.preferred_strength_days,
       restDays: body.preferred_rest_days,
+      doubleDays: body.preferred_double_days,
       gameDay: body.preferred_game_day ?? profile.preferred_game_day ?? null,
     },
     {
@@ -144,11 +166,27 @@ export async function PATCH(req: Request) {
     .maybeSingle();
   if (!plan) return NextResponse.json({ ok: true, rebased: false, warnings });
 
-  const newPlanId = await rebasePlan(
-    supabaseAdmin(),
-    plan.id,
-    `Your week is now ${trainingDays} training days${body.doubles_per_week ? ` plus ${body.doubles_per_week} double${body.doubles_per_week > 1 ? "s" : ""}` : ""} — the remaining weeks were rebuilt around it.`,
-  );
+  let newPlanId: string | null = null;
+  try {
+    newPlanId = await rebasePlan(
+      supabaseAdmin(),
+      plan.id,
+      `Your week is now ${trainingDays} training days${body.doubles_per_week ? ` plus ${body.doubles_per_week} double${body.doubles_per_week > 1 ? "s" : ""}` : ""} — the remaining weeks were rebuilt around it.`,
+    );
+  } catch (e) {
+    // A rebase touches the library and the persistence RPC, and both
+    // throw. Letting that escape returns a 500 with no body, which the
+    // browser can only report as a JSON parse error.
+    return NextResponse.json(
+      {
+        error: "rebase_failed",
+        detail: `Your settings were saved, but the plan could not be rebuilt: ${
+          e instanceof Error ? e.message : "unknown error"
+        }`,
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ ok: true, rebased: Boolean(newPlanId), planId: newPlanId, warnings });
 }

@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ServiceWorker } from "@/components/ServiceWorker";
 
 // Archivo over the usual grotesks: it holds its shapes at 11px, where most of
 // this interface lives, and reads as equipment rather than as a document.
@@ -21,15 +22,26 @@ const data = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hyrox Periodization Hub — Your plan to race day",
-  description:
-    "An adaptive 12-week Hyrox training plan built backward from your race date — and it recalibrates after every session. No random WOD feed.",
+  title: "Hyrox Hub — your training week",
+  description: "The training week, on the device that goes to the gym.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Hyrox Hub" },
+  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0d1114",
+  // The app is installed to a phone and read one-handed mid-session; letting a
+  // stray pinch zoom the layout out from under a set is not a feature.
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${ui.variable} ${data.variable}`}>
       <body>
+        <ServiceWorker />
         <div className="mx-auto min-h-screen max-w-5xl px-4 py-6">{children}</div>
       </body>
     </html>

@@ -1,15 +1,27 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { Division, GeneratedSession, PhaseType, RenderedBlock } from "@/lib/engine";
+import type {
+  Division,
+  EquipmentAccess,
+  GeneratedSession,
+  PhaseType,
+  RenderedBlock,
+} from "@/lib/engine";
 import {
   defaultPaceZones,
+  goalCheck,
   weeklyRunSummary,
+  weeklyVolumeTarget,
 } from "@/lib/engine";
+import type { AthleteProfile, AthleteState } from "@/lib/engine";
 import { PlanClient, type ClientSession } from "@/components/PlanClient";
+import { withPersonalStrengthDay } from "@/lib/strength/personalDay";
 import type { SessionBlockJoinRow } from "@/lib/dbTypes";
 import { geminiConfigured } from "@/lib/gemini";
 import type { SuggestionRow } from "@/lib/aiCoach";
+import { currentWeekNumber, raceIsBehind, weekStartOf } from "@/lib/planWeek";
+import { PlanFinished } from "@/components/PlanFinished";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +39,7 @@ export default async function PlanPage({
   const { data: profile } = await supabase
     .from("athlete_profiles")
     .select(
-      "id, division, subscription_status, training_days_per_week",
+      "id, division, experience_level, target_time_sec, equipment_access, station_substitutions, preferred_rest_days, weekly_km_peak, training_days_per_week",
     )
     .eq("user_id", user.id)
     .single();
@@ -35,9 +47,11 @@ export default async function PlanPage({
 
   const { data: plan } = await supabase
     .from("plans")
-    .select("id, race_date, status, total_weeks, stripe_payment_id")
+    .select("id, race_date, starts_on, kind, status, total_weeks")
     .eq("profile_id", profile.id)
-    .in("status", ["active", "paused", "rehab"])
+    // 'completed' as well: a plan whose race has been and gone is what the
+    // athlete should land on the morning after, not the onboarding form.
+    .in("status", ["active", "paused", "rehab", "completed"])
     .order("generated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -59,15 +73,18 @@ export default async function PlanPage({
     );
   }
 
-  // C4: a per-plan purchase OR an active subscription unlocks the plan.
-  // PERSONAL_MODE unlocks everything for a self-hosted, single-athlete
-  // install — no Stripe account needed to use your own plan.
-  const paid =
-    process.env.PERSONAL_MODE === "1" ||
-    Boolean(plan.stripe_payment_id) ||
-    profile.subscription_status === "active";
-
-  const subscriptionAvailable = Boolean(process.env.STRIPE_SUBSCRIPTION_PRICE_ID);
+  // The race is behind us: this plan is a record now, and the week view would
+  // only show its last taper week for ever. Two ways on — the next race, or a
+  // block with no race in it at all.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (raceIsBehind(String(plan.race_date), todayIso) || plan.status === "completed") {
+    return (
+      <PlanFinished
+        raceDate={String(plan.race_date).slice(0, 10)}
+        kind={plan.kind === "transition" ? "transition" : "race"}
+      />
+    );
+  }
 
   const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }, { data: aiRow }] =
     await Promise.all([
@@ -103,13 +120,24 @@ export default async function PlanPage({
     ]);
 
   const weekList = weeks ?? [];
+  // Which week is now is derived from the plan's start, not read off a stored
+  // flag — the flag was written once and never advanced, so every reader sat
+  // on week 1 forever.
+  const thisWeek = currentWeekNumber({
+    startsOn: String(plan.starts_on).slice(0, 10),
+    today: new Date().toISOString().slice(0, 10),
+    totalWeeks: plan.total_weeks,
+  });
   const current =
     weekList.find((w) => String(w.week_number) === searchParams.week) ??
-    weekList.find((w) => w.status === "current") ??
+    weekList.find((w) => w.week_number === thisWeek) ??
     weekList[0];
 
-  // Load sessions + blocks for the selected week.
-  const { data: sessionRows } = await supabase
+  // Load sessions + blocks for the selected week. The error is kept: an empty
+  // week and a week that failed to load look identical downstream, and since
+  // the week now fills its gaps with rest days, a failed load would otherwise
+  // render as seven confident "nothing scheduled" tiles.
+  const { data: sessionRows, error: sessionsError } = await supabase
     .from("sessions")
     .select(
       "id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))",
@@ -117,7 +145,6 @@ export default async function PlanPage({
     .eq("week_id", current.id)
     .order("sort_order", { ascending: true });
 
-  const locked = current.week_number > 1 && !paid;
 
   // The athlete's own strength day replaces the library's main block. Several
   // days rotate by week, so Tag A / Tag B alternate the way they would in the
@@ -144,7 +171,7 @@ export default async function PlanPage({
   // The "previous" column: what each exercise saw the last time it was logged.
   // Newest rows first; the first session met per exercise is the last one.
   const exerciseIds = (strengthTemplate?.strength_exercises ?? []).map((e) => e.id);
-  const { data: setHistory } = exerciseIds.length && !locked
+  const { data: setHistory } = exerciseIds.length
     ? await supabase
         .from("strength_set_logs")
         .select("exercise_id, session_id, set_number, reps, load_kg, logged_at")
@@ -193,11 +220,9 @@ export default async function PlanPage({
     // A1/K1: locked weeks never ship their blocks to the browser — the lock
     // must live server-side, not as a UI overlay over fully delivered data.
     const joinRows = (s.session_blocks ?? []) as SessionBlockJoinRow[];
-    const blocks: RenderedBlock[] = locked
-      ? []
-      : joinRows
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((sb) => ({
+    const blocks: RenderedBlock[] = joinRows
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((sb) => ({
             block_id: sb.block_id,
             slug: sb.workout_blocks?.slug ?? undefined,
             block_type: (sb.workout_blocks?.block_type ?? "main") as RenderedBlock["block_type"],
@@ -219,27 +244,24 @@ export default async function PlanPage({
       blocks,
     };
     // A strength session shows the athlete's own exercises instead of the
-    // library block — warm-up and mobility around it stay as generated.
-    if (strengthTemplate && s.session_type === "strength" && !locked) {
-      session.blocks = [
-        ...blocks.filter((b) => b.block_type !== "main"),
-        {
-          block_id: strengthTemplate.id,
-          slug: "personal_strength_day",
-          block_type: "main",
-          station: null,
-          sort_order: 1,
-          content: strengthExercises.map((e) => ({
-            exercise: e.name,
-            sets: e.sets,
-            rep_min: e.rep_min,
-            rep_max: e.rep_max,
-            load_kg: e.load_kg,
-            superset_group: e.superset_group,
-          })),
-          load_adjustments: { division: profile.division as Division },
-        },
-      ];
+    // library block — warm-up, finisher and mobility around it stay as
+    // generated, and stay around it.
+    if (strengthTemplate && s.session_type === "strength") {
+      session.blocks = withPersonalStrengthDay(blocks, {
+        block_id: strengthTemplate.id,
+        slug: "personal_strength_day",
+        block_type: "main",
+        station: null,
+        content: strengthExercises.map((e) => ({
+          exercise: e.name,
+          sets: e.sets,
+          rep_min: e.rep_min,
+          rep_max: e.rep_max,
+          load_kg: e.load_kg,
+          superset_group: e.superset_group,
+        })),
+        load_adjustments: { division: profile.division as Division },
+      });
       return {
         id: s.id,
         session,
@@ -261,32 +283,63 @@ export default async function PlanPage({
   const runSummary =
     zones && Object.keys(zones).length
       ? weeklyRunSummary(
-          (sessionRows ?? []).map((s: { session_type: GeneratedSession["session_type"]; planned_duration_min: number }) => ({
-            session_type: s.session_type,
-            planned_duration_min: s.planned_duration_min,
+          (sessionRows ?? []).map((s: any) => ({
+            session_type: s.session_type as GeneratedSession["session_type"],
+            planned_duration_min: s.planned_duration_min as number,
+            // The metres the session prescribes, where it prescribes any. A
+            // compromised run written as four rounds of 400 m runs 1.6 km
+            // whatever its duration says, and the readout has to agree with
+            // the card the athlete is looking at.
+            run_metres: ((s.session_blocks ?? []) as SessionBlockJoinRow[])
+              .map((sb) => (sb.load_adjustments as { run_metres?: number } | null)?.run_metres)
+              .find((m): m is number => typeof m === "number" && m > 0),
           })),
           zones,
           currentPhase?.phase_type as PhaseType | undefined,
+          // Judge the week against what the athlete actually asked for, not
+          // against a generic band they never set.
+          profile.weekly_km_peak
+            ? weeklyVolumeTarget({
+                peakKm: Number(profile.weekly_km_peak),
+                phase: currentPhase?.phase_type as PhaseType,
+                isDeload: Boolean(current.is_deload),
+                weekNumber: current.week_number,
+              })
+            : undefined,
         )
       : null;
 
   // The volume corrective: the target the athlete set, measured against the
   // kilometres they have actually been running.
+  // The goal against the estimate. The stored prediction is reused rather than
+  // recomputed: it is the same number the estimate card shows, and re-deriving
+  // it here would mean reading every benchmark on the app's hottest page.
+  const goal = goalCheck({
+    profile: profile as unknown as AthleteProfile,
+    state: (state ?? {}) as unknown as AthleteState,
+    predictedSeconds: state?.predicted_race_time_sec ?? null,
+  });
+
   return (
     <PlanClient
+      goalCheck={goal}
+      weekStart={weekStartOf(String(plan.starts_on).slice(0, 10), current.week_number)}
+      restDays={(profile.preferred_rest_days as number[] | null) ?? []}
+      sessionsFailed={Boolean(sessionsError)}
+      substitutions={(profile.station_substitutions as Record<string, string>) ?? {}}
+      equipment={(profile.equipment_access as EquipmentAccess) ?? "full_gym"}
       planId={plan.id}
       profileId={profile.id}
-      paid={paid}
       planStatus={plan.status}
-      subscriptionAvailable={subscriptionAvailable}
       raceDate={plan.race_date}
       phases={phases ?? []}
       weeks={weekList}
       currentWeek={current}
+      thisWeekNumber={thisWeek}
+      planKind={plan.kind === "transition" ? "transition" : "race"}
       sessions={clientSessions}
       state={state}
       adjustments={(adjustments ?? []).map((a: any) => a.reason).filter(Boolean)}
-      locked={locked}
       runSummary={runSummary}
       aiEnabled={geminiConfigured()}
       aiSuggestion={(aiRow as SuggestionRow | null) ?? null}

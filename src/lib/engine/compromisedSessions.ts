@@ -7,60 +7,36 @@
 // because a sub-2:00 athlete and a sub-60 athlete are not doing the same sport
 // at the same speed.
 //
-// These live in TypeScript rather than in workout_blocks because they are
-// ENGINE data, like RUN_SPECS: distances, paces and loads that get argued with
-// and tuned. They render into exactly the content shape BlockView already
-// draws, so the session card needs to know nothing about any of this.
+// This file is the source of truth: distances, paces and loads that get argued
+// with and tuned, like RUN_SPECS. It is not, however, where they are stored —
+// a plan is saved as references into workout_blocks, so every session here is
+// also a seeded library row (librarySeed.ts generates it, keyed by the
+// pinned block_id below). Edit a session here, regenerate the seed, run it.
+// They render into exactly the content shape BlockView already draws, so the
+// session card needs to know nothing about any of this.
 //
 // Three sessions per (level, phase). The picker rotates them by week and, on
 // alternating weeks, prefers the one that attacks the athlete's weakest
 // station — the same rule the other variant catalogues follow.
 // ============================================================================
 
-import type {
-  EquipmentAccess,
-  ExperienceLevel,
-  PhaseType,
-  Station,
-  StationTiers,
-} from "./types";
+import {
+  pickFromCatalogue,
+  renderCatalogue,
+  type CatalogueQuery,
+  type CataloguePick,
+  type CatalogueSession,
+  type SessionLine,
+} from "./catalogue";
 
-/** One line of a session, in the shape BlockView renders. */
-export interface SessionLine {
-  exercise: string;
-  sets?: number;
-  reps?: number;
-  distance_m?: number;
-  rest_sec?: number;
-  load_by_division?: Record<string, string>;
-  /**
-   * This line is running, not erg metres or a carry. The distinction matters:
-   * a session's ski and row metres are not the athlete's weekly mileage.
-   */
-  is_run?: boolean;
-}
+export type { SessionLine };
 
-export interface CompromisedSession {
-  slug: string;
-  /**
-   * How many times through `lines`. Data, not prose: without it nothing can
-   * work out how far a session actually runs, and the round count would drift
-   * away from the text describing it.
-   */
-  rounds: number;
-  /** Rest between rounds, when the prescription names one. */
-  rest_between_rounds_sec?: number;
-  level: ExperienceLevel;
-  phase: PhaseType;
-  name: string;
-  /** One line on the card: what this shape is for. */
-  why: string;
-  /** The station this hammers — drives the weakness bias. */
-  station?: Station;
-  /** Needs a SkiErg / RowErg to run at all. */
-  needs_erg?: boolean;
-  lines: SessionLine[];
-}
+/**
+ * A compromised-running session. The catalogue shape as it stands — what makes
+ * it compromised running is that its lines mix runs with station work, and
+ * that `is_run` marks which of them count as mileage (see runningMetres).
+ */
+export type CompromisedSession = CatalogueSession;
 
 const run = (distance_m: number, exercise: string): SessionLine => ({
   exercise,
@@ -75,6 +51,7 @@ const work = (exercise: string, extra: Partial<SessionLine> = {}): SessionLine =
 export const COMPROMISED_SESSIONS: CompromisedSession[] = [
   // ══ Level 1 — Beginner (sub 1:40–2:00) ══════════════════════════════════
   {
+    block_id: "9f3f6a03-0910-50fa-9426-471bce36f344",
     slug: "cr_b1_squat_sandwich",
     level: "beginner",
     phase: "base",
@@ -82,6 +59,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "The gentlest introduction: a light leg load between two easy runs, so the legs learn the handover before anything is heavy.",
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: [],
     lines: [
       run(400, "Zone 2 run"),
       work("Goblet squats, light", { reps: 15 }),
@@ -89,6 +67,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "b6c3d7c1-839e-542f-9764-1c11fe73c6c1",
     slug: "cr_b1_ski_to_run",
     level: "beginner",
     phase: "base",
@@ -97,12 +76,14 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 4,
+    stations: ["ski_erg"],
     lines: [
       work("SkiErg, aerobic — steady, not a sprint", { distance_m: 250 }),
       run(500, "Zone 2 run, straight off the erg"),
     ],
   },
   {
+    block_id: "b08d6e5a-c82e-51ad-bcd8-2cf993da64d1",
     slug: "cr_b1_light_sled",
     level: "beginner",
     phase: "base",
@@ -110,6 +91,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "First contact with the sled-to-run handover, at a weight that lets the jog stay a jog.",
     station: "sled_push",
     rounds: 3,
+    stations: ["sled_push"],
     lines: [
       work("Sled push, light", {
         distance_m: 20,
@@ -119,6 +101,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2fc1f3aa-ae02-5b1c-924b-f019459ea528",
     slug: "cr_b2_deadlift_burpee",
     level: "beginner",
     phase: "build",
@@ -126,6 +109,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two loads on top of a Zone 3-4 run: the first week the run afterwards feels like someone else's legs.",
     rounds: 4,
     rest_between_rounds_sec: 90,
+    stations: ["burpee_broad_jump"],
     lines: [
       run(500, "Run, Zone 3-4"),
       work("Kettlebell deadlifts", { reps: 12, load_by_division: { open: "24 kg", pro: "32 kg" } }),
@@ -133,6 +117,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2fd63911-d5bd-5ba1-98d8-2a3bf9680627",
     slug: "cr_b2_lunge_to_pace",
     level: "beginner",
     phase: "build",
@@ -141,6 +126,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sandbag_lunges",
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges, light", {
         distance_m: 40,
@@ -150,6 +136,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "e7e90191-e94e-5484-b9b8-cb1626c245d6",
     slug: "cr_b2_row_lunge_run",
     level: "beginner",
     phase: "build",
@@ -158,6 +145,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 4,
+    stations: ["row", "sandbag_lunges"],
     lines: [
       work("Row", { distance_m: 250 }),
       work("Walking lunges", { distance_m: 20 }),
@@ -165,6 +153,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2fddd0ea-787c-5939-9e54-83e6a9b2d10b",
     slug: "cr_b3_mini_sim",
     level: "beginner",
     phase: "peak",
@@ -173,6 +162,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "wall_balls",
     needs_erg: true,
     rounds: 2,
+    stations: ["ski_erg", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("SkiErg", { distance_m: 500 }),
@@ -181,6 +171,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "c92797c9-eaff-5c11-bb58-947dc99ddd0b",
     slug: "cr_b3_carry_jump_run",
     level: "beginner",
     phase: "peak",
@@ -188,6 +179,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Grip and explosive work stacked in front of a full race-pace kilometre — the hardest handover in the race.",
     station: "burpee_broad_jump",
     rounds: 3,
+    stations: ["farmers_carry", "burpee_broad_jump"],
     lines: [
       work("Farmers carry", {
         distance_m: 50,
@@ -198,6 +190,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "34f64495-a5bc-5902-aa46-2df26494ec9a",
     slug: "cr_b3_half_sim",
     level: "beginner",
     phase: "peak",
@@ -205,6 +198,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Four kilometres, four stations, race order. The dress rehearsal that costs a day instead of three.",
     needs_erg: true,
     rounds: 1,
+    stations: ["ski_erg", "sled_push", "sled_pull", "burpee_broad_jump"],
     lines: [
       work("Four runs, each broken by the next station in race order"),
       run(1000, "Run 1 → SkiErg 1000 m"),
@@ -214,6 +208,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "e0a4ba47-01aa-5657-a18c-ba4435bbb990",
     slug: "cr_b4_short_sharp",
     level: "beginner",
     phase: "taper",
@@ -221,6 +216,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Race pace touched, nothing emptied. Race week is for reminding the legs, not teaching them.",
     station: "wall_balls",
     rounds: 2,
+    stations: ["wall_balls"],
     lines: [
       run(400, "Run at race pace"),
       work("Wall balls", { reps: 10, load_by_division: { open: "6 kg", pro: "9 kg" } }),
@@ -228,6 +224,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "caf7ab13-a6e1-509e-a14f-7231511edc85",
     slug: "cr_b4_transition_drill",
     level: "beginner",
     phase: "taper",
@@ -236,12 +233,14 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg"],
     lines: [
       work("SkiErg", { distance_m: 200 }),
       run(500, "Run at race pace — focus on how fast you get moving"),
     ],
   },
   {
+    block_id: "e73ee23e-b18b-5322-ad29-32242cc85e77",
     slug: "cr_b4_single_rehearsal",
     level: "beginner",
     phase: "taper",
@@ -249,6 +248,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "One kilometre at race pace, one light sled, done. The last quality touch before the start.",
     station: "sled_push",
     rounds: 1,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push, light", {
@@ -261,6 +261,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 2 — Intermediate (sub 1:30) ═══════════════════════════════════
   {
+    block_id: "bf4524d0-9fec-5afb-94ba-b4648529bebd",
     slug: "cr_i1_squat_row",
     level: "intermediate",
     phase: "base",
@@ -269,6 +270,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 4,
+    stations: ["row"],
     lines: [
       run(800, "Zone 2 run"),
       work("Air squats", { reps: 20 }),
@@ -276,6 +278,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "ea04c866-a724-5818-9df3-63ac7d353fdc",
     slug: "cr_i1_ski_sled_run",
     level: "intermediate",
     phase: "base",
@@ -284,6 +287,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sled_push",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg", "sled_push"],
     lines: [
       work("SkiErg", { distance_m: 500 }),
       work("Sled push at 60% of race weight", {
@@ -294,6 +298,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "24123a24-d994-5ce1-a5ef-89e9db5dcbcd",
     slug: "cr_i1_carry_kilometre",
     level: "intermediate",
     phase: "base",
@@ -301,6 +306,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A full kilometre before every carry — grip endurance built on top of an already-working aerobic system.",
     station: "farmers_carry",
     rounds: 4,
+    stations: ["farmers_carry"],
     lines: [
       run(1000, "Run at zone 2 to low Zone 3"),
       work("Farmers walk, moderate", {
@@ -310,6 +316,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "7a3bba7a-941b-5e7d-b258-83f13328f509",
     slug: "cr_i2_sled_threshold",
     level: "intermediate",
     phase: "build",
@@ -317,6 +324,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Race weight on the sled, then a threshold kilometre with no transition. This is the session that moves a sub-1:30.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push"],
     lines: [
       work("Sled push at race weight", {
         distance_m: 30,
@@ -326,6 +334,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "b7e82c71-83d7-54c1-b36d-22c3ca50a3c2",
     slug: "cr_i2_row_bbj_5k",
     level: "intermediate",
     phase: "build",
@@ -335,6 +344,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 90,
+    stations: ["row", "burpee_broad_jump"],
     lines: [
       work("Row", { distance_m: 500 }),
       work("Burpee broad jumps", { reps: 20 }),
@@ -342,6 +352,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2b7257c5-a6de-5e9d-a79d-00b59d23a8b0",
     slug: "cr_i2_lunge_race_pace",
     level: "intermediate",
     phase: "build",
@@ -349,6 +360,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Fifty metres of loaded lunges at race weight, then a race-pace kilometre — the exact handover of station seven.",
     station: "sandbag_lunges",
     rounds: 4,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges at race weight", {
         distance_m: 50,
@@ -358,6 +370,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "f91b83a1-cdfd-5d4d-bcb4-9382f24ae499",
     slug: "cr_i3_sled_sandwich",
     level: "intermediate",
     phase: "peak",
@@ -365,6 +378,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two race-pace kilometres around a full sled push, finished on wall balls. Race density, in three rounds.",
     station: "wall_balls",
     rounds: 3,
+    stations: ["sled_push", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push", { distance_m: 50, load_by_division: { open: "152 kg", pro: "202 kg" } }),
@@ -373,6 +387,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "35031523-055a-50f0-b078-e1632cbfd74d",
     slug: "cr_i3_ski_carry_chain",
     level: "intermediate",
     phase: "peak",
@@ -381,6 +396,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 4,
+    stations: ["ski_erg", "farmers_carry"],
     lines: [
       run(1000, "Run at race pace"),
       work("SkiErg", { distance_m: 500 }),
@@ -391,6 +407,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "710d912c-2a16-5bb0-866d-defbefc5af46",
     slug: "cr_i3_brick_density",
     level: "intermediate",
     phase: "peak",
@@ -398,6 +415,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Five short rounds above race pace with the two most rhythm-breaking stations. Density, not distance.",
     station: "burpee_broad_jump",
     rounds: 5,
+    stations: ["burpee_broad_jump", "wall_balls"],
     lines: [
       run(600, "Run at above race pace"),
       work("Burpee broad jumps", { reps: 15 }),
@@ -405,6 +423,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "073d2d29-9596-50ba-93fe-0ef81ec70e6e",
     slug: "cr_i4_row_sandwich",
     level: "intermediate",
     phase: "taper",
@@ -413,6 +432,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 3,
+    stations: ["row"],
     lines: [
       run(500, "Run at race pace"),
       work("Row", { distance_m: 250 }),
@@ -420,6 +440,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "0571705b-3b10-5cb0-9981-14aa87755545",
     slug: "cr_i4_sharpening_sled",
     level: "intermediate",
     phase: "taper",
@@ -427,6 +448,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A short sled to wake the pattern up — stop well short of failure, this is a reminder, not a session.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push — sharpening, never to failure", {
@@ -436,6 +458,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "05ef976e-b100-5209-95ef-3f22e8fb74d5",
     slug: "cr_i4_over_pace_touch",
     level: "intermediate",
     phase: "taper",
@@ -443,6 +466,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Three fast 400s with a handful of wall balls between them: speed on race week, volume nowhere near it.",
     station: "wall_balls",
     rounds: 1,
+    stations: ["wall_balls"],
     lines: [
       work("Three efforts, full recovery between"),
       run(400, "Run at above race pace"),
@@ -455,6 +479,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 3 — Advanced (sub 1:20) ═══════════════════════════════════════
   {
+    block_id: "9324bc34-4403-5811-80b1-8c184d5d4b36",
     slug: "cr_a1_ski_carry_volume",
     level: "advanced",
     phase: "base",
@@ -463,6 +488,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 5,
+    stations: ["ski_erg", "farmers_carry"],
     lines: [
       run(1000, "Zone 2 run"),
       work("SkiErg, aerobic", { distance_m: 500 }),
@@ -473,6 +499,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1df8d898-bfe3-51b5-b215-1f0b6bcd497a",
     slug: "cr_a1_double_sled",
     level: "advanced",
     phase: "base",
@@ -480,6 +507,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Push and pull back to back, four times, with a run between. The base block is where the sled stops being frightening.",
     station: "sled_pull",
     rounds: 4,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       run(800, "Run"),
       work("Heavy sled push", {
@@ -493,6 +521,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "cc041fcf-9847-5db8-bca1-5341fa91d00b",
     slug: "cr_a1_long_z2_brick",
     level: "advanced",
     phase: "base",
@@ -501,6 +530,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 3,
+    stations: ["row"],
     lines: [
       run(1500, "Zone 2 run"),
       work("Goblet squats", { reps: 30, load_by_division: { open: "24 kg", pro: "32 kg" } }),
@@ -508,6 +538,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1436392a-8bc4-5c62-a061-14c488810303",
     slug: "cr_a2_sled_pace_discipline",
     level: "advanced",
     phase: "build",
@@ -515,6 +546,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Full competition weight, then a threshold kilometre held at 4:45–5:00 min/km. The pace is the test, not the sled.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push"],
     lines: [
       work("Sled push at competition weight", {
         distance_m: 50,
@@ -524,6 +556,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "cc8b0e21-2fdf-554d-9b68-e9e3a324e212",
     slug: "cr_a2_row_lunge_race",
     level: "advanced",
     phase: "build",
@@ -533,6 +566,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     needs_erg: true,
     rounds: 3,
     rest_between_rounds_sec: 120,
+    stations: ["row", "sandbag_lunges"],
     lines: [
       work("Row at race pace", { distance_m: 500 }),
       work("Sandbag lunges", {
@@ -543,6 +577,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "66fe6ee5-a914-51da-b625-2d87532749e5",
     slug: "cr_a2_jumps_walls_5k",
     level: "advanced",
     phase: "build",
@@ -550,6 +585,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "The two stations that shred a running rhythm, then 5k pace. If the pace survives this, it survives the race.",
     station: "burpee_broad_jump",
     rounds: 4,
+    stations: ["burpee_broad_jump", "wall_balls"],
     lines: [
       work("Burpee broad jumps", { reps: 20 }),
       work("Wall balls", { reps: 25, load_by_division: { open: "6 kg", pro: "9 kg" } }),
@@ -557,6 +593,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "20cc220c-3d30-5091-8480-2736e5d84fe2",
     slug: "cr_a3_split_consistency",
     level: "advanced",
     phase: "peak",
@@ -564,6 +601,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Four rounds, two kilometres each, with push and pull between. The target is not speed — it is five seconds of variance across every run split.",
     station: "sled_pull",
     rounds: 4,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       run(1000, "Run at race pace — note the split"),
       work("Sled push", { distance_m: 50, load_by_division: { open: "152 kg", pro: "202 kg" } }),
@@ -572,6 +610,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "3da94aa0-999c-5428-8be3-8658004e0149",
     slug: "cr_a3_race_intensity_chain",
     level: "advanced",
     phase: "peak",
@@ -580,6 +619,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "wall_balls",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg", "farmers_carry", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("SkiErg", { distance_m: 500 }),
@@ -594,6 +634,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "c6810fd0-4c00-5003-9db1-ecdcb3a95993",
     slug: "cr_a3_pacing_stress",
     level: "advanced",
     phase: "peak",
@@ -601,6 +642,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Six 800s at 5-10 s per kilometre faster than race pace, alternating the two stations that take the legs. This is where pacing discipline is proved or lost.",
     station: "sandbag_lunges",
     rounds: 1,
+    stations: ["sandbag_lunges", "burpee_broad_jump"],
     lines: [
       work("Six efforts, alternating the station between them"),
       run(800, "Run 5-10 s/km faster than race pace"),
@@ -612,6 +654,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "8f68273c-af1c-5eb8-976a-63cc345c2aa3",
     slug: "cr_a4_ski_sandwich",
     level: "advanced",
     phase: "taper",
@@ -620,6 +663,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg"],
     lines: [
       run(600, "Run at race pace"),
       work("SkiErg", { distance_m: 250 }),
@@ -627,6 +671,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "15a76eec-83e8-586a-aefb-af26e45db07c",
     slug: "cr_a4_kilometre_touch",
     level: "advanced",
     phase: "taper",
@@ -634,6 +679,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two clean kilometres with a short sled and a handful of wall balls. The pattern, not the fatigue.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push", "wall_balls"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push, short", {
@@ -644,12 +690,14 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "c18b695b-dc1d-56c6-a217-51413c89fb81",
     slug: "cr_a4_roxzone_drills",
     level: "advanced",
     phase: "taper",
     name: "Roxzone Drills",
     why: "Four accelerations and the transitions between them. Race week is the right week to shave seconds off the roxzone.",
     rounds: 1,
+    stations: [],
     lines: [
       work("Four accelerations with a full transition rehearsal after each"),
       run(300, "Run: accelerate to race pace and beyond"),
@@ -659,6 +707,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 4 — Elite (sub 70 min) ════════════════════════════════════════
   {
+    block_id: "cc1394cb-130c-5627-ae61-2bcd46264d16",
     slug: "cr_e1_ski_drag_volume",
     level: "elite",
     phase: "base",
@@ -667,6 +716,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 5,
+    stations: ["ski_erg", "sled_pull"],
     lines: [
       run(1200, "Zone 2 run"),
       work("SkiErg, aerobic", { distance_m: 500 }),
@@ -674,6 +724,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "5894ccfe-fe02-5bd5-855f-e56865dcc9cc",
     slug: "cr_e1_heavy_double_sled",
     level: "elite",
     phase: "base",
@@ -681,6 +732,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Overload on both sleds behind a full kilometre. Base is where the sled stops being the limiter.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push", "sled_pull"],
     lines: [
       run(1000, "Run"),
       work("Heavy sled push", {
@@ -694,6 +746,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "48f71c48-800a-5eb2-825d-4b4621dbe421",
     slug: "cr_e1_long_aerobic_chain",
     level: "elite",
     phase: "base",
@@ -702,6 +755,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 3,
+    stations: ["row", "farmers_carry"],
     lines: [
       run(2000, "Zone 2 run"),
       work("Row", { distance_m: 1000 }),
@@ -709,6 +763,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "02077719-5b5b-56cf-bf4f-aad5b8c9828d",
     slug: "cr_e2_lactate_accumulation",
     level: "elite",
     phase: "build",
@@ -716,6 +771,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Maximum pressure on the sled, then a kilometre at 4:15–4:25 with no transition at all. The session exists to make lactate and run through it.",
     station: "sled_push",
     rounds: 4,
+    stations: ["sled_push"],
     lines: [
       work("Sled push, maximum pressure", {
         distance_m: 50,
@@ -725,6 +781,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "28b0603c-8908-5890-830e-b6c899963e55",
     slug: "cr_e2_row_bbj_subthreshold",
     level: "elite",
     phase: "build",
@@ -734,6 +791,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     needs_erg: true,
     rounds: 4,
     rest_between_rounds_sec: 180,
+    stations: ["row", "burpee_broad_jump"],
     lines: [
       work("Row at race pace", { distance_m: 500 }),
       work("Burpee broad jumps", { reps: 25 }),
@@ -741,6 +799,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "dd93d730-85f1-5fbb-b28f-31a08f41f927",
     slug: "cr_e2_lunge_split_drift",
     level: "elite",
     phase: "build",
@@ -748,6 +807,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Eighty metres of loaded lunges before every kilometre, and the split is allowed to drift by five seconds across the whole session. That constraint is the session.",
     station: "sandbag_lunges",
     rounds: 4,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges", {
         distance_m: 80,
@@ -757,6 +817,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "0b69458f-1739-5194-a356-baeedae5d51d",
     slug: "cr_e3_race_density",
     level: "elite",
     phase: "peak",
@@ -765,6 +826,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sled_pull",
     needs_erg: true,
     rounds: 3,
+    stations: ["row", "sled_push", "sled_pull", "burpee_broad_jump"],
     lines: [
       work("Row", { distance_m: 500 }),
       run(1000, "Run at race pace"),
@@ -777,6 +839,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "369fe786-8848-5aea-bd6f-4c91db65e918",
     slug: "cr_e3_lactate_washout",
     level: "elite",
     phase: "peak",
@@ -785,6 +848,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "wall_balls",
     rounds: 5,
     rest_between_rounds_sec: 120,
+    stations: ["wall_balls"],
     lines: [
       run(1000, "Run at 4:05 min/km"),
       work("Wall balls, unbroken", {
@@ -794,6 +858,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "320d444b-a26e-5076-817e-4a0ca1e91eb5",
     slug: "cr_e3_high_velocity_brick",
     level: "elite",
     phase: "peak",
@@ -802,6 +867,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "farmers_carry",
     needs_erg: true,
     rounds: 1,
+    stations: ["farmers_carry", "sandbag_lunges", "ski_erg"],
     lines: [
       work("Six efforts, the station rotates between them"),
       run(800, "Run at under 3:20"),
@@ -817,6 +883,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "d612d12f-31ab-591e-ad07-2a98e50051fd",
     slug: "cr_e4_race_pace_ski",
     level: "elite",
     phase: "taper",
@@ -825,6 +892,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 3,
+    stations: ["ski_erg", "wall_balls"],
     lines: [
       run(800, "Run at race pace, 4:15 min/km"),
       work("SkiErg", { distance_m: 250 }),
@@ -832,6 +900,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1d98c844-90c7-519e-a052-cd752a7d5e59",
     slug: "cr_e4_neuromuscular_sled",
     level: "elite",
     phase: "taper",
@@ -839,6 +908,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A short sled at 80% — this is a nervous-system wake-up, not a strength session. Stop while it still feels easy.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at race pace"),
       work("Sled push at 80% — activation, not fatigue", {
@@ -848,6 +918,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "4982d9ca-e7e3-563f-bfc5-290cc62d6dc5",
     slug: "cr_e4_explosive_touch",
     level: "elite",
     phase: "taper",
@@ -855,6 +926,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Four 400s at race pace with five explosive jumps each. The last CNS reminder before race day.",
     station: "burpee_broad_jump",
     rounds: 1,
+    stations: ["burpee_broad_jump"],
     lines: [
       work("Four efforts, full recovery between"),
       run(400, "Run at race pace"),
@@ -864,6 +936,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
   // ══ Level 5 — World Class (sub 60 min) ══════════════════════════════════
   {
+    block_id: "d9b88256-114f-53c7-b742-798678464608",
     slug: "cr_w1_ski_carry_volume",
     level: "world_class",
     phase: "base",
@@ -872,6 +945,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "ski_erg",
     needs_erg: true,
     rounds: 6,
+    stations: ["ski_erg", "farmers_carry"],
     lines: [
       run(1200, "Zone 2 run"),
       work("SkiErg, aerobic", { distance_m: 1000 }),
@@ -879,6 +953,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "a678349f-53cb-5c1c-8094-e30c77a4de95",
     slug: "cr_w1_overload_sled",
     level: "world_class",
     phase: "base",
@@ -886,6 +961,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Five rounds at 150+ kg behind an aerobic-threshold kilometre. Overload now so race weight feels like nothing in March.",
     station: "sled_push",
     rounds: 5,
+    stations: ["sled_push"],
     lines: [
       run(1000, "Run at aerobic threshold"),
       work("Heavy overload sled push", {
@@ -895,6 +971,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "9b1a6fa2-415c-5236-a524-0130f683cd83",
     slug: "cr_w1_lt1_row_squat",
     level: "world_class",
     phase: "base",
@@ -903,6 +980,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 4,
+    stations: ["row"],
     lines: [
       run(1500, "Run"),
       work("Row at LT1", { distance_m: 1000 }),
@@ -910,6 +988,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "625db2ec-b925-5784-84d9-e8600f72408d",
     slug: "cr_w2_glycolytic_stress",
     level: "world_class",
     phase: "build",
@@ -917,6 +996,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Pro weight on the sled, a transition under five seconds, then 3:45–3:55 per kilometre. Five times. Nothing about this is comfortable.",
     station: "sled_push",
     rounds: 5,
+    stations: ["sled_push"],
     lines: [
       work("Sled push at Pro weight", {
         distance_m: 50,
@@ -927,6 +1007,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "1420db8a-26a7-5d18-9060-70f2d1bc208f",
     slug: "cr_w2_lunge_split_precision",
     level: "world_class",
     phase: "build",
@@ -934,12 +1015,14 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "A hundred metres of loaded lunges, then 3:50 per kilometre with under three seconds of split variance. The tolerance is the training stimulus.",
     station: "sandbag_lunges",
     rounds: 4,
+    stations: ["sandbag_lunges"],
     lines: [
       work("Sandbag lunges", { distance_m: 100, load_by_division: { open: "30 kg", pro: "30 kg" } }),
       run(1000, "Run at 3:50 min/km — split variance under 3 s"),
     ],
   },
   {
+    block_id: "a8b55089-828a-55d6-b37f-17adac2fc1bb",
     slug: "cr_w2_ski_bbj_vo2",
     level: "world_class",
     phase: "build",
@@ -948,6 +1031,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "burpee_broad_jump",
     needs_erg: true,
     rounds: 5,
+    stations: ["ski_erg", "burpee_broad_jump"],
     lines: [
       work("SkiErg — under 1:40 / 500 m", { distance_m: 500 }),
       work("Burpee broad jumps", { reps: 30 }),
@@ -955,6 +1039,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "2c0c9deb-e1b4-5f7e-9b9f-e105b4884f0e",
     slug: "cr_w3_roxzone_precision",
     level: "world_class",
     phase: "peak",
@@ -962,6 +1047,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Six kilometres under 3:50, each followed by a different station under competition conditions. This is the race, run in pieces.",
     needs_erg: true,
     rounds: 1,
+    stations: ["sled_push", "sled_pull", "row", "sandbag_lunges", "wall_balls"],
     lines: [
       work("Six efforts, a different station after each — race order, race conditions"),
       run(1000, "Run at sub-3:50 min/km"),
@@ -969,6 +1055,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "dfced421-fb61-5923-a42d-b8387899dda2",
     slug: "cr_w3_lactate_buffer",
     level: "world_class",
     phase: "peak",
@@ -976,6 +1063,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "3:40 per kilometre, fifty wall balls unbroken, a hundred metres of heavy carry. Four rounds. The buffer is the point.",
     station: "wall_balls",
     rounds: 4,
+    stations: ["wall_balls", "farmers_carry"],
     lines: [
       run(1000, "Run at 3:40 min/km"),
       work("Wall balls, unbroken", {
@@ -986,6 +1074,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "48a269ed-c932-5a62-98f0-fe89d425b542",
     slug: "cr_w3_dynamic_integration",
     level: "world_class",
     phase: "peak",
@@ -994,6 +1083,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "sled_pull",
     needs_erg: true,
     rounds: 1,
+    stations: ["sled_pull", "burpee_broad_jump", "ski_erg"],
     lines: [
       work("Eight efforts, station rotates, rest minimised to zero"),
       run(600, "Run at 3:30 min/km"),
@@ -1006,6 +1096,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "964c9dbe-dfde-5f13-a898-ec1eeee00bc9",
     slug: "cr_w4_cadence_focus",
     level: "world_class",
     phase: "taper",
@@ -1014,6 +1105,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     station: "row",
     needs_erg: true,
     rounds: 3,
+    stations: ["row", "wall_balls"],
     lines: [
       run(600, "Run at race pace, 3:45 min/km — cadence and breathing"),
       work("Row", { distance_m: 250 }),
@@ -1021,6 +1113,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "893102c6-00e1-55d1-90e1-6cf71d3ff3ec",
     slug: "cr_w4_short_sharp_stimuli",
     level: "world_class",
     phase: "taper",
@@ -1028,6 +1121,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Two rounds, half the volume, all of the intent. Race week is for keeping the edge, not making one.",
     station: "sled_push",
     rounds: 2,
+    stations: ["sled_push", "farmers_carry"],
     lines: [
       run(800, "Run at race pace"),
       work("Sled push, short", {
@@ -1038,6 +1132,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     ],
   },
   {
+    block_id: "5407b926-4932-574f-9288-e8196a3f5791",
     slug: "cr_w4_cns_activation",
     level: "world_class",
     phase: "taper",
@@ -1045,6 +1140,7 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
     why: "Three 400s at competition tempo with five dynamic jumps each. Wake the system, spend nothing.",
     station: "burpee_broad_jump",
     rounds: 1,
+    stations: ["burpee_broad_jump"],
     lines: [
       work("Three efforts, full recovery between"),
       run(400, "Run at competition tempo"),
@@ -1055,107 +1151,28 @@ export const COMPROMISED_SESSIONS: CompromisedSession[] = [
 
 // ── Choosing one ────────────────────────────────────────────────────────────
 
-export interface CompromisedQuery {
-  level: ExperienceLevel;
-  phase: PhaseType;
-  weekNumber: number;
-  equipment: EquipmentAccess;
-  stationTiers: StationTiers;
-  weaknesses?: string[];
-}
+export type CompromisedQuery = CatalogueQuery;
+export type CompromisedPick = CataloguePick<CompromisedSession>;
 
-export interface CompromisedPick {
-  session: CompromisedSession;
-  /** Chosen to attack a stated or measured weakness, not by rotation. */
-  targeted: boolean;
-  /** How many sessions this level and phase had to choose from. */
-  pool: number;
-}
-
-function hasErg(equipment: EquipmentAccess): boolean {
-  return equipment !== "home_minimal";
-}
-
-/** The station the athlete is weakest at, or null when nothing stands out. */
-function weakestStation(tiers: StationTiers): Station | null {
-  let worst: Station | null = null;
-  let lowest = Infinity;
-  for (const [station, tier] of Object.entries(tiers)) {
-    if (tier < lowest) {
-      lowest = tier;
-      worst = station as Station;
-    }
-  }
-  return lowest < 3 ? worst : null;
+/** One compromised session for this athlete, this phase, this week. */
+export function pickCompromisedSession(q: CompromisedQuery): CompromisedPick | null {
+  return pickFromCatalogue(COMPROMISED_SESSIONS, q);
 }
 
 /**
- * One compromised session for this athlete, this phase, this week.
- *
- * Same rotation rule as the other catalogues: every second week goes after the
- * weakest station, and the weeks in between deliberately exclude it — a
- * "weakness focus" that fires every week is just the same session every week.
- *
- * Falls back down the levels when a level and phase has nothing left after the
- * equipment filter: a home-gym athlete without an erg still gets compromised
- * running, just not the version that needs a SkiErg.
+ * Running metres in one session — erg and carry distances are not mileage.
+ * A line that repeats itself (`8 × 400 m`) counts every repetition, which is
+ * how an interval session states its volume.
  */
-export function pickCompromisedSession(q: CompromisedQuery): CompromisedPick | null {
-  const byLevel = COMPROMISED_SESSIONS.filter(
-    (s) => s.level === q.level && s.phase === q.phase,
+export function runningMetres(session: CatalogueSession): number {
+  const perRound = session.lines.reduce(
+    (n, l) => n + (l.is_run ? (l.distance_m ?? 0) * (l.sets ?? 1) : 0),
+    0,
   );
-  let eligible = byLevel.filter((s) => !s.needs_erg || hasErg(q.equipment));
-  if (!eligible.length) {
-    // Nothing at this level survives the equipment filter — take the same
-    // phase from any level rather than dropping compromised running entirely.
-    eligible = COMPROMISED_SESSIONS.filter(
-      (s) => s.phase === q.phase && (!s.needs_erg || hasErg(q.equipment)),
-    );
-  }
-  if (!eligible.length) return null;
-
-  const weak = weakestStation(q.stationTiers);
-  const words = (q.weaknesses ?? []).map((w) => w.toLowerCase());
-  const targeted = eligible.filter(
-    (s) =>
-      (weak && s.station === weak) ||
-      (s.station != null && words.some((w) => w.includes(s.station!.replace(/_/g, " ")))),
-  );
-
-  if (targeted.length && q.weekNumber % 2 === 1) {
-    return {
-      session: targeted[Math.floor((q.weekNumber - 1) / 2) % targeted.length],
-      targeted: true,
-      pool: eligible.length,
-    };
-  }
-  const rest = targeted.length ? eligible.filter((s) => !targeted.includes(s)) : eligible;
-  const pool = rest.length ? rest : eligible;
-  return {
-    session: pool[(q.weekNumber - 1) % pool.length],
-    targeted: false,
-    pool: eligible.length,
-  };
-}
-
-/** Running metres in one session — erg and carry distances are not mileage. */
-export function runningMetres(session: CompromisedSession): number {
-  const perRound = session.lines.reduce((n, l) => n + (l.is_run ? (l.distance_m ?? 0) : 0), 0);
   return perRound * session.rounds;
 }
 
-/**
- * The session as lines to draw, round count included. One place builds it, so
- * the prose and the number can never disagree.
- */
+/** The session as lines to draw, round count included. */
 export function renderCompromised(session: CompromisedSession): SessionLine[] {
-  if (session.rounds <= 1) return session.lines;
-  const rest = session.rest_between_rounds_sec;
-  return [
-    {
-      exercise: `${session.rounds} rounds${rest ? ` — ${Math.round(rest / 60)} min between rounds` : ""}`,
-      ...(rest ? { rest_sec: rest } : {}),
-    },
-    ...session.lines,
-  ];
+  return renderCatalogue(session);
 }

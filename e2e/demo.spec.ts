@@ -4,9 +4,11 @@ import { test, expect } from "@playwright/test";
 // end-to-end proof that generation, adaptation, and the feedback card work
 // without any backend (Roadmap B7).
 
-test("landing page carries the core pitch", async ({ page }) => {
+test("the root goes straight to the week, and the week is behind the gate", async ({ page }) => {
+  // One athlete, nothing to sell: / redirects to /plan, and /plan sends anyone
+  // without a session on to onboarding.
   await page.goto("/");
-  await expect(page.locator("h1")).toContainText("adapts after every session");
+  await expect(page).toHaveURL(/\/onboarding/);
 });
 
 test("demo: generate → log → feedback card → adaptation feed", async ({ page }) => {
@@ -46,9 +48,13 @@ test("demo: generate → log → feedback card → adaptation feed", async ({ pa
   await expect(page.locator("text=is back on the plan").first()).toBeVisible();
 });
 
-test("onboarding renders the signup gate", async ({ page }) => {
+test("onboarding renders the sign-in gate, and warns the link is device-bound", async ({ page }) => {
   await page.goto("/onboarding");
-  await expect(page.locator("text=Create your account")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  // PKCE keeps the code verifier in the browser that asked for the link, so a
+  // link requested on one device cannot sign in another. Saying so is the
+  // difference between signing in on a phone and giving up.
+  await expect(page.locator("text=on this device")).toBeVisible();
 });
 
 test("the knowledge admin is gated by the operator secret", async ({ page }) => {
@@ -93,31 +99,34 @@ test("demo: a session moves to another day, and a taken day swaps", async ({ pag
   const first = cards.first();
   const firstTitle = (await first.getAttribute("data-session-title"))!;
 
-  // Move it to a day the week has nothing on. Week 1 of a 4-day plan leaves
-  // Sunday free, and a free day is a plain move — no swap message.
+  // Move it to a day the week has nothing on — a free day is a plain move, no
+  // swap message. Which day that is depends on how the week is laid out, so
+  // the test takes the first one the card offers rather than naming one.
   // The move control lives inside the opened card — the first button of a card
   // is its disclosure toggle.
   await first.locator("button").first().click();
   await first.getByRole("button", { name: "Move" }).click();
-  await first.getByTitle("Move to Sun").click();
+  const freeDay = first.locator('[title^="Move to "]').first();
+  const freeDayLabel = (await freeDay.getAttribute("title"))!.replace("Move to ", "");
+  await freeDay.click();
   await expect(page.getByText(/the week bends, the plan doesn't break/).first()).toBeVisible();
 
-  // The card now sits on Sunday — and it is the last card of the week.
+  // The card now sits on that day.
   const moved = page.locator(`[data-session-title="${firstTitle}"]`).first();
-  await expect(moved.getByText("Sun", { exact: true })).toBeVisible();
-  await expect(cards.last()).toContainText(firstTitle);
+  await expect(moved.getByText(freeDayLabel, { exact: true })).toBeVisible();
 
   // Moving onto an occupied day trades the two sessions instead of failing.
-  const targetTitle = (await cards.first().getAttribute("data-session-title"))!;
   // The card kept its open state through the move, so only toggle if needed.
   const moveBtn = moved.getByRole("button", { name: "Move" });
   if (!(await moveBtn.isVisible())) await moved.locator("button").first().click();
   await moveBtn.click();
   await moved.getByTitle(/is taken — the two sessions swap days/).first().click();
-  // Plain substring, not a regex: session titles carry brackets of their own.
+  // Which session it trades with depends on the week's layout; that it names
+  // both sides of the trade is the part that matters.
   await expect(
-    page.getByText(`Swapped "${firstTitle}" with "${targetTitle}"`).first(),
+    page.getByText(new RegExp(`Swapped ".*" with ".*"`)).first(),
   ).toBeVisible();
+  await expect(page.getByText(/^Swapped /).first()).toContainText(firstTitle);
 });
 
 test("the strength page is behind the profile gate", async ({ page }) => {

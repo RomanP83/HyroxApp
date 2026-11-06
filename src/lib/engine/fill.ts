@@ -9,6 +9,7 @@ import type {
   AthleteProfile,
   AthleteState,
   EquipmentVariant,
+  PaceZones,
   PhaseType,
   RenderedBlock,
   SessionType,
@@ -17,12 +18,18 @@ import type {
 } from "./types";
 import { STATIONS } from "./types";
 import { COMPROMISED_OPENING, compromisedOpeningPace, isRunSession, runSpec } from "./running";
-import { pickRunVariant, type VariantPick } from "./runVariants";
+import { ergOffloadVariant, pickRunVariant, type VariantPick } from "./runVariants";
 import { pickStationVariant } from "./stationVariants";
+
+const ERG_LADDER_SLUG = "sv_erg_ladder_wallballs";
 import { pickStrengthFinisher, pickStrengthVariant } from "./strengthVariants";
 import { pickCompromisedSession, renderCompromised } from "./compromisedSessions";
 import { pickCollectionWorkout, renderCollectionWorkout } from "./veronaWorkouts";
 import { VACATION_BLOCKS } from "./vacation";
+import { pickStationSession, renderStation } from "./stationSessions";
+import { stationCosts } from "./raceModel";
+import { runMetresOf, type CatalogueQuery } from "./catalogue";
+import { pickIntervalSession, renderInterval } from "./intervalSessions";
 import type { SessionSlot } from "./micro";
 
 function variantFor(profile: AthleteProfile): EquipmentVariant {
@@ -37,10 +44,103 @@ export function stationForWeek(weekNumber: number): Station {
   return STATIONS[(weekNumber - 1) % STATIONS.length];
 }
 
+/**
+ * What the catalogue needs to weight its own pool: the seconds each station is
+ * costing this athlete, and where the week sits in its phase.
+ */
+function catalogueWeighting(
+  profile: AthleteProfile,
+  state: AthleteState,
+  phasePosition?: { weekInPhase: number; phaseWeeks: number },
+): Partial<CatalogueQuery> {
+  if (!phasePosition) return {};
+  const costs: Partial<Record<Station, number>> = {};
+  for (const c of stationCosts({
+    division: profile.division,
+    tiers: state.station_tiers,
+    measured: state.measured_station_seconds,
+  })) {
+    costs[c.station] = c.cost_seconds;
+  }
+  return { stationCosts: costs, ...phasePosition };
+}
+
 /** Which pace zone a session type runs at — one table, in running.ts. */
 function paceForSession(state: AthleteState, type: SessionType): number | undefined {
   const spec = runSpec(type);
   return spec ? state.pace_zones[spec.pace_zone] : undefined;
+}
+
+/**
+ * The running metres a slot's catalogue session prescribes, or null when the
+ * slot has no fixed distance.
+ *
+ * Compromised runs and intervals are written as metres — "5 × 1500 m", "4
+ * rounds of 400 m" — and those metres do not move when the slot's duration
+ * does. The long run and the easy run carry no distance at all: they run for a
+ * time, and duration ÷ pace is the right way to read them.
+ *
+ * That split is what makes a weekly volume target honest. The catalogue's
+ * metres are fixed; only the flexible runs can absorb a target, and something
+ * has to know which is which BEFORE the durations are scaled. It can: the
+ * catalogue pick depends on level, phase and week, never on duration.
+ */
+export function fixedRunMetres(
+  slot: { session_type: SessionType },
+  profile: AthleteProfile,
+  state: AthleteState,
+  weekNumber: number,
+  phase?: PhaseType,
+  phasePosition?: { weekInPhase: number; phaseWeeks: number },
+): number | null {
+  if (!phase) return null;
+  const query = {
+    level: profile.experience_level,
+    phase,
+    weekNumber,
+    equipment: profile.equipment_access,
+    stationTiers: state.station_tiers,
+    weaknesses: profile.weaknesses ?? undefined,
+    ...catalogueWeighting(profile, state, phasePosition),
+  };
+  // Zero metres is not "fixed at zero": a session written in minutes ("25 min
+  // at LT2") prescribes no distance at all, so it reads as duration ÷ pace and
+  // stays scalable like a long run. Treating it as fixed froze its duration AND
+  // counted it as no running whatsoever.
+  const metres = (n: number) => (n > 0 ? n : null);
+  if (slot.session_type === "compromised_run") {
+    const chosen = pickCompromisedSession(query);
+    return chosen ? metres(runMetresOf(chosen.session)) : null;
+  }
+  if (slot.session_type === "run_intervals") {
+    const chosen = pickIntervalSession(query);
+    return chosen ? metres(runMetresOf(chosen.session)) : null;
+  }
+  // Station work carries no running metres by design, and the long/easy runs
+  // carry no metres at all — both answer "nothing fixed here".
+  return null;
+}
+
+/**
+ * The pace a catalogue session is actually run at, and the zone it belongs to.
+ *
+ * A session type carries one zone, and the interval catalogue spans three: a
+ * 25-minute block at LT2 and a set of 400s at 3 k pace both used to display the
+ * interval pace, which was wrong for two thirds of the catalogue. Where a
+ * session names its own zone, that wins; "mixed" means no single number
+ * describes it, and the card is better off showing none than showing one that
+ * is wrong.
+ */
+function paceForCatalogueSession(
+  state: AthleteState,
+  session: { pace_zone?: keyof PaceZones | "mixed" },
+  fallback: number | undefined,
+): { pace_sec_km?: number; pace_zone?: keyof PaceZones } {
+  if (session.pace_zone === "mixed") return {};
+  if (session.pace_zone) {
+    return { pace_sec_km: state.pace_zones[session.pace_zone], pace_zone: session.pace_zone };
+  }
+  return fallback != null ? { pace_sec_km: fallback } : {};
 }
 
 interface PickOpts {
@@ -121,6 +221,13 @@ export function fillSession(
   weekNumber: number,
   /** Which phase the week belongs to — decides which variants are eligible. */
   phase?: PhaseType,
+  /**
+   * Where this week sits in its phase. The catalogue weights the stations it
+   * can actually serve across the phase's weeks, so it needs to know which of
+   * them this is. Absent for callers building a session without a plan around
+   * it — they fall back to the weekly rotation, as before.
+   */
+  phasePosition?: { weekInPhase: number; phaseWeeks: number },
   /** 0 for the first session of this type in the week, 1 for the second … */
   occurrence = 0,
   /** How many sessions of this type the week holds. */
@@ -226,9 +333,9 @@ export function fillSession(
   // block it names is used when it is there, otherwise the generic pick stands.
   // Compromised running is prescribed per LEVEL as well as per phase: what a
   // sub-2:00 athlete and a sub-60 athlete do out of a sled is not the same
-  // session at a different pace. Those sixty sessions live in the engine
-  // (compromisedSessions.ts) and render straight into a block — there is no
-  // library row to look up.
+  // session at a different pace. Those sixty sessions are authored in the
+  // engine (compromisedSessions.ts) and seeded into the library under a
+  // pinned id, so the block can be named here without looking anything up.
   if (phase && slot.session_type === "compromised_run") {
     const chosen = pickCompromisedSession({
       level: profile.experience_level,
@@ -237,10 +344,13 @@ export function fillSession(
       equipment: profile.equipment_access,
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
     });
     if (chosen) {
       blocks.push({
-        block_id: chosen.session.slug,
+        // The pinned library id, not the slug: this ends up in
+        // session_blocks.block_id, which is a uuid with a foreign key.
+        block_id: chosen.session.block_id,
         slug: chosen.session.slug,
         block_type: "main",
         station: chosen.session.station ?? null,
@@ -248,6 +358,11 @@ export function fillSession(
         sort_order: order++,
         load_adjustments: {
           division: profile.division,
+          // The metres this session actually writes down — see the interval
+          // branch: the weekly readout counts the prescription, not a duration.
+          ...(runMetresOf(chosen.session) > 0
+            ? { run_metres: runMetresOf(chosen.session) }
+            : {}),
           ...(pace != null
             ? {
                 pace_sec_km: pace,
@@ -256,6 +371,114 @@ export function fillSession(
                 stabilise_distance_m: COMPROMISED_OPENING.stabilise_distance_m,
               }
             : {}),
+          variant_name: chosen.session.name,
+          variant_why: chosen.session.why,
+          variant_targeted: chosen.targeted,
+        },
+      });
+      return blocks;
+    }
+  }
+
+  // Station work is levelled the same way, and for the same reason: a beginner
+  // learning to keep the hips low behind the sled and a sub-60 athlete pushing
+  // 50 m in under 1:15 are not doing one session at two weights. Isolated
+  // station work also buys strength endurance without the orthopaedic bill of
+  // another run, which is why it survives weeks where a hard run would not.
+  // One exception, kept from the station variants: the erg ladder into a
+  // hundred wall balls. When the variant picker aims a build week at a weak
+  // wall-ball station, that session wins over the levelled catalogue.
+  if (phase && isStationWork) {
+    const ladder = pickStationVariant({
+      sessionType: "station_work",
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+    });
+    const ladderBlock =
+      ladder?.targeted && ladder.variant.slug === ERG_LADDER_SLUG
+        ? library.find((b) => (b.slug ?? b.id) === ERG_LADDER_SLUG)
+        : undefined;
+    if (ladder && ladderBlock) {
+      blocks.push(
+        render(ladderBlock, profile, order++, {
+          division: profile.division,
+          station_tier: state.station_tiers.wall_balls ?? targetTier,
+          variant_name: ladder.variant.name,
+          variant_why: ladder.variant.why,
+          variant_targeted: true,
+        }),
+      );
+      return blocks;
+    }
+  }
+
+  if (phase && isStationWork) {
+    const chosen = pickStationSession({
+      level: profile.experience_level,
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
+    });
+    if (chosen) {
+      const focus = chosen.session.station ?? station;
+      blocks.push({
+        block_id: chosen.session.block_id,
+        slug: chosen.session.slug,
+        block_type: "main",
+        station: chosen.session.station ?? null,
+        content: renderStation(chosen.session),
+        sort_order: order++,
+        load_adjustments: {
+          division: profile.division,
+          // The tier of the station this session actually hammers, not of the
+          // one the weekly rotation happened to name.
+          station_tier: focus ? state.station_tiers[focus] ?? targetTier : targetTier,
+          variant_name: chosen.session.name,
+          variant_why: chosen.session.why,
+          variant_targeted: chosen.targeted,
+        },
+      });
+      return blocks;
+    }
+  }
+
+  // Threshold and VO2max intervals are the one running session that carries no
+  // station work at all: a sled before the reps caps the speed and blurs the
+  // target. Levelled the same way as the other catalogues, and for the same
+  // reason — three six-minute efforts and eight kilometre reps off thirty
+  // seconds are not one session at two paces.
+  if (phase && slot.session_type === "run_intervals") {
+    const chosen = pickIntervalSession({
+      level: profile.experience_level,
+      phase,
+      weekNumber,
+      equipment: profile.equipment_access,
+      stationTiers: state.station_tiers,
+      weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
+    });
+    if (chosen) {
+      blocks.push({
+        block_id: chosen.session.block_id,
+        slug: chosen.session.slug,
+        block_type: "main",
+        station: "run",
+        content: renderInterval(chosen.session),
+        sort_order: order++,
+        load_adjustments: {
+          division: profile.division,
+          // The metres this session actually writes down, so the weekly readout
+          // counts the prescription rather than re-deriving it from a duration.
+          ...(runMetresOf(chosen.session) > 0
+            ? { run_metres: runMetresOf(chosen.session) }
+            : {}),
+          ...paceForCatalogueSession(state, chosen.session, pace),
           variant_name: chosen.session.name,
           variant_why: chosen.session.why,
           variant_targeted: chosen.targeted,
@@ -280,12 +503,27 @@ export function fillSession(
       equipment: profile.equipment_access,
       stationTiers: state.station_tiers,
       weaknesses: profile.weaknesses ?? undefined,
+      ...catalogueWeighting(profile, state, phasePosition),
     };
-    picked = isRunSession(slot.session_type)
-      ? pickRunVariant(query)
-      : slot.session_type === "strength"
-        ? pickStrengthVariant(query)
-        : pickStationVariant(query);
+    // Ergometer offloading, made real rather than mentioned. The PM session of
+    // a double day is the week's extra aerobic volume — exactly the kilometres
+    // that would otherwise be paid for in Achilles and shin loading — so it is
+    // the one that moves onto the erg or bike. It is also the only easy run in
+    // the week whose slot the athlete did not choose, which makes it the
+    // honest place to put the offload instead of overruling a chosen run.
+    const ergOffload =
+      slot.session_type === "run_easy" &&
+      slot.day_slot === "pm" &&
+      profile.equipment_access !== "home_minimal";
+
+    const offload = ergOffload ? ergOffloadVariant() : null;
+    picked = offload
+      ? { variant: offload, targeted: false, pool: 1 }
+      : isRunSession(slot.session_type)
+        ? pickRunVariant(query)
+        : slot.session_type === "strength"
+          ? pickStrengthVariant(query)
+          : pickStationVariant(query);
     // The demo library carries the slug as its id; the database has both.
     main = picked
       ? library.find((b) => (b.slug ?? b.id) === picked!.variant.slug)

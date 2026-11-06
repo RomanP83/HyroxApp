@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { readApi } from "@/lib/apiResult";
 import { AppHeader } from "./AppHeader";
 import { useRouter } from "next/navigation";
 import { fmtClock } from "@/lib/format";
@@ -62,9 +63,10 @@ async function postBenchmark(slug: string, value: number) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ slug, value }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "save failed");
-  return data as { predicted_race_time_sec?: number };
+  // readApi: the server's own message instead of a JSON parse failure.
+  const out = await readApi<{ predicted_race_time_sec?: number }>(res);
+  if (!out.ok) throw new Error(out.message);
+  return out.data;
 }
 
 export function BenchmarksClient({

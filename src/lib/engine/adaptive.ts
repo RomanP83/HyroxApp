@@ -69,6 +69,13 @@ export function computeLoadState(history: LoadEntry[], now: Date = new Date()): 
 
 // ── Layer 1: micro-calibration ──────────────────────────────────────────────
 
+/**
+ * The zone a session type runs at, when the session itself does not say.
+ *
+ * run_intervals is exactly why `paceZone` on MicroInput exists: the interval
+ * catalogue spans threshold, VO₂max and race pace, and calibrating the interval
+ * zone off a 25-minute LT2 block moves the wrong number in the wrong direction.
+ */
 const PACE_ZONE_FOR: Partial<Record<SessionType, keyof PaceZones>> = {
   run_easy: "easy_sec_km",
   run_intervals: "interval_sec_km",
@@ -88,6 +95,12 @@ export interface MicroInput {
   previousSameTypeDelta?: number;
   /** optional logged / Strava run pace to pull the zone toward (capped ±3%/wk). */
   actualPaceSecKm?: number;
+  /**
+   * The zone this particular session was prescribed at, from the block the
+   * engine recorded it on. Overrides the session type's default; absent when
+   * the session names no single zone, and then no pace is calibrated at all.
+   */
+  paceZone?: keyof PaceZones | null;
   loadHistory: LoadEntry[]; // sRPE entries incl. the session just logged
   benchmarks?: BenchmarkSample[];
   now?: Date;
@@ -125,6 +138,7 @@ export function microCalibrate(input: MicroInput): MicroResult {
     rpeActual,
     durationActualMin,
     previousSameTypeDelta,
+    paceZone,
     actualPaceSecKm,
     loadHistory,
     benchmarks = [],
@@ -164,8 +178,12 @@ export function microCalibrate(input: MicroInput): MicroResult {
   // Direction: +1 harder (up), -1 easier (down), 0 hold. One step only.
   const step = tooHard ? -1 : tooEasyStreak ? 1 : 0;
 
+  // The session's own zone wins over its type's. `null` means the session names
+  // no single zone (an alternation, a progression) — nothing gets calibrated
+  // from it, because there is no one pace it was run at.
+  const zoneKey = paceZone === null ? undefined : (paceZone ?? PACE_ZONE_FOR[sessionType]);
+
   if (step !== 0) {
-    const zoneKey = PACE_ZONE_FOR[sessionType];
     if (station && sessionType === "station_work") {
       const from = state.station_tiers[station] ?? 2;
       const to = clampTier(from + step);
@@ -227,7 +245,6 @@ export function microCalibrate(input: MicroInput): MicroResult {
   // 3) Pace-zone update from an actual run pace (manual or Strava), capped to
   //    ±3% of the weekly reference (A7).
   if (actualPaceSecKm != null) {
-    const zoneKey = PACE_ZONE_FOR[sessionType];
     if (zoneKey) {
       const from = next.pace_zones[zoneKey];
       const to = capPaceToRef(paceRef[zoneKey], actualPaceSecKm, T.pace_weekly_cap_pct);

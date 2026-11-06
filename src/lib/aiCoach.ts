@@ -194,7 +194,7 @@ export async function loadCoachContext(
       admin.from("athlete_state").select("*").eq("profile_id", plan.profile_id).maybeSingle(),
       admin.from("athlete_profiles").select("*").eq("id", plan.profile_id).maybeSingle(),
       admin
-        .from("race_results")
+        .from("athlete_race_results")
         .select("id, kind, held_on, label, is_baseline, total_sec, runs_sec, stations_sec, roxzone_sec")
         .eq("profile_id", plan.profile_id),
     ]);

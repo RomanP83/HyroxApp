@@ -36,7 +36,7 @@ export default async function BenchmarksPage() {
       .maybeSingle(),
     // A database without migration 0029 answers with an error: no card then.
     supabase
-      .from("race_results")
+      .from("athlete_race_results")
       .select("id, kind, held_on, label, is_baseline, total_sec, runs_sec, stations_sec, roxzone_sec")
       .eq("profile_id", profile.id)
       .order("held_on", { ascending: false }),

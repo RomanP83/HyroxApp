@@ -70,7 +70,7 @@ export default async function ProgressPage() {
         .eq("profile_id", profile.id)
         .order("recorded_at", { ascending: true }),
       supabase
-        .from("race_results")
+        .from("athlete_race_results")
         .select("id, kind, held_on, label, is_baseline, total_sec, runs_sec, stations_sec, roxzone_sec")
         .eq("profile_id", profile.id),
       // Migration 0030; without it the query errors and the section stays away.

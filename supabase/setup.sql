@@ -1981,6 +1981,10 @@ on conflict (slug) do nothing;
 -- ============================================================================
 -- 0029 — race results with splits, a target time, and AI coach suggestions.
 --
+-- The table is called athlete_race_results, not race_results: a Supabase
+-- project shared with another app may already have a race_results of its
+-- own, and that one must be left alone.
+--
 -- Race results: a real race or a full simulation, stored with its sixteen
 -- segments (8 runs, 8 stations) plus the roxzone. One of them can be the
 -- athlete's baseline — the race the target is measured from. Every race
@@ -2003,12 +2007,30 @@ on conflict (slug) do nothing;
 -- it, and nothing here uses it.
 -- ============================================================================
 
+-- Guard: a table of the same name from another app must not be altered.
+-- If one exists without this migration's columns, stop before changing anything.
+do $$
+begin
+  if to_regclass('public.athlete_race_results') is not null and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'athlete_race_results' and column_name = 'held_on'
+  ) then
+    raise exception 'Table public.athlete_race_results already exists with a different structure (no column held_on). It is not HyroxApp''s — rename or remove it, or run HyroxApp in its own Supabase project.';
+  end if;
+  if to_regclass('public.ai_suggestions') is not null and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'ai_suggestions' and column_name = 'review'
+  ) then
+    raise exception 'Table public.ai_suggestions already exists with a different structure (no column review). It is not HyroxApp''s — rename or remove it, or run HyroxApp in its own Supabase project.';
+  end if;
+end $$;
+
 alter type adjustment_trigger_t add value if not exists 'ai_suggestion';
 
 alter table athlete_profiles
   add column if not exists target_time_sec int check (target_time_sec between 2400 and 14400);
 
-create table if not exists race_results (
+create table if not exists athlete_race_results (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null references athlete_profiles(id) on delete cascade,
   kind text not null check (kind in ('race', 'simulation')),
@@ -2023,14 +2045,14 @@ create table if not exists race_results (
   roxzone_sec int check (roxzone_sec is null or roxzone_sec >= 0),
   created_at timestamptz not null default now()
 );
-create index if not exists race_results_profile_idx on race_results(profile_id, held_on);
-create unique index if not exists race_results_one_baseline_uidx
-  on race_results(profile_id) where is_baseline;
+create index if not exists athlete_race_results_profile_idx on athlete_race_results(profile_id, held_on);
+create unique index if not exists athlete_race_results_one_baseline_uidx
+  on athlete_race_results(profile_id) where is_baseline;
 
-alter table race_results enable row level security;
+alter table athlete_race_results enable row level security;
 
-drop policy if exists rr_all on race_results;
-create policy rr_all on race_results for all
+drop policy if exists rr_all on athlete_race_results;
+create policy rr_all on athlete_race_results for all
   using (owns_profile(profile_id))
   with check (owns_profile(profile_id));
 
@@ -2076,10 +2098,22 @@ create policy ais_select on ai_suggestions for select
 --    phase whenever it has one, and fall back to the library otherwise.
 --
 -- 3. Import: imported_workouts holds finished sessions from the old tracker
---    as history. Simulations become race_results, station records become
+--    as history. Simulations become athlete_race_results, station records become
 --    benchmark_results; both get (source, source_id) so a re-import adds only
 --    what is new. Eight full-distance station benchmarks join the list.
 -- ============================================================================
+
+-- Guard: a table of the same name from another app must not be altered.
+-- If one exists without this migration's columns, stop before changing anything.
+do $$
+begin
+  if to_regclass('public.imported_workouts') is not null and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'imported_workouts' and column_name = 'done_on'
+  ) then
+    raise exception 'Table public.imported_workouts already exists with a different structure (no column done_on). It is not HyroxApp''s — rename or remove it, or run HyroxApp in its own Supabase project.';
+  end if;
+end $$;
 
 create or replace function resolve_plan_block(b jsonb, p_session_type text)
 returns uuid
@@ -2232,10 +2266,10 @@ alter table athlete_profiles
   check (workout_collection in ('standard', 'verona'));
 
 -- ── import bookkeeping ─────────────────────────────────────────────────────
-alter table race_results add column if not exists source text;
-alter table race_results add column if not exists source_id text;
-create unique index if not exists race_results_source_uidx
-  on race_results(profile_id, source, source_id);
+alter table athlete_race_results add column if not exists source text;
+alter table athlete_race_results add column if not exists source_id text;
+create unique index if not exists athlete_race_results_source_uidx
+  on athlete_race_results(profile_id, source, source_id);
 
 alter table benchmark_results add column if not exists source text;
 alter table benchmark_results add column if not exists source_id text;
@@ -2311,6 +2345,18 @@ alter table athlete_profiles
 -- week (src/lib/engine/vacation.ts). Vacation days do not count towards the
 -- nightly "days without a session" rebase.
 -- ============================================================================
+
+-- Guard: a table of the same name from another app must not be altered.
+-- If one exists without this migration's columns, stop before changing anything.
+do $$
+begin
+  if to_regclass('public.vacations') is not null and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'vacations' and column_name = 'starts_on'
+  ) then
+    raise exception 'Table public.vacations already exists with a different structure (no column starts_on). It is not HyroxApp''s — rename or remove it, or run HyroxApp in its own Supabase project.';
+  end if;
+end $$;
 
 create table if not exists vacations (
   id uuid primary key default gen_random_uuid(),

@@ -60,11 +60,11 @@ export async function POST(req: Request) {
 
   // One baseline per athlete: a new baseline demotes the old one first.
   if (body.is_baseline) {
-    await supabase.from("race_results").update({ is_baseline: false }).eq("profile_id", id).eq("is_baseline", true);
+    await supabase.from("athlete_race_results").update({ is_baseline: false }).eq("profile_id", id).eq("is_baseline", true);
   }
 
   const { data, error } = await supabase
-    .from("race_results")
+    .from("athlete_race_results")
     .insert({
       profile_id: id,
       kind: body.kind,
@@ -91,9 +91,9 @@ export async function PATCH(req: Request) {
   const { supabase, id, status } = await profileId();
   if (!id) return NextResponse.json({ error: status === 401 ? "unauthorized" : "no_profile" }, { status });
 
-  await supabase.from("race_results").update({ is_baseline: false }).eq("profile_id", id).eq("is_baseline", true);
+  await supabase.from("athlete_race_results").update({ is_baseline: false }).eq("profile_id", id).eq("is_baseline", true);
   const { data, error } = await supabase
-    .from("race_results")
+    .from("athlete_race_results")
     .update({ is_baseline: true })
     .eq("id", parsed.data.id)
     .eq("profile_id", id)
@@ -113,7 +113,7 @@ export async function DELETE(req: Request) {
   if (!id) return NextResponse.json({ error: status === 401 ? "unauthorized" : "no_profile" }, { status });
 
   const { data, error } = await supabase
-    .from("race_results")
+    .from("athlete_race_results")
     .delete()
     .eq("id", resultId)
     .eq("profile_id", id)

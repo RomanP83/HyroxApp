@@ -9,6 +9,18 @@
 -- nightly "days without a session" rebase.
 -- ============================================================================
 
+-- Guard: a table of the same name from another app must not be altered.
+-- If one exists without this migration's columns, stop before changing anything.
+do $$
+begin
+  if to_regclass('public.vacations') is not null and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'vacations' and column_name = 'starts_on'
+  ) then
+    raise exception 'Table public.vacations already exists with a different structure (no column starts_on). It is not HyroxApp''s — rename or remove it, or run HyroxApp in its own Supabase project.';
+  end if;
+end $$;
+
 create table if not exists vacations (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null references athlete_profiles(id) on delete cascade,

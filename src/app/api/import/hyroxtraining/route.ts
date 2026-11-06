@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   }
 
   const races = await insertNew(
-    "race_results",
+    "athlete_race_results",
     plan.races.map((r) => ({ ...r, profile_id: profile.id })),
   );
   if (typeof races === "string") return NextResponse.json({ error: "import_failed", detail: races }, { status: 500 });

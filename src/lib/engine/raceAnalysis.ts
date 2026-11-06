@@ -1,7 +1,7 @@
 // ============================================================================
 // Race analysis — where the athlete stands against their target time.
 //
-// Input: real races and full simulations with their splits (race_results),
+// Input: real races and full simulations with their splits (athlete_race_results),
 // one of which may be the baseline, plus the target finish time. Output: the
 // target split per segment, the gap per segment, readiness from baseline to
 // target, and the two compromised-running signals a split sheet carries —

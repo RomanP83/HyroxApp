@@ -3,7 +3,7 @@
 // Export). Pure mapping, no database: the route stores what this returns.
 //
 //   finished workouts      → imported_workouts (history, every kind)
-//   finished simulations   → race_results (all 8 runs + 8 stations timed)
+//   finished simulations   → athlete_race_results (all 8 runs + 8 stations timed)
 //   station records        → benchmark_results (the eight full-distance
 //                            station benchmarks; wall balls only when timed
 //                            after a HYROX sequence, as the tracker itself

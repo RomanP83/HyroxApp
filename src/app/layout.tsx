@@ -1,22 +1,32 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ServiceWorker } from "@/components/ServiceWorker";
 
 // Archivo over the usual grotesks: it holds its shapes at 11px, where most of
 // this interface lives, and reads as equipment rather than as a document.
-const ui = Archivo({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+// Self-hosted (src/app/fonts, SIL Open Font License): next/font/google fetches
+// the files at build time, and an incomplete answer from Google failed the
+// build. The files are the Latin subset Google serves for these weights.
+const ui = localFont({
+  src: [
+    { path: "./fonts/archivo-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/archivo-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/archivo-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/archivo-700.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-ui",
   display: "swap",
 });
 
 // Every split, pace and weight in this sport is read off a clock or a plate.
 // Monospaced figures keep a changing number from shifting the layout under it.
-const data = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+const data = localFont({
+  src: [
+    { path: "./fonts/jetbrainsmono-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/jetbrainsmono-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/jetbrainsmono-700.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-data",
   display: "swap",
 });

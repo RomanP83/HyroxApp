@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUserId, supabaseServer } from "@/lib/supabase/server";
 import { SeasonClient, type SeasonData } from "@/components/SeasonClient";
 import { seasonWeekOf } from "@/lib/engine";
 
@@ -8,16 +8,33 @@ export const dynamic = "force-dynamic";
 
 export default async function SeasonPage() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/onboarding");
+  const userId = await currentUserId(supabase);
+  if (!userId) redirect("/onboarding");
 
-  const { data: profile } = await supabase
-    .from("athlete_profiles")
-    .select("id, weaknesses")
-    .eq("user_id", user.id)
-    .single();
+  // Profile, season and plan in one round: the latter two are reached through
+  // the profile's owner, so they need not wait for the profile id.
+  const [{ data: profile }, { data: season }, { data: plan }] = await Promise.all([
+    supabase.from("athlete_profiles").select("id, weaknesses").eq("user_id", userId).single(),
+    supabase
+      .from("seasons")
+      // Races and blocks ride along embedded, rather than as a second round
+      // trip once the season id is known; they are put in order below.
+      .select(
+        "id, start_date, end_date, total_weeks, notes, athlete_profiles!inner(user_id), season_races(sort_order, race_date, race_type, priority, week_number, is_anchor), season_blocks(macrocycle_sort, macrocycle_label, target_race_index, sort_order, kind, start_week, end_week, weeks, start_date, end_date, volume_multiplier, focus, key_sessions, weakness_targets, deload_weeks)",
+      )
+      .eq("athlete_profiles.user_id", userId)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("plans")
+      .select("race_date, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
+      .in("status", ["active", "paused", "rehab"])
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (!profile) {
     return (
       <main className="mx-auto max-w-md space-y-4 pt-20 text-center animate-fade-up">
@@ -34,51 +51,25 @@ export default async function SeasonPage() {
     );
   }
 
-  const [{ data: season }, { data: plan }] = await Promise.all([
-    supabase
-      .from("seasons")
-      .select("id, start_date, end_date, total_weeks, notes")
-      .eq("profile_id", profile.id)
-      .order("generated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("plans")
-      .select("race_date")
-      .eq("profile_id", profile.id)
-      .in("status", ["active", "paused", "rehab"])
-      .order("generated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
   let data: SeasonData | null = null;
   let currentWeek: number | null = null;
 
   if (season) {
-    const [{ data: races }, { data: blocks }] = await Promise.all([
-      supabase
-        .from("season_races")
-        .select("race_date, race_type, priority, week_number, is_anchor")
-        .eq("season_id", season.id)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("season_blocks")
-        .select(
-          "macrocycle_sort, macrocycle_label, target_race_index, sort_order, kind, start_week, end_week, weeks, start_date, end_date, volume_multiplier, focus, key_sessions, weakness_targets, deload_weeks",
-        )
-        .eq("season_id", season.id)
-        .order("macrocycle_sort", { ascending: true })
-        .order("sort_order", { ascending: true }),
-    ]);
+    const races = ((season.season_races ?? []) as { sort_order: number }[])
+      .slice()
+      .sort((x, y) => x.sort_order - y.sort_order)
+      .map(({ sort_order: _order, ...r }) => r);
+    const blocks = ((season.season_blocks ?? []) as { macrocycle_sort: number; sort_order: number }[])
+      .slice()
+      .sort((x, y) => x.macrocycle_sort - y.macrocycle_sort || x.sort_order - y.sort_order);
 
     data = {
       start_date: season.start_date,
       end_date: season.end_date,
       total_weeks: season.total_weeks,
       notes: (season.notes as string[]) ?? [],
-      races: (races ?? []) as SeasonData["races"],
-      blocks: ((blocks ?? []) as SeasonData["blocks"]).map((b) => ({
+      races: races as unknown as SeasonData["races"],
+      blocks: (blocks as unknown as SeasonData["blocks"]).map((b) => ({
         ...b,
         volume_multiplier: Number(b.volume_multiplier),
       })),

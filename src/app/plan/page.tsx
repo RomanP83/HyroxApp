@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUserId, supabaseServer } from "@/lib/supabase/server";
 import type {
   Division,
   EquipmentAccess,
@@ -34,30 +34,32 @@ export default async function PlanPage({
   // Next 15: searchParams arrive as a promise.
   const wantedWeek = (await searchParams).week;
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/onboarding");
+  const userId = await currentUserId(supabase);
+  if (!userId) redirect("/onboarding");
 
-  const { data: profile } = await supabase
-    .from("athlete_profiles")
-    .select(
-      "id, division, experience_level, target_time_sec, equipment_access, station_substitutions, preferred_rest_days, weekly_km_peak, training_days_per_week",
-    )
-    .eq("user_id", user.id)
-    .single();
+  // Profile and plan together: the plan is found through the profile's owner
+  // rather than its id, so the two reads do not have to queue behind each
+  // other. Every round trip here is one the athlete waits for on a tab change.
+  const [{ data: profile }, { data: plan }] = await Promise.all([
+    supabase
+      .from("athlete_profiles")
+      .select(
+        "id, division, experience_level, target_time_sec, equipment_access, station_substitutions, preferred_rest_days, weekly_km_peak, training_days_per_week",
+      )
+      .eq("user_id", userId)
+      .single(),
+    supabase
+      .from("plans")
+      .select("id, race_date, starts_on, kind, status, total_weeks, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
+      // 'completed' as well: a plan whose race has been and gone is what the
+      // athlete should land on the morning after, not the onboarding form.
+      .in("status", ["active", "paused", "rehab", "completed"])
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (!profile) redirect("/onboarding");
-
-  const { data: plan } = await supabase
-    .from("plans")
-    .select("id, race_date, starts_on, kind, status, total_weeks")
-    .eq("profile_id", profile.id)
-    // 'completed' as well: a plan whose race has been and gone is what the
-    // athlete should land on the morning after, not the onboarding form.
-    .in("status", ["active", "paused", "rehab", "completed"])
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
 
   if (!plan) {
     // Empty state (#3): explain what belongs here + one clear action.
@@ -89,7 +91,31 @@ export default async function PlanPage({
     );
   }
 
-  const [{ data: phases }, { data: weeks }, { data: state }, { data: adjustments }, { data: strengthTemplates }, { data: aiRow }] =
+  // Which week is now is derived from the plan's start, not read off a stored
+  // flag — the flag was written once and never advanced, so every reader sat
+  // on week 1 forever.
+  const thisWeek = currentWeekNumber({
+    startsOn: String(plan.starts_on).slice(0, 10),
+    today: dateInTrainingZone(),
+    totalWeeks: plan.total_weeks,
+  });
+  // The week's sessions are read by week number alongside everything else,
+  // instead of waiting for the week list to name the week's id first.
+  const requestedWeek = Number(wantedWeek);
+  const guessedWeek =
+    Number.isInteger(requestedWeek) && requestedWeek >= 1 ? requestedWeek : thisWeek;
+  const SESSION_SELECT =
+    "id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))";
+
+  const [
+    { data: phases },
+    { data: weeks },
+    { data: state },
+    { data: adjustments },
+    { data: strengthTemplates },
+    { data: aiRow },
+    guessedSessions,
+  ] =
     await Promise.all([
       supabase.from("plan_phases").select("phase_type, start_week, end_week").eq("plan_id", plan.id),
       supabase
@@ -120,17 +146,15 @@ export default async function PlanPage({
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("sessions")
+        .select(`${SESSION_SELECT}, plan_weeks!inner(week_number)`)
+        .eq("plan_id", plan.id)
+        .eq("plan_weeks.week_number", guessedWeek)
+        .order("sort_order", { ascending: true }),
     ]);
 
   const weekList = weeks ?? [];
-  // Which week is now is derived from the plan's start, not read off a stored
-  // flag — the flag was written once and never advanced, so every reader sat
-  // on week 1 forever.
-  const thisWeek = currentWeekNumber({
-    startsOn: String(plan.starts_on).slice(0, 10),
-    today: dateInTrainingZone(),
-    totalWeeks: plan.total_weeks,
-  });
   const current =
     weekList.find((w) => String(w.week_number) === wantedWeek) ??
     weekList.find((w) => w.week_number === thisWeek) ??
@@ -139,15 +163,16 @@ export default async function PlanPage({
   // Load sessions + blocks for the selected week. The error is kept: an empty
   // week and a week that failed to load look identical downstream, and since
   // the week now fills its gaps with rest days, a failed load would otherwise
-  // render as seven confident "nothing scheduled" tiles.
-  const { data: sessionRows, error: sessionsError } = await supabase
-    .from("sessions")
-    .select(
-      "id, day_hint, day_slot, session_type, title, planned_duration_min, intensity_rpe_target, status, sort_order, session_blocks(sort_order, load_adjustments, block_id, workout_blocks(block_type, station, content, slug))",
-    )
-    .eq("week_id", current.id)
-    .order("sort_order", { ascending: true });
-
+  // render as seven confident "nothing scheduled" tiles. Only when the guess
+  // above missed (a ?week= that does not exist) is the week read a second time.
+  const { data: sessionRows, error: sessionsError } =
+    current.week_number === guessedWeek
+      ? guessedSessions
+      : await supabase
+          .from("sessions")
+          .select(SESSION_SELECT)
+          .eq("week_id", current.id)
+          .order("sort_order", { ascending: true });
 
   // The athlete's own strength day replaces the library's main block. Several
   // days rotate by week, so Tag A / Tag B alternate the way they would in the

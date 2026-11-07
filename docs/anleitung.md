@@ -77,6 +77,19 @@ Alle eingeloggten Seiten teilen sich **einen Rahmen** im Look des HyroxTraining-
 Der Bereich, auf dem du bist, ist in beiden Fällen schwarz gefüllt. Auch die
 Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
 
+### Seitenwechsel
+
+Beim Tippen auf einen Bereich wird der neue Tab **sofort** schwarz, und die Seite zeigt graue
+Platzhalter in ihrer Form, bis die Daten vom Server da sind — die Navigation bleibt dabei stehen.
+Vorher blieb bei Season, Strength, Race und Setup die alte Seite ohne jede Rückmeldung stehen, bis
+die neue fertig war.
+
+**Ein Bereich, den du vor weniger als 30 Sekunden offen hattest, erscheint beim Zurückwechseln
+ohne Ladezeit** — aus dem Zwischenspeicher des Browsers. Alles, was du selbst in der App änderst
+(Loggen, Tauschen, Einstellungen speichern …), leert diesen Speicher sofort; was in diesen 30
+Sekunden höchstens nachhinkt, ist etwas, das im Hintergrund ankam (z. B. ein Strava- oder
+Garmin-Lauf). Neu laden zeigt in dem Fall sofort den aktuellen Stand.
+
 ### Das Aussehen
 
 HyroxApp sieht aus wie der HyroxTraining-Tracker: ein heller, kühler Whiteboard-Grund im grauen
@@ -1393,6 +1406,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Schnellere Seitenwechsel:** jeder Bereich zeigt beim Tippen sofort Platzhalter mit stehender Navigation; ein vor weniger als 30 s besuchter Bereich kommt ohne Ladezeit zurück; die Seiten fragen die Datenbank in weniger Runden ab, und der Server läuft jetzt in Frankfurt neben der Datenbank statt in den USA | [Seitenwechsel](#seitenwechsel) |
 | **Neues Design wie HyroxTraining („Box Whiteboard"):** heller Whiteboard-Grund, Barlow-Schriften, Markerfarben mit je einer Bedeutung (Laufen jetzt blau, hart rot); Navigation am Desktop in einer Aluminium-Spalte links, am Handy als Tab-Leiste unten mit Setup-Zahnrad oben; die heutige Einheit hebt sich mit Schatten ab, Erledigtes wird grün durchgestrichen | [2](#2-seitenübersicht), [4](#eine-einheitenkarte), [8](#8-settings--setup--tools) |
 | **Zusammengeführt:** die Härtung vom 04.09. — „heute" in der Trainingszeitzone, Rückfrage vor Reha-Modus und Neuaufbau, ein Log wird mit Sätzen und Status in einem Schritt gespeichert (doppeltes Loggen legt nichts doppelt an), der Nachtlauf passt jede Woche nur einmal an, Garmin-Webhook mit Secret | [4](#4-plan--die-trainingswoche), [13](#13-verbindungen-strava-garmin-telegram) |
 | **Zusammengeführt:** die Arbeit vom 23.–30.08. (Datum auf jeder Karte, Ruhetage in der Woche, Level/Division/Zielzeit änderbar, Startdatum, Doppeltage festlegbar, `/race` mit Pacing-Blatt, Übergangsblock, Stationen tauschen, Export, Offline, Kataloge nach Level) liegt jetzt auf derselben Version wie Rennanalyse, KI-Coach, Verona-Plan, Kraft-Tage, Spieltag und Urlaub | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |

@@ -69,7 +69,7 @@ describe("SeasonClient", () => {
   );
 
   it("carries the shared header — the way back to the week view", () => {
-    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>HYROX/);
+    expect(html).toMatch(/<a[^>]+href="\/today"[^>]*>HYROX/);
   });
 
   it("draws one timeline segment per block, sized by its week count", () => {

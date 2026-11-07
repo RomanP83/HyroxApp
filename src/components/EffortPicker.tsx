@@ -70,6 +70,8 @@ interface Props {
   onSave: () => void;
   onCancel: () => void;
   saving?: boolean;
+  /** Drop the panel frame when the picker already sits in a sheet. */
+  bare?: boolean;
 }
 
 /**
@@ -78,13 +80,16 @@ interface Props {
  * it. The arc is the picture; the slider underneath is the control (keyboard,
  * screen reader and thumb all reach it).
  */
-export function EffortPicker({ value, target, onChange, onSave, onCancel, saving }: Props) {
+export function EffortPicker({ value, target, onChange, onSave, onCancel, saving, bare }: Props) {
   const color = rpeColor(value);
   const scale = RPE_SCALE[value];
   const targetPoint = point(START + (target - 0.5) * (SWEEP / 10), R + 13);
 
   return (
-    <div className="rounded-panel border border-edge-strong bg-rack p-4 animate-pop-in" data-effort-picker>
+    <div
+      className={bare ? "" : "rounded-panel border border-edge-strong bg-rack p-4 animate-pop-in"}
+      data-effort-picker
+    >
       <div className="text-center text-base font-semibold text-chalk">How hard was it?</div>
 
       <div className="relative mx-auto mt-1 w-full max-w-[220px]">
@@ -156,7 +161,7 @@ export function EffortPicker({ value, target, onChange, onSave, onCancel, saving
         </button>
         <button type="button" className="btn-primary" onClick={onSave} disabled={saving}>
           {saving && <SpinnerIcon size={16} />}
-          Save effort
+          Save
         </button>
       </div>
     </div>

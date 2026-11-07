@@ -66,10 +66,10 @@ describe("the effort scale", () => {
     expect(html).toContain("How hard was it?");
     expect(html).toContain(RPE_SCALE[9].label);
     expect(html).toContain('type="range"');
-    expect(html).toContain("Save effort");
+    expect(html).toContain(">Save<");
   });
 
-  it("is not open until harder or easier is tapped", () => {
+  it("is not open until Done is tapped", () => {
     const session: GeneratedSession = {
       day_hint: 1,
       day_slot: "am",
@@ -81,7 +81,9 @@ describe("the effort scale", () => {
       blocks: [],
     };
     const html = renderToStaticMarkup(<SessionCard session={session} onLog={() => undefined} />);
-    expect(html).toContain("Felt harder");
+    // One action on the card; the scale waits in a sheet behind it.
+    expect(html).toContain(">Done<");
+    expect(html).not.toContain("Felt harder");
     expect(html).not.toContain("data-effort-picker");
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { readApi } from "@/lib/apiResult";
 import { AppHeader } from "./AppHeader";
@@ -120,8 +121,11 @@ export function BenchmarksClient({
   return (
     <main className="space-y-6">
       <AppHeader />
+      <Link href="/progress" className="inline-block text-meta font-semibold text-ash hover:text-chalk">
+        ← Progress
+      </Link>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-h1 font-bold tracking-tight">Benchmarks</h1>
+        <h1 className="text-h1 font-bold tracking-tight">Tests &amp; races</h1>
         <span className="pill">start / mid / pre-race</span>
       </div>
       <p className="max-w-2xl text-ash">
@@ -140,12 +144,14 @@ export function BenchmarksClient({
       </div>
 
       {races && (
-        <RaceResultsCard
-          results={races}
-          targetTimeSec={targetTimeSec}
-          onToast={setToast}
-          onSaved={() => router.refresh()}
-        />
+        <div id="races" className="scroll-mt-20">
+          <RaceResultsCard
+            results={races}
+            targetTimeSec={targetTimeSec}
+            onToast={setToast}
+            onSaved={() => router.refresh()}
+          />
+        </div>
       )}
 
       {atptWatts && atptRecovery && (

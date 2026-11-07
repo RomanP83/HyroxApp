@@ -60,10 +60,10 @@ describe("SessionCard with a personal strength day", () => {
         strength={{ templateName: "Tag A: Oberkörper", exercises: EXERCISES }}
       />,
     );
-    // One line, not the sheet: the name, the count, and how to get in.
+    // One line, not the sheet: the name, the count, and the way in.
     expect(closed).toContain("Tag A: Oberkörper");
     expect(closed).toContain(`${EXERCISES.length} exercises`);
-    expect(closed).toContain("tap to log sets");
+    expect(closed).toContain("Log sets");
     expect(closed).not.toContain("set 1 reps");
   });
 
@@ -103,7 +103,7 @@ describe("SessionCard with a personal strength day", () => {
   it("stays a plain card when the athlete has no strength day", () => {
     const plain = renderToStaticMarkup(<SessionCard session={SESSION} onLog={() => undefined} />);
     expect(plain).not.toContain("set 1 reps");
-    expect(plain).toContain("Felt harder");
+    expect(plain).toContain(">Done<");
   });
 });
 
@@ -123,7 +123,7 @@ describe("StrengthClient", () => {
   const html = renderToStaticMarkup(<StrengthClient templates={[template]} />);
 
   it("carries the shared header — the way back to the week view", () => {
-    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>HYROX/);
+    expect(html).toMatch(/<a[^>]+href="\/today"[^>]*>HYROX/);
   });
 
   it("puts an open suggestion up front, with both answers", () => {

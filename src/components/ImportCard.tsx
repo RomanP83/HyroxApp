@@ -61,7 +61,7 @@ export function ImportCard({ onDone }: { onDone: () => void }) {
       <p className="max-w-[62ch] text-meta leading-relaxed text-ash">
         Choose the JSON backup from the tracker (menu → Export). Finished workouts become your
         training history, full simulations land under Races &amp; simulations, station times under
-        Benchmarks. Importing the same file again adds only what is new. Your plan does not change.
+        Progress → Log a test. Importing the same file again adds only what is new. Your plan does not change.
       </p>
       <label className="btn-ghost inline-flex cursor-pointer items-center gap-2">
         {busy ? <SpinnerIcon size={16} /> : null}

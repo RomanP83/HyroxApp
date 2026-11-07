@@ -1,7 +1,17 @@
 import { AppHeader } from "@/components/AppHeader";
 import { redirect } from "next/navigation";
 import { currentUserId, supabaseServer } from "@/lib/supabase/server";
-import { analyseRaces, computeLoadState, type LoadEntry, type RaceResult } from "@/lib/engine";
+import {
+  analyseRaces,
+  computeLoadState,
+  goalCheck,
+  type AthleteProfile,
+  type AthleteState,
+  type LoadEntry,
+  type RaceResult,
+} from "@/lib/engine";
+import Link from "next/link";
+import { EstimateCard } from "@/components/EstimateCard";
 import { fmtClock } from "@/lib/format";
 import { BarChart, LineChart, type Pt } from "@/components/charts";
 import { RaceReadiness } from "@/components/RaceReadiness";
@@ -154,9 +164,34 @@ export default async function ProgressPage() {
         <span className="pill">every number from your logs</span>
       </div>
 
+      {/* Tests and races are entered here too: they are what moves these
+          numbers, and the Progress tab is where you come to see them move. */}
+      <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+        <Link href="/benchmarks" className="btn-primary">
+          Log a test
+        </Link>
+        <Link href="/benchmarks#races" className="btn-ghost">
+          Log a race
+        </Link>
+      </div>
+
+      <EstimateCard
+        predictedSeconds={state?.predicted_race_time_sec ?? null}
+        goalCheck={
+          state
+            ? goalCheck({
+                profile: profile as unknown as AthleteProfile,
+                state: state as unknown as AthleteState,
+                predictedSeconds: state.predicted_race_time_sec ?? null,
+              })
+            : null
+        }
+        easyPaceSecKm={state?.pace_zones?.easy_sec_km ?? null}
+        racePaceSecKm={state?.pace_zones?.race_sec_km ?? null}
+      />
+
       {/* KPI row */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Tile label="Estimated finish" value={fmtClock(state?.predicted_race_time_sec)} />
+      <div className="grid gap-3 sm:grid-cols-3">
         <Tile label="ACWR now" value={state ? String(Number(state.acwr).toFixed(2)) : "—"} />
         <Tile label="Avg. weekly compliance" value={`${overallCompliance}%`} />
         <Tile label="Sessions logged" value={String(totalLogged)} />

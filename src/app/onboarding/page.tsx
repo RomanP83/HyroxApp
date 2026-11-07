@@ -102,7 +102,7 @@ export default function Onboarding() {
               .maybeSingle()
           : { data: null };
         // Stay unready through the redirect: the form must not flash up.
-        if (plan && !cancelled) return router.replace("/plan");
+        if (plan && !cancelled) return router.replace("/today");
       }
       if (!cancelled) setReady(true);
     })();
@@ -181,7 +181,7 @@ export default function Onboarding() {
       });
       const result = await readApi(res);
       if (!result.ok) throw new Error(result.message);
-      router.push("/plan");
+      router.push("/today");
     } catch (e) {
       setError((e as Error).message);
       setSubmitting(false);

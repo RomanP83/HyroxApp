@@ -37,10 +37,10 @@ export function RaceReadiness({ analysis, results }: { analysis: RaceAnalysis; r
 
       {!hasAny || !a.target_sec ? (
         <div className="card text-sm text-ash">
-          {!a.target_sec && <p>Set a target time on Benchmarks to get target splits and the gap per segment.</p>}
+          {!a.target_sec && <p>Set a target time under Log a test to get target splits and the gap per segment.</p>}
           {!hasAny && (
             <p>
-              Log a full simulation or a race with its splits on Benchmarks. Mark your reference race
+              Log a full simulation or a race with its splits under Log a race. Mark your reference race
               as the baseline to see readiness from there to your target.
             </p>
           )}

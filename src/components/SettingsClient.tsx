@@ -25,6 +25,7 @@ import {
   type VolumeAssessment,
 } from "@/lib/engine";
 import { fmtClock, parseClock } from "@/lib/format";
+import Link from "next/link";
 import { AppHeader } from "./AppHeader";
 import { ImportCard } from "./ImportCard";
 import { VacationCard, type VacationRow } from "./VacationCard";
@@ -698,6 +699,25 @@ export function SettingsClient(props: SettingsProps) {
           />
         </section>
       )}
+
+      {/* The strength program is set up once and then lives in the sessions:
+          it is edited here, and logged set by set inside the strength day. */}
+      <section className="space-y-3">
+        <h2 className="text-h2 text-chalk">Strength program</h2>
+        <Link
+          href="/strength"
+          className="card flex items-center justify-between gap-3 transition-colors duration-150 hover:border-edge-strong"
+        >
+          <span className="max-w-[62ch] text-meta leading-relaxed text-ash">
+            <b className="block text-base text-chalk">Your strength days</b>
+            Exercises, kilos and rep ranges for every strength session — import your sheet or
+            edit it here.
+          </span>
+          <span className="text-smoke" aria-hidden="true">
+            →
+          </span>
+        </Link>
+      </section>
 
       {props.collectionAvailable !== false && (
         <section className="space-y-3">

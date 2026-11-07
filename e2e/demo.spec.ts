@@ -4,9 +4,9 @@ import { test, expect } from "@playwright/test";
 // end-to-end proof that generation, adaptation, and the feedback card work
 // without any backend (Roadmap B7).
 
-test("the root goes straight to the week, and the week is behind the gate", async ({ page }) => {
-  // One athlete, nothing to sell: / redirects to /plan, and /plan sends anyone
-  // without a session on to onboarding.
+test("the root goes straight to Today, and Today is behind the gate", async ({ page }) => {
+  // One athlete, nothing to sell: / redirects to /today, and /today sends
+  // anyone without a session on to onboarding.
   await page.goto("/");
   await expect(page).toHaveURL(/\/onboarding/);
 });
@@ -19,19 +19,24 @@ test("demo: generate → log → feedback card → adaptation feed", async ({ pa
   await expect(page.locator("text=Week 1")).toBeVisible();
   await expect(page.locator("text=RPE target").first()).toBeVisible();
 
-  // Report a session as harder than planned: the effort scale opens on
-  // target + 2, saving it opens the training feedback.
-  await page.getByRole("button", { name: "Felt harder", exact: true }).first().click();
-  await expect(page.locator("text=How hard was it?")).toBeVisible();
+  // One action per card: Done asks how hard it was, on the target. Dragging
+  // the scale two points above it reports a harder session, and saving opens
+  // the training feedback.
+  await page.getByRole("button", { name: "Done", exact: true }).first().click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.locator("text=How hard was it?")).toBeVisible();
+  await expect(page.getByTestId("effort-consequence")).toContainText("Right on the target");
+  await sheet.getByLabel("Session effort (RPE 1 to 10)").fill("9");
   await expect(page.getByTestId("effort-consequence")).toContainText("backs this kind of session off");
-  await page.getByRole("button", { name: "Save effort" }).click();
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator("text=Training feedback")).toBeVisible();
   await expect(page.locator("text=Fulfillment index")).toBeVisible();
   await expect(page.locator("text=TOO HARD").first()).toBeVisible();
   await page.locator('button[aria-label="Close"]').click();
 
-  // Log another session as planned → perfect score headline.
-  await page.getByRole("button", { name: "As planned" }).first().click();
+  // Log another session as planned: Done, Save → perfect score headline.
+  await page.getByRole("button", { name: "Done", exact: true }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator("text=Dialed in!")).toBeVisible();
   await page.locator('button[aria-label="Close"]').click();
 
@@ -102,10 +107,9 @@ test("demo: a session moves to another day, and a taken day swaps", async ({ pag
   // Move it to a day the week has nothing on — a free day is a plain move, no
   // swap message. Which day that is depends on how the week is laid out, so
   // the test takes the first one the card offers rather than naming one.
-  // The move control lives inside the opened card — the first button of a card
-  // is its disclosure toggle.
-  await first.locator("button").first().click();
-  await first.getByRole("button", { name: "Move" }).click();
+  // Moving is in the card's ⋯ menu, with skipping.
+  await first.getByRole("button", { name: `More for ${firstTitle}` }).click();
+  await first.getByRole("menuitem", { name: "Move to another day" }).click();
   const freeDay = first.locator('[title^="Move to "]').first();
   const freeDayLabel = (await freeDay.getAttribute("title"))!.replace("Move to ", "");
   await freeDay.click();
@@ -116,10 +120,8 @@ test("demo: a session moves to another day, and a taken day swaps", async ({ pag
   await expect(moved.getByText(freeDayLabel, { exact: true })).toBeVisible();
 
   // Moving onto an occupied day trades the two sessions instead of failing.
-  // The card kept its open state through the move, so only toggle if needed.
-  const moveBtn = moved.getByRole("button", { name: "Move" });
-  if (!(await moveBtn.isVisible())) await moved.locator("button").first().click();
-  await moveBtn.click();
+  await moved.getByRole("button", { name: `More for ${firstTitle}` }).click();
+  await moved.getByRole("menuitem", { name: "Move to another day" }).click();
   await moved.getByTitle(/is taken — the two sessions swap days/).first().click();
   // Which session it trades with depends on the week's layout; that it names
   // both sides of the trade is the part that matters.

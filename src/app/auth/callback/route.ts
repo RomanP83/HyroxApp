@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
-  const next = url.searchParams.get("next") ?? "/plan";
+  const next = url.searchParams.get("next") ?? "/today";
 
   // Behind Vercel's proxy the request URL is the internal host — build
   // redirects from the forwarded host so the athlete stays on their domain.

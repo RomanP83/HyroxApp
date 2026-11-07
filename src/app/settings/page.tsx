@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { currentWeekNumber } from "@/lib/planWeek";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUserId, supabaseServer } from "@/lib/supabase/server";
 import { SettingsClient } from "@/components/SettingsClient";
 import type { VacationRow } from "@/components/VacationCard";
 import {
@@ -20,50 +20,54 @@ export const dynamic = "force-dynamic";
 // exactly what someone wants to set BEFORE generating one.
 export default async function SettingsPage() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/onboarding");
+  const userId = await currentUserId(supabase);
+  if (!userId) redirect("/onboarding");
 
-  const { data: profile } = await supabase
-    .from("athlete_profiles")
-    .select(
-      "id, experience_level, target_time_sec, division, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
-    )
-    .eq("user_id", user.id)
-    .single();
+  // One round of reads instead of five in a row. The tables keyed by profile
+  // are reached through the profile's owner, so nothing waits for the profile
+  // id; each tolerant read keeps its own error, exactly as before.
+  const today = new Date().toISOString().slice(0, 10);
+  const [
+    { data: profile },
+    // Separate, tolerant read: a database without migration 0030 has no
+    // workout_collection column and must still open this page.
+    { data: collectionRow },
+    // And for migration 0032: an error means no vacations table yet.
+    { data: vacationRows, error: vacationError },
+    // Same for migration 0031.
+    { data: extrasRow },
+    { data: plan },
+  ] = await Promise.all([
+    supabase
+      .from("athlete_profiles")
+      .select(
+        "id, experience_level, target_time_sec, division, training_days_per_week, doubles_per_week, weekly_km_peak, runs_per_week, telegram_chat_id, strava_athlete_id, garmin_user_id, preferred_long_run_day, preferred_strength_days, preferred_rest_days, preferred_double_days",
+      )
+      .eq("user_id", userId)
+      .single(),
+    supabase.from("athlete_profiles").select("workout_collection").eq("user_id", userId).maybeSingle(),
+    supabase
+      .from("vacations")
+      .select("id, starts_on, ends_on, mode, note, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
+      .gte("ends_on", today)
+      .order("starts_on"),
+    supabase
+      .from("athlete_profiles")
+      .select("strength_per_week, preferred_game_day")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabase
+      .from("plans")
+      .select("id, status, total_weeks, starts_on, race_date, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
+      .in("status", ["active", "paused", "rehab"])
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (!profile) redirect("/onboarding");
-
-  // Separate, tolerant read: a database without migration 0030 has no
-  // workout_collection column and must still open this page.
-  const { data: collectionRow } = await supabase
-    .from("athlete_profiles")
-    .select("workout_collection")
-    .eq("user_id", user.id)
-    .maybeSingle();
   const workoutCollection = (collectionRow?.workout_collection as string | undefined) ?? "standard";
-  // And for migration 0032: an error means no vacations table yet.
-  const { data: vacationRows, error: vacationError } = await supabase
-    .from("vacations")
-    .select("id, starts_on, ends_on, mode, note")
-    .eq("profile_id", profile.id)
-    .gte("ends_on", new Date().toISOString().slice(0, 10))
-    .order("starts_on");
-  // Same for migration 0031.
-  const { data: extrasRow } = await supabase
-    .from("athlete_profiles")
-    .select("strength_per_week, preferred_game_day")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: plan } = await supabase
-    .from("plans")
-    .select("id, status, total_weeks, starts_on, race_date")
-    .eq("profile_id", profile.id)
-    .in("status", ["active", "paused", "rehab"])
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
 
   const trainingDays = profile.training_days_per_week ?? 4;
   const peakKm = profile.weekly_km_peak == null ? null : Number(profile.weekly_km_peak);
@@ -137,7 +141,11 @@ export default async function SettingsPage() {
           : {}),
       }}
       workoutCollection={workoutCollection}
-      vacations={vacationError ? undefined : ((vacationRows ?? []) as VacationRow[])}
+      vacations={
+        vacationError
+          ? undefined
+          : (vacationRows ?? []).map(({ athlete_profiles: _owner, ...v }) => v as VacationRow)
+      }
       collectionAvailable={Boolean(collectionRow)}
       volume={{
         weekly_km_peak: peakKm,

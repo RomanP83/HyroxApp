@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUserId, supabaseServer } from "@/lib/supabase/server";
 import {
   defaultPaceZones,
   type Division,
@@ -14,24 +14,25 @@ export const dynamic = "force-dynamic";
 
 export default async function RacePage() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/onboarding");
+  const userId = await currentUserId(supabase);
+  if (!userId) redirect("/onboarding");
 
-  const { data: profile } = await supabase
-    .from("athlete_profiles")
-    .select("id, division, experience_level, target_time_sec, five_k_seconds")
-    .eq("user_id", user.id)
-    .single();
-  if (!profile) redirect("/onboarding");
-
-  const [{ data: state }, { data: plan }, { data: results }] = await Promise.all([
-    supabase.from("athlete_state").select("station_tiers, measured_station_seconds, pace_zones, predicted_race_time_sec").eq("profile_id", profile.id).maybeSingle(),
+  // One round: everything keyed by profile is reached through its owner.
+  const [{ data: profile }, { data: state }, { data: plan }, { data: results }] = await Promise.all([
+    supabase
+      .from("athlete_profiles")
+      .select("id, division, experience_level, target_time_sec, five_k_seconds")
+      .eq("user_id", userId)
+      .single(),
+    supabase
+      .from("athlete_state")
+      .select("station_tiers, measured_station_seconds, pace_zones, predicted_race_time_sec, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
+      .maybeSingle(),
     supabase
       .from("plans")
-      .select("race_date, kind, total_weeks")
-      .eq("profile_id", profile.id)
+      .select("race_date, kind, total_weeks, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
       .in("status", ["active", "paused", "rehab"])
       .order("generated_at", { ascending: false })
       .limit(1)
@@ -39,12 +40,13 @@ export default async function RacePage() {
     // Real races from the one race table (athlete_race_results, 0029).
     supabase
       .from("athlete_race_results")
-      .select("id, held_on, label, total_sec, runs_sec, stations_sec, roxzone_sec")
-      .eq("profile_id", profile.id)
+      .select("id, held_on, label, total_sec, runs_sec, stations_sec, roxzone_sec, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
       .eq("kind", "race")
       .order("held_on", { ascending: false })
       .limit(10),
   ]);
+  if (!profile) redirect("/onboarding");
 
   const zones =
     (state?.pace_zones as PaceZones | undefined) ?? defaultPaceZones(profile.five_k_seconds ?? 1500);

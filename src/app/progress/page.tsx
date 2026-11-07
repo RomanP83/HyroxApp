@@ -1,6 +1,6 @@
 import { AppHeader } from "@/components/AppHeader";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUserId, supabaseServer } from "@/lib/supabase/server";
 import { analyseRaces, computeLoadState, type LoadEntry, type RaceResult } from "@/lib/engine";
 import { fmtClock } from "@/lib/format";
 import { BarChart, LineChart, type Pt } from "@/components/charts";
@@ -15,28 +15,29 @@ export const dynamic = "force-dynamic";
 // adaptive layer uses, so chart and engine can never disagree.
 export default async function ProgressPage() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/onboarding");
+  const userId = await currentUserId(supabase);
+  if (!userId) redirect("/onboarding");
 
-  const { data: profile } = await supabase
-    .from("athlete_profiles")
-    // "*" rather than naming target_time_sec: a database without migration
-    // 0029 must still open this page.
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
+  // Profile and plan in one round: the plan is reached through the profile's
+  // owner, so it need not wait for the profile id.
+  const [{ data: profile }, { data: plan }] = await Promise.all([
+    supabase
+      .from("athlete_profiles")
+      // "*" rather than naming target_time_sec: a database without migration
+      // 0029 must still open this page.
+      .select("*")
+      .eq("user_id", userId)
+      .single(),
+    supabase
+      .from("plans")
+      .select("id, total_weeks, athlete_profiles!inner(user_id)")
+      .eq("athlete_profiles.user_id", userId)
+      .in("status", ["active", "paused", "rehab"])
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (!profile) redirect("/onboarding");
-
-  const { data: plan } = await supabase
-    .from("plans")
-    .select("id, total_weeks")
-    .eq("profile_id", profile.id)
-    .in("status", ["active", "paused", "rehab"])
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
 
   const [{ data: state }, { data: weeks }, { data: logs }, { data: prognosisRows }, { data: benchDefs }, { data: benchResults }, { data: raceRows }, { data: importedRows }] =
     await Promise.all([

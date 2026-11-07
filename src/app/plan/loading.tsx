@@ -1,8 +1,11 @@
+import { AppHeader } from "@/components/AppHeader";
+
 // Perceived speed (#6): the week view streams in behind a skeleton that
 // mirrors its real layout, so the page never feels like it's thinking.
 export default function PlanLoading() {
   return (
     <main className="space-y-6">
+      <AppHeader />
       <div className="flex items-center justify-between">
         <div className="skeleton h-7 w-28" />
         <div className="skeleton h-9 w-64" />

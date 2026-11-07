@@ -1,6 +1,9 @@
+import { AppHeader } from "@/components/AppHeader";
+
 export default function BenchmarksLoading() {
   return (
     <main className="space-y-6">
+      <AppHeader />
       <div className="skeleton h-6 w-32" />
       <div className="skeleton h-8 w-48" />
       <div className="skeleton h-24 w-full" />

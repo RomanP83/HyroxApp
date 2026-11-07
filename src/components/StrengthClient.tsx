@@ -5,6 +5,7 @@
 // see what the parser made of it BEFORE saving, adjust a weight, and answer
 // the progression suggestions the engine leaves after a logged session.
 // ============================================================================
+import Link from "next/link";
 import { AppHeader } from "./AppHeader";
 import { useState } from "react";
 import { readApi } from "@/lib/apiResult";
@@ -141,6 +142,9 @@ export function StrengthClient({ templates }: { templates: StrengthTemplate[] })
   return (
     <main className="space-y-6">
       <AppHeader />
+      <Link href="/settings" className="inline-block text-meta font-semibold text-ash hover:text-chalk">
+        ← Setup
+      </Link>
       <div>
         <h1 className="text-h1 font-bold tracking-tight">Your strength days</h1>
         <p className="mt-1 max-w-[62ch] text-meta leading-relaxed text-ash">

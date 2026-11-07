@@ -15,13 +15,13 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 1. [Das Grundprinzip in drei Sätzen](#1-das-grundprinzip-in-drei-sätzen)
 2. [Seitenübersicht](#2-seitenübersicht)
 3. [Onboarding — den Plan erzeugen](#3-onboarding--den-plan-erzeugen)
-4. [`/plan` — die Trainingswoche](#4-plan--die-trainingswoche)
+4. [`/today` und `/plan` — heute und die Trainingswoche](#4-today-und-plan--heute-und-die-trainingswoche)
 5. [Eine Einheit loggen (und den Fehlklick zurücknehmen)](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen)
 6. [Wie sich der Plan anpasst](#6-wie-sich-der-plan-anpasst)
 7. [`/season` — Rennkalender und Jahresplanung](#7-season--rennkalender-und-jahresplanung)
 8. [`/settings` — Setup & Tools](#8-settings--setup--tools)
-9. [`/strength` — eigenes Kraftprogramm](#9-strength--eigenes-kraftprogramm)
-10. [`/benchmarks` — Tests eintragen](#10-benchmarks--tests-eintragen)
+9. [`/strength` — eigenes Kraftprogramm](#9-strength--eigenes-kraftprogramm) (über Setup)
+10. [`/benchmarks` — Tests eintragen](#10-benchmarks--tests-eintragen) (über Progress)
 11. [`/progress` — Auswertungen](#11-progress--auswertungen)
 12. [`/race` — Renntag: Pacing und Ergebnis](#12-race--renntag-pacing-und-ergebnis)
 13. [Verbindungen: Strava, Garmin, Telegram](#13-verbindungen-strava-garmin-telegram)
@@ -52,14 +52,15 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 
 | Seite | Wofür | Ohne Login? |
 |---|---|---|
-| `/` | Leitet direkt auf `/plan` weiter | ja |
+| `/` | Leitet direkt auf `/today` weiter | ja |
 | `/demo` | Kompletter Durchlauf mit Beispieldaten | ja |
 | `/onboarding` | Profil anlegen, Plan erzeugen | Login nötig (Magic Link) |
-| `/plan` | Die aktuelle Trainingswoche | nein |
-| `/season` | Rennkalender und Jahresplanung | nein |
-| `/strength` | Eigene Kraftprogramme, Sätze protokollieren | nein |
-| `/benchmarks` | Testergebnisse eintragen | nein |
-| `/progress` | Verlauf und Auswertungen | nein |
+| `/today` | **Tab Today:** der Tag — Wochenstreifen, die Einheit von heute, Wochenstand, Coach | nein |
+| `/plan` | **Tab Plan → Week:** die Trainingswoche, eine Zeile pro Tag | nein |
+| `/season` | **Tab Plan → Season:** Rennkalender und Jahresplanung | nein |
+| `/strength` | Eigene Kraftprogramme — erreichbar über **Setup → Strength program** | nein |
+| `/benchmarks` | Tests und Rennen eintragen — erreichbar über **Progress → Log a test / Log a race** | nein |
+| `/progress` | **Tab Progress:** Prognose, Verlauf und Auswertungen | nein |
 | `/race` | Renntag: Pacing-Blatt, Stationskosten, Rennergebnis | nein |
 | `/settings` | Setup & Tools: Wochenform, Laufvolumen, Verbindungen, Verletzung | nein |
 | `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
@@ -68,14 +69,27 @@ Alle eingeloggten Seiten teilen sich **einen Rahmen** im Look des HyroxTraining-
 „Box-Whiteboard"-Optik, siehe [Das Aussehen](#das-aussehen)):
 
 - **Am Desktop** (breiter als 900 px) steht links eine graue Aluminium-Spalte: oben das Logo
-  „HYROX / HUB" (führt immer zurück auf `/plan`), darunter die sechs Bereiche mit Symbol, unten
+  „HYROX / HUB" (führt immer zurück auf `/today`), darunter die vier Tabs mit Symbol, unten
   **Setup**. Der Countdown steht oben rechts über dem Inhalt.
 - **Am Handy** (900 px und schmaler) ist der Rahmen eine Leiste oben — Logo links, Countdown und ein
-  Zahnrad für **Setup** rechts — und die sechs Bereiche sitzen als Tab-Leiste am unteren Rand
-  (kurze Namen: Week, Season, Strength, Progress, Race, Tests).
+  Zahnrad für **Setup** rechts — und die vier Tabs sitzen als Tab-Leiste am unteren Rand.
 
-Der Bereich, auf dem du bist, ist in beiden Fällen schwarz gefüllt. Auch die
-Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
+**Vier Tabs, sortiert nach dem, was du gerade tust:**
+
+| Tab | Wofür | Hängt daran |
+|---|---|---|
+| **Today** | In der Halle: die Einheit von heute loggen | — |
+| **Plan** | Die Woche und die Saison ansehen, Einheiten verschieben | Season, über den Umschalter **Week \| Season** oben |
+| **Progress** | Wo du stehst: Prognose, Ziel, Verlauf | Tests und Rennen eintragen (`/benchmarks`) |
+| **Race** | Renntag: Pacing-Blatt und Stationskosten | — |
+
+Der Tab, auf dem du bist, ist schwarz gefüllt — auch auf den Seiten, die an ihm hängen: Auf der
+Saison leuchtet **Plan**, auf Tests & races **Progress**, auf dem Kraftprogramm das
+**Setup**-Zahnrad. Diese Seiten haben oben links zusätzlich einen Rückweg („← Progress",
+„← Setup"). Auch die Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
+
+Bis zu diesem Umbau gab es sechs gleichrangige Tabs (Week, Season, Strength, Progress, Race, Tests).
+Strength und Tests sind keine eigenen Tabs mehr, ihre Seiten und Adressen gibt es aber weiter.
 
 ### Seitenwechsel
 
@@ -120,7 +134,7 @@ Cookie im jeweiligen Browser. Wichtig: **Der Link funktioniert nur in dem Browse
 angefordert hat.** Am PC anfordern und die Mail am Handy öffnen geht nicht; fordere den Link auf
 jedem Gerät neu an. Die Anmeldeseite sagt das auch.
 
-**Hast du schon einen Plan, landest du nach der Anmeldung direkt auf `/plan`.** Das Formular unten
+**Hast du schon einen Plan, landest du nach der Anmeldung direkt auf `/today`.** Das Formular unten
 erscheint dann gar nicht mehr — es würde beim Absenden einen neuen Plan bauen und den bestehenden
 verwerfen. Willst du wirklich von vorne anfangen, rufe `/onboarding?new=1` auf.
 
@@ -164,7 +178,7 @@ einer einzigen Transaktion gespeichert (`persist_plan`), damit kein halber Plan 
 
 ---
 
-## 4. `/plan` — die Trainingswoche
+## 4. `/today` und `/plan` — heute und die Trainingswoche
 
 Ohne ausdrücklich gewählte Woche zeigt die App die aktuelle Kalenderwoche des Plans. Woche 1
 beginnt am **Startdatum** des Plans (ein Montag, unter Setup änderbar); montags schaltet die
@@ -172,12 +186,33 @@ Ansicht weiter. Vergangene Wochen bleiben einsehbar und ihre Logs erhalten. Welc
 ist, rechnet der Server in der Trainingszeitzone `APP_TIME_ZONE` (Standard: Europe/Berlin) — das
 gilt für die aktuelle Woche, die abendlichen Check-ins und automatisch zugeordnete Läufe.
 
-Die Hauptseite. Links die Einheiten der Woche, rechts die Kontextkarten.
+Zwei Seiten zeigen dieselbe Woche aus denselben Daten: **Today** (`/today`) ist der Bildschirm für
+die Halle, **Plan → Week** (`/plan`) die Übersicht. Eine auf der einen Seite geloggte Einheit ist
+auf der anderen sofort dieselbe.
+
+### `/today` — der Start
+
+Die App öffnet hier (auch als installierte App vom Startbildschirm).
+
+- **Kopf:** Phase und „Week N of M", darunter groß **Today** mit dem Datum.
+- **Wochenstreifen:** sieben Kacheln Mo–So mit Datum. Unter jedem Tag ein Punkt pro Einheit in der
+  Farbe dessen, was sie verlangt (rot hart, blau Laufen, orange Kraft/Station); erledigte Einheiten
+  sind grün, ausgelassene grau. Heute hat einen schwarzen Rahmen. **Ein Tap auf einen anderen Tag**
+  zeigt dessen Einheit darunter, die Überschrift wechselt auf den Wochentag.
+- **Die Einheit des gewählten Tags** als volle [Einheitenkarte](#eine-einheitenkarte) mit dem
+  Knopf **Done** ([Loggen](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen)). Ein Tag ohne
+  Einheit zeigt die Ruhetag-Kachel.
+- **This week:** der Wochenfortschritt (siehe unten) und **„Whole week →"** in den Plan-Tab.
+- **Why this week**, **AI coach**, **Why your plan changed** und der **Ernährungshinweis** der
+  Phase — siehe [Was unter der Einheit steht](#was-unter-der-einheit-steht).
+
+Today zeigt immer die laufende Woche. Zum Blättern ist der Plan-Tab da.
 
 ### Was oben steht
 
 Oben rechts (am Handy in der Leiste oben) steht der **Countdown** — nicht das Renndatum, sondern
-wie viele Tage bleiben. Darunter der **Zyklus-Streifen**: eine Linie
+wie viele Tage bleiben. Im Plan-Tab steht darunter der Umschalter **Week | Season** und dann der
+**Zyklus-Streifen**: eine Linie
 pro Woche in der Farbe ihrer Phase, die aktuelle Woche hervorgehoben, ein orangefarbener Punkt über jeder
 Deload- und Benchmark-Woche. Anklicken springt in die Woche.
 
@@ -187,16 +222,25 @@ Deload- und Benchmark-Woche. Anklicken springt in die Woche.
   nächsten Woche. In der ersten und letzten Woche ist der jeweilige Pfeil ausgegraut.
 - **Wochenfortschritt:** ein Balken mit einem Segment pro Einheit (Ruhetage zählen nicht mit) —
   grün = erledigt, grau = ausgelassen, dunkel = offen. Darunter „2 of 5 sessions done" und, falls
-  vorhanden, die Zahl der ausgelassenen. Ein Tap auf einen Log-Knopf füllt das Segment sofort.
+  vorhanden, die Zahl der ausgelassenen und die geplanten Laufkilometer. Ein gespeichertes
+  „Done" füllt das Segment sofort.
 - **„Go to this week →"** erscheint rechts daneben, sobald du eine andere als die laufende Woche
   ansiehst, und bringt dich mit einem Tap zurück.
-- **Coach note:** das Wochenziel in einem Satz — warum diese Woche so aussieht (Phase, Deload,
-  Benchmark — oder das Rennen, das in ihr liegt). Der Text kommt unverändert aus der Engine.
+- **Why this week:** das Wochenziel — warum diese Woche so aussieht (Phase, Deload,
+  Benchmark — oder das Rennen, das in ihr liegt). Der Text kommt unverändert aus der Engine. Er
+  steht auf zwei Zeilen gekürzt; **More** klappt ihn ganz auf.
 - **Wochenwechsel** außerdem über den Zyklus-Streifen darüber; abgeschlossene Wochen bleiben lesbar.
 - **Doppeltage** sind mit AM/PM markiert.
 - **Laufauswertung der Woche:** geplante Kilometer, Anteil im lockeren Bereich, und ob das im
   polarisierten Fenster der Phase liegt. Liegt es daneben, nennt die Karte den Hebel (meist: ein
   Doppeltag holt die Kilometer zurück).
+- **Die Woche als Liste:** eine Zeile pro Tag — Wochentag und Datum, Titel, Typ und Dauer, rechts
+  ein Statuskreis (leer = offen, grün mit Haken = erledigt, grau = ausgelassen). Links die farbige
+  Leiste der Intensität. Die Zeile von heute hat einen schwarzen Rahmen.
+- **Eine Zeile antippen** öffnet die Einheit als eigene Ansicht, die von unten hochfährt (am
+  Desktop mittig): die volle [Einheitenkarte](#eine-einheitenkarte), schon aufgeklappt, mit Done,
+  Swap und dem ⋯-Menü. Schließen über ✕, Escape oder einen Tap daneben; nach dem Loggen oder
+  Verschieben schließt sie von selbst.
 
 ### Ruhetage
 
@@ -206,7 +250,9 @@ loggen. Vorher endete die Liste bei den Trainingstagen, und man musste rückwär
 Ruhetag von einer Einheit zu unterscheiden, die man längst geloggt hatte.
 
 Hast du den Tag im [Setup](#8-settings--setup--tools) als festen Ruhetag gesetzt, sagt die Kachel
-das („One of your fixed rest days") — sonst steht dort, dass nichts geplant ist.
+das („One of your fixed rest days") — sonst steht dort, dass nichts geplant ist. Diese Kachel
+erscheint auf Today, wenn der gewählte Tag frei ist; in der Wochenliste des Plan-Tabs ist ein
+Ruhetag eine gestrichelte Zeile „Rest day".
 
 **Ruhetage stehen nicht im Plan, sie werden abgeleitet.** Die Engine erzeugt Einheiten nur für Tage
 mit Arbeit, und das ist richtig: Die Zahl der geplanten Einheiten fließt in Compliance und
@@ -320,9 +366,17 @@ damit sichtbar, bevor ein Wort gelesen ist — zwei rote Leisten heißen: harte 
 
 **Die Einheit von heute** hat einen schwarzen Rahmen und als einziges Element der Seite einen
 Schatten — sie „hebt sich" vom Board ab — und trägt als einzige einen gefüllten Knopf. Eine
-erledigte Einheit wird grün durchgestrichen, eine geloggte sitzt grau auf dem Board. Alle
-anderen Einheiten haben dieselben vier Knöpfe, nur ruhiger — sonst gäbe es sechs Blickfänge, also
-keinen.
+erledigte Einheit wird grün durchgestrichen, eine geloggte sitzt grau auf dem Board. Andere
+Einheiten tragen denselben Knopf **Done**, nur ruhiger.
+
+**Ein Knopf auf der Karte:** **Done** ([Loggen](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen)).
+Alles, was man mit einer Einheit *macht* statt sie zu trainieren — **Skip** und **Move** —, sitzt
+oben rechts im **⋯-Menü**.
+
+**Der Verlauf der Einheit** steht als dünner Balken unter der Kopfzeile: ein Abschnitt pro Block,
+so breit wie der Block Schritte hat. Warm-up und Mobility sind blass grau, der Hauptteil in der
+Farbe des Tages, ein Finisher rot. So sieht man vor dem Aufklappen, ob die Einheit lang locker oder
+kurz und hart endet.
 
 Zugeklappt: Titel, Typ, Dauer, RPE-Ziel. Bei Laufeinheiten zusätzlich direkt sichtbar:
 
@@ -337,8 +391,8 @@ Kopfzeile mit Station, Tier, Zielpace oder Lastfaktor rechts daneben; darunter d
 Übung, Dosis (z. B. „3 × 8", „4 × 60 m", „rest 90s") und Gewicht rechts — gerendert auf deine
 Division und deinen aktuellen Stand. Kraft-Einheiten zeigen dort zusätzlich dein importiertes
 Programm als **Satz-Tabelle** (siehe [Abschnitt 9](#9-strength--eigenes-kraftprogramm));
-**zugeklappt** steht stattdessen nur eine Zeile (Programmname, Übungszahl, „tap to log sets") — ein
-Tap darauf öffnet die Karte.
+**zugeklappt** steht stattdessen nur eine Zeile (Programmname, Übungszahl), und der Knopf heißt
+**Log sets** — er öffnet die Karte mit der Satz-Tabelle. Aufgeklappt heißt er **Finish**.
 
 Kraft- und Stationseinheiten zeigen aufgeklappt über den Blöcken zusätzlich **Name und Zweck ihrer
 Variante**. Stammt die Einheit aus der [Verona-Sammlung](#workouts), steht darunter klein
@@ -347,17 +401,23 @@ unter der Zonen-Erklärung.
 
 Renntage tragen keine Vorgabe: dort steht, dass das Event die Einheit ist.
 
-### Die Karten rechts
+### Was unter der Einheit steht
+
+Auf **Today**, unter der Einheit des Tages:
 
 | Karte | Funktion |
 |---|---|
-| **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter dein **Ziel und der Abstand dahin**, dann Pace-Zonen und ACWR. Die eine Zahl, für die das ganze System existiert. |
+| **This week** | Wochenfortschritt und „Whole week →" in den Plan-Tab. |
+| **Why this week** | Das Wochenziel der Engine, auf zwei Zeilen gekürzt, mit **More**. |
+| **AI coach** | Rückblick auf die letzten drei Wochen und bis zu drei Vorschläge für die kommenden Einheiten — nur mit Gemini-Key, siehe [unten](#ki-coach-gemini). |
 | **Why your plan changed** | Jede automatische Anpassung im Klartext (siehe Abschnitt 6). |
 | **Ernährung** | Ein kurzer, phasenabhängiger Hinweis. |
-| **AI coach** | Rückblick auf die letzten drei Wochen und bis zu drei Vorschläge für die kommenden Einheiten — nur mit Gemini-Key, siehe [unten](#ki-coach-gemini). |
-| **Setup & tools** | Ein Link auf die [eigene Setup-Seite](#8-settings--setup--tools). |
 
-**Liegst du auf Kurs?** Unter der Prognose steht deine Zielzeit und was zwischen beiden liegt — und
+Die **Prognose (Estimated finish)** mit Ziel, Abstand und Pace-Zonen steht seit dem Umbau oben auf
+[Progress](#11-progress--auswertungen) — bei den anderen Zahlen, die sagen, wo du stehst. Setup
+erreichst du über das Zahnrad.
+
+**Liegst du auf Kurs?** (auf Progress) Unter der Prognose steht deine Zielzeit und was zwischen beiden liegt — und
 zwar aufgeteilt: wie viel davon **noch in den Stationen steckt** (mit der teuersten zuerst) und wie
 viel **aus den Beinen kommen muss.** Steckst du bereits innerhalb des Ziels, steht dort, wie weit.
 
@@ -371,7 +431,7 @@ würde die Trainingspaces sonst in den Verletzungsbereich schieben.
 
 ### KI-Coach (Gemini)
 
-Die Karte **AI coach** rechts neben der Woche. Sie ist nur aktiv, wenn auf dem Server
+Die Karte **AI coach** auf Today, unter dem Wochenstand. Sie ist nur aktiv, wenn auf dem Server
 `GEMINI_API_KEY` gesetzt ist; ohne Key steht dort „Off" und sonst nichts — die App arbeitet wie
 vorher. In gesperrten Wochen (Free Preview) erscheint die Karte nicht.
 
@@ -425,41 +485,45 @@ Was du wissen solltest:
 
 ## 5. Eine Einheit loggen (und den Fehlklick zurücknehmen)
 
-Vier Knöpfe pro Einheit — **„As planned" und „Skip" sind ein Tap**, „Felt harder/easier" zwei (Skala, dann speichern):
+**Ein Knopf pro Einheit: Done.** Er öffnet von unten ein Sheet mit einer einzigen Frage — **„How
+hard was it?"** —, die Skala steht schon auf dem RPE-Ziel der Einheit.
 
-| Knopf | Bedeutung | Wirkung |
+| Was war | Was du tust | Wirkung |
 |---|---|---|
-| **As planned** | So absolviert wie geplant | Ein Tap. Geplante Werte werden als Ist-Werte übernommen. |
-| **Felt harder** | *War* härter als erwartet | Öffnet die Anstrengungs-Skala (siehe unten). Zwei Punkte oder mehr über dem Ziel: Pace/Last gehen einen Schritt zurück. |
-| **Felt easier** | *War* leichter als erwartet | Öffnet die Anstrengungs-Skala. Zwei Punkte oder mehr unter dem Ziel, zweimal in Folge: es geht einen Schritt hoch. |
-| **Skip** | Nicht gemacht | Ein Tap. Wird als ausgelassen protokolliert und fließt in die Compliance ein. |
+| Wie geplant | **Done → Save** (zwei Taps) | Geloggt wie geplant; geplante Werte werden als Ist-Werte übernommen. |
+| Härter als das Ziel | **Done**, Regler nach rechts, **Save** | Wird mit deiner Zahl geloggt. Zwei Punkte oder mehr über dem Ziel: Pace/Last gehen einen Schritt zurück. |
+| Leichter als das Ziel | **Done**, Regler nach links, **Save** | Wird mit deiner Zahl geloggt. Zwei Punkte oder mehr darunter, zweimal in Folge: es geht einen Schritt hoch. |
+| Nicht gemacht | **⋯ → Skip this session** | Als ausgelassen protokolliert; fließt in die Compliance ein. |
 
-> **Wichtig zur Formulierung:** „Felt harder/easier" beschreibt, **wie es war** — nicht, was du dir
-> wünschst. Genau deshalb heißen die Knöpfe seit der Umbenennung so und tragen einen Tooltip.
+Bis zu diesem Umbau trug jede Karte vier Knöpfe (As planned, Felt harder, Felt easier, Skip) — bei
+fünf Einheiten zwanzig Knöpfe auf einer Seite. Was die Engine bekommt, ist dasselbe geblieben: eine
+Zahl auf dem Ziel heißt „as planned", eine darüber oder darunter „harder" bzw. „easier".
+
+**Krafteinheiten mit eigenem Programm** loggen zuerst die Sätze: **Log sets** öffnet die
+Satz-Tabelle, **Finish** führt danach in dasselbe Sheet ([Abschnitt 9](#9-strength--eigenes-kraftprogramm)).
 
 ### Die Anstrengungs-Skala („How hard was it?")
 
-„Felt harder" und „Felt easier" loggen nicht mehr sofort, sondern öffnen unter der Knopfreihe eine
-**RPE-Skala von 1 bis 10**: ein Bogen mit zehn Segmenten, die große Zahl in der Mitte, darunter der
-Name der Stufe (z. B. „Harder") und ein Satz, woran man sie erkennt („Sustainable, but you are
-counting the minutes."). Ein grauer Punkt am Bogen und „▲ target" unter dem Regler zeigen das
-RPE-Ziel der Einheit.
+Das Sheet zeigt eine **RPE-Skala von 1 bis 10**: ein Bogen mit zehn Segmenten, die große Zahl in der
+Mitte, darunter der Name der Stufe (z. B. „Harder") und ein Satz, woran man sie erkennt
+(„Sustainable, but you are counting the minutes."). Ein grauer Punkt am Bogen und „▲ target" unter
+dem Regler zeigen das RPE-Ziel der Einheit.
 
-- **Vorbelegt** ist Ziel + 2 (bei „Felt harder") bzw. Ziel − 2 (bei „Felt easier") — also genau
-  das, was ein Tap früher bedeutet hat. Wer nur bestätigt, loggt wie bisher.
+- **Vorbelegt** ist das Ziel. Wer nur speichert, loggt „wie geplant".
 - **Einstellen** per Schieberegler (auch mit Pfeiltasten). Bogen, Zahl und Farbe folgen sofort.
 - **Vorher sichtbar, was passiert:** ein Satz nennt die Folge, bevor gespeichert wird — z. B.
-  „2 above the target of 7 — the plan backs this kind of session off a step." oder „Within a point
-  of the target — the plan holds its course." Die Schwellen sind die Engine-Standardwerte (±2).
-- **„Save effort"** loggt die Einheit mit genau dieser Zahl; **„Cancel"** oder ein zweiter Tap auf
-  denselben Knopf schließt die Skala, ohne etwas zu speichern. Landet die Zahl genau auf dem Ziel,
-  wird die Einheit als „As planned" gespeichert.
+  „2 above the target of 7 — the plan backs this kind of session off a step." oder „Right on the
+  target of 7 — the plan holds its course." Die Schwellen sind die Engine-Standardwerte (±2).
+- **„Save"** loggt die Einheit mit genau dieser Zahl; **„Cancel"**, Escape oder ein Tap neben das
+  Sheet schließt es, ohne etwas zu speichern.
 
 Das funktioniert genauso im [Demo](#16-demo--ausprobieren-ohne-konto).
 
 ### Undo
 
-Vertippt? Unter der Knopfreihe erscheint bei einer geloggten Einheit **„Logged by mistake? · Undo"**.
+Vertippt? Direkt nach dem Speichern steht unten ein Hinweis mit der Antwort der Engine und
+**Undo** daneben. Später geht es über die Karte selbst: Eine geloggte Einheit zeigt
+**„Logged by mistake? · Undo"**.
 Das nimmt nicht nur den Eintrag zurück, sondern auch **die Kalibrierung, die er ausgelöst hat**: Die
 App spielt die verbleibenden Logs neu ein und stellt Paces, Tiers und Kraftfaktor auf den Stand ohne
 diesen Tag. Ein Fehlklick verzieht also nichts dauerhaft.
@@ -499,9 +563,8 @@ Was der Tausch tut und was nicht:
 
 Für eine **einzelne** Woche abweichen — ohne den Standard zu ändern — geht weiterhin über Move:
 
-**Move** sitzt im aufgeklappten Zustand der Einheit — eine Zeile „Verschieben" unter jeder
-zugeklappten Karte wäre Mobiliar in einer Liste, die man nach dem heutigen Training überfliegt.
-Karte antippen, dann **Move**: ein Tap öffnet die Wochentage — Mo bis So als Reihe. Der Tag, auf dem die Einheit schon liegt, ist markiert und nicht anklickbar; jeder andere
+**Move** sitzt im **⋯-Menü** oben rechts auf der Karte („Move to another day"), zusammen mit Skip.
+Es öffnet unter der Karte die Wochentage — Mo bis So als Reihe, mit **Cancel** zum Schließen. Der Tag, auf dem die Einheit schon liegt, ist markiert und nicht anklickbar; jeder andere
 verschiebt sie dorthin.
 
 **Ein belegter Tag ist kein Fehler, sondern ein Tausch.** Liegt auf dem Zieltag schon eine Einheit,
@@ -601,7 +664,7 @@ der Zyklus nicht auf voller Last beginnt.
 
 Das ist bewusst *gegenläufig* zu einer reinen Laufperiodisierung. Was in einem Hyrox-Zyklus zum
 Rennen hin steigt, ist nicht die Distanz, sondern die Spezifität: Der Laufanteil der
-[Trainingsmischung](#4-plan--die-trainingswoche) sinkt von 45–55 % in der Basis auf 30 % im Peak,
+[Trainingsmischung](#4-today-und-plan--heute-und-die-trainingswoche) sinkt von 45–55 % in der Basis auf 30 % im Peak,
 während kompromittiertes Laufen und Stationsarbeit übernehmen — und die bringen ihre eigene Last
 mit. Die Kilometer obendrauf zu halten heißt, die Basis wegbrechen zu lassen, bevor die Form da ist.
 Die Nicht-Lauf-Einheiten haben ihre eigene Kurve, die später gipfelt: Distanz früh, Stationslast spät.
@@ -626,7 +689,7 @@ Renndatum, passiert nichts von selbst:** Du baust den Plan auf [`/season`](#7-se
 neu aus dem Kalender.
 
 **Nach dem Renntag.** Ist der Renntag vorbei, ist der Plan ein Protokoll und wird als *abgeschlossen*
-geführt. `/plan` zeigt dann keinen Wochenplan mehr, sondern zwei Wege weiter:
+geführt. `/today` und `/plan` zeigen dann keinen Wochenplan mehr, sondern zwei Wege weiter:
 
 - **Nächstes Rennen wählen** — auf `/season` eintragen und daraus bauen.
 - **Übergangsblock starten** — vier Module, die aufeinander aufbauen (siehe unten). Sobald du ein
@@ -700,11 +763,14 @@ hinterlegt, wird er sprachlich veredelt — fällt das aus, steht der Standardte
 selbst wird nie von einem Sprachmodell verändert.**
 
 **Alles ist protokolliert.** Jede automatische Anpassung landet mit Grund in einem Änderungs-Log,
-das du auf `/plan` und `/progress` sehen kannst.
+das du auf `/progress` sehen kannst.
 
 ---
 
 ## 7. `/season` — Rennkalender und Jahresplanung
+
+Erreichbar im Tab **Plan** über den Umschalter **Week | Season** oben; **Week** führt zurück in die
+Wochenliste.
 
 ### Rennen eintragen
 
@@ -759,7 +825,8 @@ Kalender überlebt auch einen Rebase.
 
 Erreichbar über **Setup** — am Desktop unten in der linken Spalte, am Handy über das Zahnrad oben
 rechts — auf jeder Seite. Vier Gruppen, nach dem sortiert, was du
-entscheidest.
+entscheidest. Dazu kommt **Strength program**: eine Zeile, die auf dein
+[Kraftprogramm](#9-strength--eigenes-kraftprogramm) führt.
 
 ### Deine Trainingswoche
 
@@ -780,7 +847,7 @@ ehrliche Wahl: *Elite* liefert Einheiten, die er nicht durchhält, *Trained* zei
 
 **Eine Zielzeit, zwei Stellen:** Das Feld hier und *Target time* in der Karte
 [Rennen & Simulationen](#rennen--simulationen) auf `/benchmarks` sind dieselbe Zahl — was du an
-einer Stelle setzt, steht an der anderen. Sie misst die Prognose auf `/plan`, das Pacing-Blatt auf
+einer Stelle setzt, steht an der anderen. Sie misst die Prognose auf `/progress`, das Pacing-Blatt auf
 `/race` und die Rennanalyse auf `/progress`.
 
 Die **Division** setzt jedes Gewicht im Plan — Open, Pro, Doubles, Masters, Masters Pro.
@@ -1030,7 +1097,9 @@ eine Spalte oder ein Enum-Wert, und `supabase/setup.sql` einmal durchlaufen zu l
 
 ## 9. `/strength` — eigenes Kraftprogramm
 
-Gedacht für alle, die ihr Krafttraining bereits in Excel führen.
+Gedacht für alle, die ihr Krafttraining bereits in Excel führen. Erreichbar über **Setup →
+Strength program** (das Zahnrad leuchtet dabei); „← Setup" führt zurück. Einen eigenen Tab hat das
+Kraftprogramm nicht mehr: Bearbeitet wird es selten, geloggt wird es in der Krafteinheit selbst.
 
 **Import per Einfügen.** Bereich in Excel markieren, kopieren, ins Feld einfügen — die Zwischenablage
 enthält tabulatorgetrennten Text, und genau den liest der Parser. Erkannt werden Wiederholungs-
@@ -1043,10 +1112,10 @@ bevor irgendetwas gespeichert wird.
 Bibliothek — Warm-up davor, Finisher und Mobility danach, genau wie die Engine die Einheit gebaut
 hat. Ein Finisher ist nach dem benannt, wann er stattfindet.
 
-**Sätze protokollieren.** Auf der **aufgeklappten** Kraft-Einheit in `/plan` steht pro Satz ein
-Eingabefeld für Wiederholungen und Gewicht; zugeklappt zeigt die Karte nur eine Programmzeile.
-Leer gelassen heißt „wie programmiert" — auch wer ohne Aufklappen „As planned" tippt, loggt das
-Programm wie geschrieben.
+**Sätze protokollieren.** **Log sets** auf der Kraft-Einheit (Today oder die Einheit aus dem
+Plan-Tab) klappt sie auf: pro Satz ein Eingabefeld für Wiederholungen und Gewicht, die „Previous"-
+Spalte und ein Haken. **Finish** führt danach in die Frage „How hard was it?". Leer gelassen heißt
+„wie programmiert".
 
 **Progression als Vorschlag.** Nach einem geloggten Training schlägt die App die nächste Last vor
 (doppelte Progression: erst Wiederholungen ans obere Ende, dann Gewicht rauf). Der Vorschlag
@@ -1055,6 +1124,10 @@ Programm wie geschrieben.
 ---
 
 ## 10. `/benchmarks` — Tests eintragen
+
+Erreichbar über **Progress → Log a test** (springt an den Anfang) oder **Log a race** (springt zu
+den Rennen & Simulationen); die Seite heißt jetzt **Tests & races**, der Tab **Progress** leuchtet,
+und „← Progress" führt zurück.
 
 Eine Liste standardisierter Tests (z. B. 1 km Zeit, Wall Balls in 2 min). Ergebnis eintragen,
 speichern — die Zielzeit-Prognose wird sofort neu gerechnet und der Verlauf auf `/progress`
@@ -1123,9 +1196,11 @@ gehalten in einem festen Pulsband nahe der Schwelle.
 
 ## 11. `/progress` — Auswertungen
 
+Oben zwei Knöpfe: **Log a test** und **Log a race** — beide auf [Tests & races](#10-benchmarks--tests-eintragen).
+
 | Element | Was es zeigt |
 |---|---|
-| **Estimated finish** | Aktuelle Zielzeit-Prognose |
+| **Estimated finish** | Die Zielzeit-Prognose als Rennuhr, darunter dein **Ziel und der Abstand dahin** ([Liegst du auf Kurs?](#was-unter-der-einheit-steht)) und die Pace-Zonen Easy und Race. Stand bis zu diesem Umbau neben der Woche. |
 | **ACWR now** | Belastungsverhältnis akut/chronisch |
 | **Avg. weekly compliance** | Geloggte gegen geplante Einheiten |
 | **Sessions logged** | Gesamtzahl |
@@ -1282,7 +1357,8 @@ erforderlich. Die Push-URL wird mit `?token=<Secret>` registriert (alternativ He
 bei der Erreichbarkeitsprüfung. URL samt Token nicht teilen oder in öffentliche Logs übernehmen.
 Pro Push sind höchstens 20 Aktivitäten erlaubt; Datenbankfehler werden nicht mehr still bestätigt.
 
-**Telegram.** Abends kommt ein Check-in mit vier Knöpfen (dieselben wie in der App). Antippen loggt
+**Telegram.** Abends kommt ein Check-in mit vier Knöpfen (As planned, Felt harder, Felt easier, Skip — in der App
+entspricht das Done mit der Skala auf, über oder unter dem Ziel bzw. Skip im ⋯-Menü). Antippen loggt
 die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-Mail.
 
 ---
@@ -1293,7 +1369,7 @@ die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-M
 |---|---|
 | Täglich abends | Check-in an alle mit einer heute noch offenen Einheit (Telegram, sonst E-Mail) |
 | Nächtlich | Makro-Guardrails: ACWR-Prüfung, Auto-Deload, Rebase, Reha-Übergänge. Eingetragene [Urlaubstage](#urlaub) zählen nicht als Tage ohne Einheit. |
-| Sonntagabend | Wochenrückblick: Compliance, Belastung, was nächste Woche ansteht. Mit `GEMINI_API_KEY` hängt der Rückblick des [KI-Coaches](#ki-coach-gemini) an, plus der Hinweis, wie viele Vorschläge auf `/plan` warten — angewendet wird dabei nichts. |
+| Sonntagabend | Wochenrückblick: Compliance, Belastung, was nächste Woche ansteht. Mit `GEMINI_API_KEY` hängt der Rückblick des [KI-Coaches](#ki-coach-gemini) an, plus der Hinweis, wie viele Vorschläge auf `/today` warten — angewendet wird dabei nichts. |
 
 Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht von außen auslösen.
 
@@ -1304,7 +1380,7 @@ Diese Läufe sind mit einem Betreiber-Secret geschützt und lassen sich nicht vo
 ### Offline in der Halle
 
 Die App lässt sich **auf dem Handy installieren** („Zum Startbildschirm hinzufügen") und startet dann
-direkt auf `/plan`.
+direkt auf `/today`.
 
 **Was du schon einmal geöffnet hast, bleibt lesbar — auch ohne Empfang.** Eine Seite wird beim
 Aufruf mitgespeichert; im Keller bekommst du die zuletzt geladene Fassung. Eine Seite, die du noch
@@ -1329,7 +1405,7 @@ andere zu verkaufen, ist entfernt:
 - **Keine Bezahlung, keine Paywall.** Früher war Woche 1 frei und der Rest gesperrt, bis der
   Rennzyklus freigeschaltet wurde. Stripe, die Freischaltung und die Sperre sind raus — jede Woche
   ist vollständig da.
-- **Keine Startseite mit Pitch, keine SEO-Landingpages.** `/` führt direkt auf `/plan`; wer nicht
+- **Keine Startseite mit Pitch, keine SEO-Landingpages.** `/` führt direkt auf `/today`; wer nicht
   angemeldet ist, landet von dort im Onboarding.
 - **Keine Betriebs-Kennzahlen.** `/api/admin/kpis` maß Dinge wie „Anteil der Logs mit echtem RPE"
   über alle Profile hinweg — bei einem Athleten ist das keine Kennzahl.
@@ -1386,7 +1462,7 @@ Ein „Brief" fasst zusammen, was aktuell aus eigenen Quellen im System steckt.
 | **Deload** | Entlastungswoche. Im Jahresplan −35 %, innerhalb des Wochenplans −40 % — die beiden Ebenen führen ihre eigene Zahl, absichtlich. |
 | **ACWR** | Verhältnis der Belastung der letzten 7 zu den letzten 28 Tagen. |
 | **RPE** | Subjektives Anstrengungsempfinden, 1–10. |
-| **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. Die Session ist **level- und phasenabhängig**: 60 Vorgaben über fünf Level und vier Phasen, siehe [Abschnitt 4](#4-plan--die-trainingswoche). |
+| **Kompromittiertes Laufen** | Laufen unter Vorermüdung — das Gefühl des echten Rennens. Die Session ist **level- und phasenabhängig**: 60 Vorgaben über fünf Level und vier Phasen, siehe [Abschnitt 4](#4-today-und-plan--heute-und-die-trainingswoche). |
 | **Polarisiert** | 75–85 % der Laufdistanz locker, der Rest wirklich hart. Gemessen an der **Distanz je Zone**, nicht an der Zahl der Einheiten. |
 | **Tier** | Leistungsstufe 1–3 pro Station; steuert Gewichte und Vorgaben. Ein geloggtes Rennen setzt sie neu, siehe [Abschnitt 12](#12-race--renntag-pacing-und-ergebnis). |
 | **Roxzone** | Der Weg zwischen Laufende und Station. Achtmal im Rennen, und in Summe eine der größten stillen Zeitreserven — im Pacing-Blatt eigene Zeilen. |
@@ -1406,12 +1482,13 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Neue Struktur:** vier Tabs statt sechs — Today, Plan, Progress, Race. **Today** ist der neue Start mit Wochenstreifen und der Einheit des Tages; **Plan** zeigt die Woche als Liste (eine Zeile pro Tag, Antippen öffnet die Einheit) und die Saison über „Week \| Season"; Tests & Rennen tragen sich über Progress ein, das Kraftprogramm über Setup. **Loggen** mit einem Knopf: „Done" fragt im Sheet nach der Anstrengung (vorbelegt mit dem Ziel), Skip und Move sitzen im ⋯-Menü, nach dem Speichern bietet ein Hinweis Undo. Die Prognose steht jetzt auf Progress. Jede Einheit zeigt ihren Verlauf als Balken | [2](#2-seitenübersicht), [4](#4-today-und-plan--heute-und-die-trainingswoche), [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen), [11](#11-progress--auswertungen) |
 | **Schnellere Seitenwechsel:** jeder Bereich zeigt beim Tippen sofort Platzhalter mit stehender Navigation; ein vor weniger als 30 s besuchter Bereich kommt ohne Ladezeit zurück; die Seiten fragen die Datenbank in weniger Runden ab, und der Server läuft jetzt in Frankfurt neben der Datenbank statt in den USA | [Seitenwechsel](#seitenwechsel) |
 | **Neues Design wie HyroxTraining („Box Whiteboard"):** heller Whiteboard-Grund, Barlow-Schriften, Markerfarben mit je einer Bedeutung (Laufen jetzt blau, hart rot); Navigation am Desktop in einer Aluminium-Spalte links, am Handy als Tab-Leiste unten mit Setup-Zahnrad oben; die heutige Einheit hebt sich mit Schatten ab, Erledigtes wird grün durchgestrichen | [2](#2-seitenübersicht), [4](#eine-einheitenkarte), [8](#8-settings--setup--tools) |
-| **Zusammengeführt:** die Härtung vom 04.09. — „heute" in der Trainingszeitzone, Rückfrage vor Reha-Modus und Neuaufbau, ein Log wird mit Sätzen und Status in einem Schritt gespeichert (doppeltes Loggen legt nichts doppelt an), der Nachtlauf passt jede Woche nur einmal an, Garmin-Webhook mit Secret | [4](#4-plan--die-trainingswoche), [13](#13-verbindungen-strava-garmin-telegram) |
-| **Zusammengeführt:** die Arbeit vom 23.–30.08. (Datum auf jeder Karte, Ruhetage in der Woche, Level/Division/Zielzeit änderbar, Startdatum, Doppeltage festlegbar, `/race` mit Pacing-Blatt, Übergangsblock, Stationen tauschen, Export, Offline, Kataloge nach Level) liegt jetzt auf derselben Version wie Rennanalyse, KI-Coach, Verona-Plan, Kraft-Tage, Spieltag und Urlaub | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
+| **Zusammengeführt:** die Härtung vom 04.09. — „heute" in der Trainingszeitzone, Rückfrage vor Reha-Modus und Neuaufbau, ein Log wird mit Sätzen und Status in einem Schritt gespeichert (doppeltes Loggen legt nichts doppelt an), der Nachtlauf passt jede Woche nur einmal an, Garmin-Webhook mit Secret | [4](#4-today-und-plan--heute-und-die-trainingswoche), [13](#13-verbindungen-strava-garmin-telegram) |
+| **Zusammengeführt:** die Arbeit vom 23.–30.08. (Datum auf jeder Karte, Ruhetage in der Woche, Level/Division/Zielzeit änderbar, Startdatum, Doppeltage festlegbar, `/race` mit Pacing-Blatt, Übergangsblock, Stationen tauschen, Export, Offline, Kataloge nach Level) liegt jetzt auf derselben Version wie Rennanalyse, KI-Coach, Verona-Plan, Kraft-Tage, Spieltag und Urlaub | [4](#4-today-und-plan--heute-und-die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
 | **Eine Zielzeit:** Setup und *Target time* auf `/benchmarks` schreiben dieselbe Zahl; ein auf `/race` geloggtes Rennen erscheint unter Rennen & Simulationen und in der Rennanalyse | [8](#8-settings--setup--tools), [10](#rennen--simulationen), [12](#12-race--renntag-pacing-und-ergebnis) |
-| **Erg-Leiter bleibt:** Stationseinheiten kommen aus dem Level-Katalog; zielt eine Build-Woche auf schwache Wall Balls, kommt die Erg-Leiter mit 100 Wall Balls | [4](#4-plan--die-trainingswoche) |
+| **Erg-Leiter bleibt:** Stationseinheiten kommen aus dem Level-Katalog; zielt eine Build-Woche auf schwache Wall Balls, kommt die Erg-Leiter mit 100 Wall Balls | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | **Zweiter Kraft-Tag** nimmt jetzt auch eine zweite Stationseinheit, wenn kein leichter Platz frei ist | [8](#deine-trainingswoche) |
 | **Neues Layout auf `/plan`:** Wochenkopf mit ‹ › zur vorigen/nächsten Woche, „Week N of M", Fortschrittsbalken „x of y sessions done", „Go to this week →" und das Wochenziel als „Coach note"; Blöcke als farbige Abschnitte mit durchnummerierten Schritten | [4](#die-wochenansicht), [4](#eine-einheitenkarte) |
 | **Anstrengungs-Skala:** „Felt harder/easier" öffnen eine RPE-Skala 1–10 (vorbelegt mit Ziel ±2), die vor dem Speichern sagt, was der Plan daraus macht — auch im Demo | [5](#die-anstrengungs-skala-how-hard-was-it) |
@@ -1425,24 +1502,24 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 | **KI-Coach (Gemini)** auf `/plan`: Rückblick auf drei Wochen und bis zu drei Vorschläge (Move/Easier/Harder/Skip), von der Engine geprüft, erst per „Apply" wirksam, mit Undo; Rückblick auch im Sonntags-Review | [4](#ki-coach-gemini), [14](#14-automatische-abläufe-im-hintergrund) |
 | **Rennen & Simulationen** mit allen Splits und Zielzeit auf `/benchmarks`; **Race readiness** auf `/progress`: Ziel-Splits aus der Baseline, Abstand je Segment, Readiness, Pace-Verlust nach den BBJ, Fade | [10](#rennen--simulationen), [11](#11-progress--auswertungen) |
 | Benchmark **AT-PT**: Schwellentest auf dem Erg mit Pulsband aus dem eigenen Maximalpuls (im Profil gespeichert), Wattschnitt und Erholungszeit als zwei Verläufe | [10](#10-benchmarks--tests-eintragen) |
-| Neue Stationsvariante im Build: Erg-Leiter (5 × 1000 m, jeder schneller) direkt in 100 Wall Balls; trifft eine schwache Wall-Ball-Station | [4](#4-plan--die-trainingswoche) |
+| Neue Stationsvariante im Build: Erg-Leiter (5 × 1000 m, jeder schneller) direkt in 100 Wall Balls; trifft eine schwache Wall-Ball-Station | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | **Fehler behoben:** Das Wochenlaufvolumen wurde aus der Dauer geschätzt statt aus den geschriebenen Metern und lag um das 1,5- bis 2-fache zu hoch; der Peak-Regler stellte diese überhöhte Zahl ein. Jetzt zählen die vorgeschriebenen Meter, feste und bewegliche Läufe werden getrennt, und eine nicht erreichbare Vorgabe wird benannt statt still verfehlt | [8](#8-settings--setup--tools) |
-| Jede Katalog-Einheit führt jetzt **alle** Stationen, die sie trainiert, nicht nur ihre Überschrift — 57 von 60 Stationseinheiten trainieren mehrere. Die Gewichtung rechnet damit; Kraft- und Intervalleinheiten zählen bewusst nicht als Stationstraining | [4](#4-plan--die-trainingswoche) |
-| Stationen werden nicht mehr blind rotiert: die Wochen einer Phase gehen gewichtet nach Rennkosten an die Stationen, mit Unter- und Obergrenze | [4](#4-plan--die-trainingswoche) |
-| **Fehler behoben:** Beim Loggen einer Stationseinheit wurde das Tier der Station aus der Wochenrotation verschoben statt das der tatsächlich trainierten — die stimmten in etwa einer von vier Wochen überein | [4](#4-plan--die-trainingswoche) |
+| Jede Katalog-Einheit führt jetzt **alle** Stationen, die sie trainiert, nicht nur ihre Überschrift — 57 von 60 Stationseinheiten trainieren mehrere. Die Gewichtung rechnet damit; Kraft- und Intervalleinheiten zählen bewusst nicht als Stationstraining | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
+| Stationen werden nicht mehr blind rotiert: die Wochen einer Phase gehen gewichtet nach Rennkosten an die Stationen, mit Unter- und Obergrenze | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
+| **Fehler behoben:** Beim Loggen einer Stationseinheit wurde das Tier der Station aus der Wochenrotation verschoben statt das der tatsächlich trainierten — die stimmten in etwa einer von vier Wochen überein | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | Offline nutzbar und aufs Handy installierbar: bereits geöffnete Seiten bleiben ohne Empfang lesbar, mit Hinweisband; Loggen braucht bewusst weiter Netz; Abmelden löscht den Cache | [15](#15-eine-app-für-einen-athleten) |
 | Datenexport im Setup: alles Geloggte als eine JSON-Datei, mit den Blöcken der Einheiten darin — die Sicherungskopie für ein Supabase-Projekt, das sonst allein dasteht | [8](#8-settings--setup--tools) |
 | Auf Einzelnutzung zugeschnitten: Stripe, Paywall und Wochensperre entfernt (jede Woche ist vollständig da), Pitch-Startseite und SEO-Landingpages entfernt (`/` führt auf `/plan`), Betriebs-Kennzahlen entfernt | [15](#15-eine-app-für-einen-athleten) |
 | **Fehler behoben:** Bei einem Rennen, das weiter als 20 Wochen entfernt ist, wurde der Rennzyklus abgeschnitten und taperte Wochen bis Monate zu früh. Solche Pläne sind jetzt Übergangsblöcke, der Rennzyklus startet in Reichweite — bestehende Pläne stellt der nächtliche Lauf selbst um | [6](#6-wie-sich-der-plan-anpasst) |
 | **Fehler behoben:** Ein Übergangsblock wurde bei jedem nächtlichen Neuaufbau still zu einem Rennzyklus, der auf sein eigenes Blockende hin taperte | [6](#6-wie-sich-der-plan-anpasst) |
 | **Fehler behoben:** Von Hand verschobene Einheiten gingen beim nächsten Neuaufbau verloren — sie wurden unter der falschen Kalenderwoche abgelegt (Erstellungsdatum statt Startdatum des Plans) und passten danach auf keine Woche | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
-| Ruhetage bekommen eine eigene Kachel: die Woche zeigt alle sieben Tage, feste Ruhetage sind als solche benannt. Die Woche liest sich jetzt auch nach einem Verschieben von Montag bis Sonntag | [4](#4-plan--die-trainingswoche) |
+| Ruhetage bekommen eine eigene Kachel: die Woche zeigt alle sieben Tage, feste Ruhetage sind als solche benannt. Die Woche liest sich jetzt auch nach einem Verschieben von Montag bis Sonntag | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | **Fehler behoben:** Bei importiertem Kraftprogramm stand der Finisher direkt nach dem Warm-up und die eigentliche Arbeit ganz unten — das eigene Programm wurde ans Ende gehängt statt an die Stelle des Bibliotheksblocks | [9](#9-strength--eigenes-kraftprogramm) |
-| Wochentag und **Datum** auf jeder Einheitenkarte; die HF-Zone der Karte folgt jetzt ebenfalls der Zone der Session statt der des Session-Typs | [4](#4-plan--die-trainingswoche) |
-| **Fehler behoben:** Schwellen- und Renntempo-Intervalle zeigten die Intervall-Pace (bei 19:00-5k-Niveau 29 s/km zu schnell) und kalibrierten beim Loggen die falsche Zone. Jede der 86 Sessions nennt jetzt ihre eigene Zone; gemischte Einheiten zeigen bewusst keine | [4](#4-plan--die-trainingswoche) |
+| Wochentag und **Datum** auf jeder Einheitenkarte; die HF-Zone der Karte folgt jetzt ebenfalls der Zone der Session statt der des Session-Typs | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
+| **Fehler behoben:** Schwellen- und Renntempo-Intervalle zeigten die Intervall-Pace (bei 19:00-5k-Niveau 29 s/km zu schnell) und kalibrierten beim Loggen die falsche Zone. Jede der 86 Sessions nennt jetzt ihre eigene Zone; gemischte Einheiten zeigen bewusst keine | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | Stationen tauschen, wenn das Gerät nicht frei ist: 2–3 Alternativen je Station, jede mit „Behält" und „Kostet". Gilt pro Station, bleibt bis zum Zurücktauschen, ändert den Plan nicht | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Das Pacing-Blatt teilt die acht Läufe entlang einer Ermüdungskurve auf (Lauf 1 schneller als Lauf 8) statt achtmal derselben Pace. Verteilt nur um — die Prognose ändert sich dadurch nicht | [12](#12-race--renntag-pacing-und-ergebnis) |
-| Zielzeit als eigene Zahl, getrennt vom Level (Level = was du tragen kannst, Ziel = was du anstrebst). Auf `/plan` steht der Abstand zum Ziel, aufgeteilt in Stationen und Beine; das Pacing-Blatt öffnet auf dem Ziel statt auf der Prognose. Nur die Zielzeit zu ändern baut keine Woche neu | [4](#4-plan--die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
+| Zielzeit als eigene Zahl, getrennt vom Level (Level = was du tragen kannst, Ziel = was du anstrebst). Auf `/plan` steht der Abstand zum Ziel, aufgeteilt in Stationen und Beine; das Pacing-Blatt öffnet auf dem Ziel statt auf der Prognose. Nur die Zielzeit zu ändern baut keine Woche neu | [4](#4-today-und-plan--heute-und-die-trainingswoche), [8](#8-settings--setup--tools), [12](#12-race--renntag-pacing-und-ergebnis) |
 | Zielzeit-Prognose läuft auf demselben Rennmodell wie das Pacing-Blatt (Stationen und Roxzone statt einer Divisionskonstante, gemessene Rennsplits wo vorhanden). Die Prognosen werden dadurch realistischer und rund zehn Minuten langsamer; die Pro-Referenzzeiten waren zu optimistisch und kosten jetzt die Minuten, die die schwereren Lasten wirklich kosten | [11](#11-progress--auswertungen), [12](#12-race--renntag-pacing-und-ergebnis) |
 | Neue Seite `/race`: Pacing-Blatt aus der Zielzeit (17 Abschnitte, Stationen zuerst abgezogen), Stationskosten in Sekunden statt Tiers, und ein Rennergebnis mit Laufsplits und Stationszeiten, das die Tiers neu kalibriert | [12](#12-race--renntag-pacing-und-ergebnis) |
 | Ohne Rennen läuft der Übergangsblock offen (20 Wochen, Verlängerung ab Off-Season statt neuem Reset) und wird nicht mehr als Rennzyklus angezeigt | [6](#6-wie-sich-der-plan-anpasst) |
@@ -1452,32 +1529,32 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 | Startdatum des Plans wählbar (Onboarding und Setup, mit Frage nach Neuaufbau); die laufende Woche wird aus dem Startdatum abgeleitet statt aus einem Status, der nie weitergeschaltet wurde | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
 | Doppeltage lassen sich auf feste Wochentage pinnen (Setup → Form deiner Woche), mit Hinweis auf ihre Kosten | [8](#8-settings--setup--tools) |
 | Der letzte Benchmark-Test liegt nie in der Rennwoche: bei kurzem Taper rückt er in die letzte Peak-Woche | [10](#10-benchmarks--tests-eintragen) |
-| Trainingsmischung nach Level und Phase als Vorgabe (Anteile statt fester Reihenfolge); kompromittiertes Laufen ab der Basis; Deload alle 3–4 Wochen in allen Phasen; Taper senkt auch Kraft und Stationen; Interferenzregel in beide Richtungen; AM/PM-Abstand auf der Karte; Ergometer-Entlastung als echte Einheit | [4](#4-plan--die-trainingswoche), [6](#6-wie-sich-der-plan-anpasst) |
+| Trainingsmischung nach Level und Phase als Vorgabe (Anteile statt fester Reihenfolge); kompromittiertes Laufen ab der Basis; Deload alle 3–4 Wochen in allen Phasen; Taper senkt auch Kraft und Stationen; Interferenzregel in beide Richtungen; AM/PM-Abstand auf der Karte; Ergometer-Entlastung als echte Einheit | [4](#4-today-und-plan--heute-und-die-trainingswoche), [6](#6-wie-sich-der-plan-anpasst) |
 | Abmelden auf `/settings` („Dieses Gerät"); nach der Anmeldung mit bestehendem Plan geht es direkt auf `/plan` statt ins Onboarding-Formular | [3](#3-onboarding--den-plan-erzeugen), [8](#8-settings--setup--tools) |
-| Schwellen- und VO₂max-Intervalle: 86 level- und phasenspezifische Sessions, bewusst ohne Stationsvorbelastung | [4](#4-plan--die-trainingswoche) |
-| Stationsarbeit: 60 level- und phasenspezifische Sessions ohne einen einzigen Laufmeter; Rotation nutzt jetzt alle drei Sessions einer Phase | [4](#4-plan--die-trainingswoche) |
-| Kompromittierte Läufe werden wieder gespeichert (sie brauchen den neuen Bibliothek-Seed aus `setup.sql`) | [4](#4-plan--die-trainingswoche) |
+| Schwellen- und VO₂max-Intervalle: 86 level- und phasenspezifische Sessions, bewusst ohne Stationsvorbelastung | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
+| Stationsarbeit: 60 level- und phasenspezifische Sessions ohne einen einzigen Laufmeter; Rotation nutzt jetzt alle drei Sessions einer Phase | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
+| Kompromittierte Läufe werden wieder gespeichert (sie brauchen den neuen Bibliothek-Seed aus `setup.sql`) | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | Fehler beim Planaufbau zeigen den echten Grund statt „Unexpected end of JSON input" | [8](#8-settings--setup--tools) |
-| Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-plan--die-trainingswoche) |
+| Kompromittiertes Laufen: 60 level- und phasenspezifische Sessions statt vier allgemeiner Varianten | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | Trainingstage und Doppeltage sind nach dem Onboarding änderbar (Setup → Form deiner Woche), mit live mitrechnender Frequenzberatung | [8](#8-settings--setup--tools) |
 | Setup & Tools ist eine eigene Seite (`/settings`), erreichbar über „Setup" rechts oben; Verbindungen zeigen ihren Zustand | [8](#8-settings--setup--tools) |
 | Von Hand verschobene Einheiten überstehen einen Neuaufbau des Plans (gemerkt an der Kalenderwoche) | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Feste Wochentage für Long Run, Kraft und Ruhetage planweit definierbar; harte Pins mit Hinweis auf ihre Kosten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Fünf Leistungslevel (bis World Class, sub 60) mit Einheiten-Soll; Wochenplaner hält Abstandsregeln ein (keine zwei harten Tage in Folge, Kraft nie nach hartem Tag); 16 Wochen = 5/5/4/2; Erg-Hinweis; Kohlenhydrat-Periodisierung | [3](#3-onboarding--den-plan-erzeugen), [6](#6-wie-sich-der-plan-anpasst) |
-| Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-plan--die-trainingswoche), [9](#9-strength--eigenes-kraftprogramm) |
+| Kraft-Einheiten: das importierte Programm klappt mit der Karte zu — zugeklappt bleibt eine Programmzeile | [4](#4-today-und-plan--heute-und-die-trainingswoche), [9](#9-strength--eigenes-kraftprogramm) |
 | Einheitliche Rückkehr zur Wochenansicht: gemeinsame Kopfzeile auf allen eingeloggten Seiten (Logo → `/plan`), Rückweg auch auf der Betreiberseite | [2](#2-seitenübersicht) |
 | `/season` überarbeitet: das Jahr als Blickfang, Blöcke als aufklappbare Zeilen, Kalender auf vier Monate mit Aufklapp-Option, Editor nach unten. Einheitliche Kopfzeile mit `/plan` | [7](#7-season--rennkalender-und-jahresplanung) |
-| `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-plan--die-trainingswoche) |
+| `/plan` überarbeitet: Countdown statt Renndatum, Zyklus-Streifen, Intensitäts-Leiste je Einheit, die heutige Einheit als einziger Blickfang, Setup zusammengeklappt. Neue Farb- und Schriftwelt in der ganzen App | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | Einheiten per Knopf auf einen anderen Wochentag verschieben; ein belegter Tag tauscht die beiden Einheiten | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
 | Rennkalender mit Haupt-/Nebenrennen wirkt bis in die einzelnen Trainingstage; Kalenderansicht auf `/season`; Plan direkt aus dem Kalender bauen | [7](#7-season--rennkalender-und-jahresplanung) |
-| Trainingsstruktur nachgeschärft: max. zwei harte Tage, eine Simulation pro Zyklus, Plyometrie und Griffkraft als Finisher, Frequenzberatung nach Level | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
+| Trainingsstruktur nachgeschärft: max. zwei harte Tage, eine Simulation pro Zyklus, Plyometrie und Griffkraft als Finisher, Frequenzberatung nach Level | [3](#3-onboarding--den-plan-erzeugen), [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | 11 Stationsvarianten nach Phase | [18](#18-begriffe) |
-| 14 Varianten der vier Kernlaufeinheiten, rotierend, jede zweite Woche auf die Schwachstelle | [4](#4-plan--die-trainingswoche) |
-| Laufvolumen selbst steuern: Peak-km pro Zyklus und Läufe pro Woche | [4](#4-plan--die-trainingswoche) |
-| Laufarchitektur: HF-Zonen, Paces, polarisierte Fenster, Eröffnungspuffer nach der Station | [4](#4-plan--die-trainingswoche), [18](#18-begriffe) |
+| 14 Varianten der vier Kernlaufeinheiten, rotierend, jede zweite Woche auf die Schwachstelle | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
+| Laufvolumen selbst steuern: Peak-km pro Zyklus und Läufe pro Woche | [4](#4-today-und-plan--heute-und-die-trainingswoche) |
+| Laufarchitektur: HF-Zonen, Paces, polarisierte Fenster, Eröffnungspuffer nach der Station | [4](#4-today-und-plan--heute-und-die-trainingswoche), [18](#18-begriffe) |
 | Eigenes Kraftprogramm aus Excel importieren, Sätze protokollieren, Progression als Vorschlag | [9](#9-strength--eigenes-kraftprogramm) |
 | Quick-Log-Knöpfe umbenannt: „Felt harder / Felt easier" beschreiben, wie es *war* | [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen) |
-| Doppeltage (AM/PM) | [3](#3-onboarding--den-plan-erzeugen), [4](#4-plan--die-trainingswoche) |
+| Doppeltage (AM/PM) | [3](#3-onboarding--den-plan-erzeugen), [4](#4-today-und-plan--heute-und-die-trainingswoche) |
 | AI-Zusammenfassungen statt PDFs einspeisbar | [17](#17-betreiber-oberflächen) |
 | Jahresperiodisierung mit Makrozyklen, Deloads und Mehrrennen-Logik | [7](#7-season--rennkalender-und-jahresplanung) |
 | Wissenspipeline für eigene PDFs (Vorschläge mit Freigabe) | [17](#17-betreiber-oberflächen) |

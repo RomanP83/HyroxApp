@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PALETTE, SEASON_BLOCK_COLORS, titleCase } from "@/lib/format";
 import { AppHeader } from "./AppHeader";
+import { PlanSwitch } from "./PlanSwitch";
 import { SeasonCalendar } from "./SeasonCalendar";
 import { SparkIcon, SpinnerIcon, TargetIcon } from "./icons";
 
@@ -300,6 +301,7 @@ export function SeasonClient(props: Props) {
   return (
     <main className="space-y-6">
       <AppHeader countdown={{ label: "Next main race", days: daysToMain }} />
+      <PlanSwitch active="season" />
 
       {!season ? (
         <>

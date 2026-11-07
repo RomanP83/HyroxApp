@@ -2,7 +2,7 @@
   "name": "Hyrox Hub",
   "short_name": "Hyrox Hub",
   "description": "Your training week, on the device you take to the gym.",
-  "start_url": "/plan",
+  "start_url": "/today",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f0f2f3",

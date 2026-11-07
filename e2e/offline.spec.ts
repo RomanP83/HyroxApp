@@ -52,13 +52,13 @@ test("signing out takes the cached pages off the device", async ({ page }) => {
     .toBe(0);
 });
 
-test("the app is installable: manifest, icons and a scope that starts on the week", async ({
+test("the app is installable: manifest, icons and a scope that starts on Today", async ({
   request,
 }) => {
   const res = await request.get("/manifest.webmanifest");
   expect(res.ok()).toBe(true);
   const manifest = await res.json();
-  expect(manifest.start_url).toBe("/plan");
+  expect(manifest.start_url).toBe("/today");
   expect(manifest.display).toBe("standalone");
   for (const icon of manifest.icons) {
     const img = await request.get(icon.src);

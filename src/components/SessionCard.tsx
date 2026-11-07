@@ -15,15 +15,10 @@ import {
 } from "@/lib/format";
 import { BlockView, stepCount } from "./BlockView";
 import { EffortPicker } from "./EffortPicker";
-import {
-  CheckIcon,
-  FlameIcon,
-  FeatherIcon,
-  MoveIcon,
-  SkipIcon,
-  SpinnerIcon,
-  UndoIcon,
-} from "./icons";
+import { Sheet } from "./Sheet";
+import { PALETTE } from "@/lib/format";
+import type { RenderedBlock } from "@/lib/engine";
+import { CheckIcon, MoreIcon, MoveIcon, SkipIcon, SpinnerIcon, UndoIcon } from "./icons";
 import { haptic } from "@/lib/haptics";
 
 export type LogAction = "planned" | "harder" | "easier" | "skip";
@@ -55,9 +50,10 @@ export interface StrengthSetInput {
 interface Props {
   session: GeneratedSession;
   /**
-   * When provided, renders the 4-button quick-log row. `rpe` is the effort the
-   * athlete picked on the scale ("Felt harder" / "Felt easier" open it); it is
-   * absent for "As planned" and "Skip".
+   * When provided, the card offers "Done" (which asks for the effort in a
+   * sheet, starting on the target) and "Skip" in its ⋯ menu. `rpe` is the
+   * effort picked on the scale when it differs from the target; it is absent
+   * for "planned" and "skip".
    */
   onLog?: (action: LogAction, strengthSets?: StrengthSetInput[], rpe?: number) => void;
   /**
@@ -171,8 +167,10 @@ export function SessionCard({
   const [entries, setEntries] = useState<Record<string, { reps?: number; load?: number }>>({});
   // Sets ticked off with the check — they carry the numbers shown in the row.
   const [doneSets, setDoneSets] = useState<Set<string>>(new Set());
-  // The effort scale, open when "Felt harder" / "Felt easier" was tapped.
-  const [effort, setEffort] = useState<{ action: "harder" | "easier"; rpe: number } | null>(null);
+  // The effort sheet: open after "Done", starting on the target.
+  const [effort, setEffort] = useState<number | null>(null);
+  // The ⋯ menu: skip and move, the things you do to a session rather than with it.
+  const [menuOpen, setMenuOpen] = useState(false);
   const isRest = session.session_type === "rest";
   const target = session.intensity_rpe_target;
 
@@ -201,19 +199,22 @@ export function SessionCard({
     onLog?.(action, action === "skip" ? undefined : collectSets(), rpe);
   }
 
-  /** Harder / easier is a number, not a direction: open the scale on a guess. */
-  function openEffort(action: "harder" | "easier") {
+  /**
+   * "Done" asks one question: how hard was it? The scale opens on the target,
+   * so a session that went as planned is two taps — Done, Save — and one that
+   * did not is a drag of the slider in between.
+   */
+  function openDone() {
     haptic("tap");
-    const guess = action === "harder" ? target + 2 : target - 2;
-    setEffort({ action, rpe: Math.max(1, Math.min(10, guess)) });
+    setEffort(Math.max(1, Math.min(10, target)));
   }
 
   function saveEffort() {
-    if (!effort) return;
-    // Landing on the target after all is "as planned" — say it that way.
-    const action: LogAction =
-      effort.rpe > target ? "harder" : effort.rpe < target ? "easier" : "planned";
-    press(action, action === "planned" ? undefined : effort.rpe);
+    if (effort == null) return;
+    // On the target is "as planned"; either side of it is a number the engine
+    // calibrates on.
+    const action: LogAction = effort > target ? "harder" : effort < target ? "easier" : "planned";
+    press(action, action === "planned" ? undefined : effort);
     setEffort(null);
   }
 
@@ -261,35 +262,9 @@ export function SessionCard({
 
   const logged = status === "done" || status === "skipped";
 
-  const LogButton = ({
-    action,
-    icon,
-    label,
-    hint,
-    primary,
-    onClick,
-  }: {
-    action: LogAction;
-    icon: React.ReactNode;
-    label: string;
-    /** What the tap actually reports — the labels alone read as a wish. */
-    hint?: string;
-    primary?: boolean;
-    onClick?: () => void;
-  }) => (
-    <button
-      className={`${primary ? "btn-primary" : "btn-ghost"} ${
-        effort?.action === action ? "border-edge-strong text-chalk" : ""
-      }`}
-      onClick={onClick ?? (() => press(action))}
-      disabled={busyAction != null}
-      title={hint}
-      aria-expanded={onClick ? effort?.action === action : undefined}
-    >
-      {busyAction === action ? <SpinnerIcon size={16} /> : icon}
-      {label}
-    </button>
-  );
+  const canLog = Boolean(onLog) && !isRest && (status === "planned" || status === "moved");
+  const canMove = Boolean(onMove) && !isRest;
+  const hasMenu = canLog || canMove;
 
   const demand = demandOf(session.session_type);
 
@@ -313,9 +288,11 @@ export function SessionCard({
       />
 
       <div className="min-w-0 flex-1">
+      <div className="relative flex items-start gap-2">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-start justify-between gap-3 text-left"
+        aria-expanded={open}
+        className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left"
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -397,6 +374,7 @@ export function SessionCard({
               </div>
             );
           })()}
+          {!isRest && <IntensityBar blocks={session.blocks} accent={DEMAND_COLORS[demand]} />}
         </div>
         <span
           className={`text-ash transition-transform duration-200 ${open ? "rotate-90" : ""}`}
@@ -404,6 +382,62 @@ export function SessionCard({
           ▸
         </span>
       </button>
+      {hasMenu && (
+        <button
+          type="button"
+          onClick={() => {
+            haptic("tap");
+            setMenuOpen((v) => !v);
+          }}
+          aria-label={`More for ${session.title}`}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-ash transition-colors duration-150 hover:bg-rack hover:text-chalk"
+        >
+          <MoreIcon size={18} />
+        </button>
+      )}
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 top-9 z-20 w-56 overflow-hidden rounded-control border border-edge bg-lane shadow-lg animate-fade-up"
+        >
+          {canLog && (
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left text-base font-semibold text-chalk hover:bg-rack"
+              disabled={busyAction != null}
+              title="Not done. The plan bends — no make-up pile-up."
+              onClick={() => {
+                setMenuOpen(false);
+                press("skip");
+              }}
+            >
+              {busyAction === "skip" ? <SpinnerIcon size={16} /> : <SkipIcon size={16} />}
+              Skip this session
+            </button>
+          )}
+          {canMove && (
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 border-t border-edge px-3.5 py-3 text-left text-base font-semibold text-chalk first:border-t-0 hover:bg-rack"
+              disabled={moving}
+              title="Move this session to another day of the week"
+              onClick={() => {
+                haptic("tap");
+                setMenuOpen(false);
+                setMoveOpen(true);
+              }}
+            >
+              <MoveIcon size={16} />
+              Move to another day
+            </button>
+          )}
+        </div>
+      )}
+      </div>
 
       {open && !isRest && (
         <div className="mt-4 space-y-2 animate-fade-up">
@@ -489,16 +523,10 @@ export function SessionCard({
           not be a page of inputs. Open the card to fill in sets; logging
           without opening records everything as programmed. */}
       {strength && !open && !isRest && (status === "planned" || status === "moved") && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="mt-3 flex w-full items-center justify-between gap-3 rounded-control border border-edge bg-well/60 px-3 py-2 text-meta transition-colors duration-150 hover:border-edge-strong"
-        >
+        <div className="mt-3 flex w-full items-center justify-between gap-3 rounded-control border border-edge bg-well/60 px-3 py-2 text-meta">
           <span className="font-semibold text-bone">{strength.templateName}</span>
-          <span className="text-ash">
-            {strength.exercises.length} exercises · tap to log sets
-          </span>
-        </button>
+          <span className="text-ash">{strength.exercises.length} exercises</span>
+        </div>
       )}
 
       {strength && onLog && open && !isRest && (status === "planned" || status === "moved") && (
@@ -615,84 +643,72 @@ export function SessionCard({
         </div>
       )}
 
-      {onLog && !isRest && (status === "planned" || status === "moved") && (
+      {/* One action on the card. A strength day opens its set table first —
+          the sets are what gets logged — and finishes into the same question. */}
+      {canLog && (
         <div className="mt-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <LogButton
-              action="planned"
-              primary={focal}
-              icon={<CheckIcon size={16} />}
-              label="As planned"
-              hint="It matched the target — the plan holds its course."
-            />
-            <LogButton
-              action="harder"
-              icon={<FlameIcon size={16} />}
-              label="Felt harder"
-              hint="Harder than the target said. Pick how hard — the engine backs the load off."
-              onClick={() => (effort?.action === "harder" ? setEffort(null) : openEffort("harder"))}
-            />
-            <LogButton
-              action="easier"
-              icon={<FeatherIcon size={16} />}
-              label="Felt easier"
-              hint="Easier than the target said. Pick how easy — twice in a row and the engine steps you up."
-              onClick={() => (effort?.action === "easier" ? setEffort(null) : openEffort("easier"))}
-            />
-            <LogButton
-              action="skip"
-              icon={<SkipIcon size={16} />}
-              label="Skip"
-              hint="Not done. The plan bends — no make-up pile-up."
-            />
-          </div>
-          {effort && (
-            <div className="mt-3">
-              <EffortPicker
-                value={effort.rpe}
-                target={target}
-                onChange={(rpe) => setEffort((e) => (e ? { ...e, rpe } : e))}
-                onSave={saveEffort}
-                onCancel={() => setEffort(null)}
-                saving={busyAction != null}
-              />
-            </div>
-          )}
-          {/* The labels alone read as a wish; they are a report. Said once, on
-              the session in focus — repeated under all six it is just noise
-              (every button carries the same explanation as a tooltip). */}
-          {focal && (
-            <p className="mt-2 text-micro text-ash">
-              How it went, not what you want next — the engine reads these as your effort against
-              the target.
-            </p>
+          {strength && !open ? (
+            <button
+              type="button"
+              className={`${focal ? "btn-primary" : "btn-ghost"} w-full`}
+              onClick={() => {
+                haptic("tap");
+                setOpen(true);
+              }}
+            >
+              <CheckIcon size={16} />
+              Log sets
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`${focal ? "btn-primary" : "btn-ghost"} w-full`}
+              onClick={openDone}
+              disabled={busyAction != null}
+              title="Log it — the next question is how hard it was."
+            >
+              {busyAction != null && busyAction !== "skip" ? (
+                <SpinnerIcon size={16} />
+              ) : (
+                <CheckIcon size={16} />
+              )}
+              {strength ? "Finish" : "Done"}
+            </button>
           )}
         </div>
+      )}
+
+      {effort != null && (
+        <Sheet label={`How hard was ${session.title}?`} onClose={() => setEffort(null)}>
+          <div className="mb-1 text-center text-meta font-bold text-ash">{session.title}</div>
+          <EffortPicker
+            bare
+            value={effort}
+            target={target}
+            onChange={setEffort}
+            onSave={saveEffort}
+            onCancel={() => setEffort(null)}
+            saving={busyAction != null}
+          />
+        </Sheet>
       )}
 
       {/* Life happens: put the session on a day that actually works. Inside the
           opened card, not under every collapsed one — six rows of "Move" in a
           list you scan for today's session is furniture, not a feature. */}
-      {onMove && !isRest && open && (
+      {onMove && !isRest && moveOpen && (
         <div className="mt-3 border-t border-edge pt-3">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              className="btn-quiet"
-              onClick={() => {
-                haptic("tap");
-                setMoveOpen((v) => !v);
-              }}
-              disabled={moving}
-              aria-expanded={moveOpen}
-              title="Move this session to another day of the week"
-            >
-              {moving ? <SpinnerIcon size={16} /> : <MoveIcon size={16} />}
-              Move
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-meta font-bold text-bone">
+              {moving ? <SpinnerIcon size={14} /> : <MoveIcon size={14} />}
+              Move to
+            </span>
+            <button type="button" className="text-meta text-ash hover:text-chalk" onClick={() => setMoveOpen(false)}>
+              Cancel
             </button>
           </div>
-
           {moveOpen && (
-            <div className="mt-3 space-y-2 animate-fade-up">
+            <div className="space-y-2 animate-fade-up">
               {showSlot && (
                 <div className="flex items-center gap-2">
                   <span className="text-micro text-ash">Half of the day:</span>
@@ -767,6 +783,46 @@ export function SessionCard({
         </div>
       )}
       </div>
+    </div>
+  );
+}
+
+const PART_LABEL: Record<RenderedBlock["block_type"], string> = {
+  warmup: "Warm-up",
+  main: "Main set",
+  finisher: "Finisher",
+  mobility: "Mobility",
+};
+
+/**
+ * The shape of the session before a word of it is read: one segment per block,
+ * as wide as the block is long in steps. Warm-up and mobility are quiet, the
+ * main set carries the day's colour, a finisher is the hard red.
+ */
+export function IntensityBar({ blocks, accent }: { blocks: RenderedBlock[]; accent: string }) {
+  const ordered = [...blocks].sort((a, b) => a.sort_order - b.sort_order);
+  if (ordered.length < 2) return null;
+  const colour = (b: RenderedBlock) =>
+    b.block_type === "main" ? accent : b.block_type === "finisher" ? PALETTE.flame : PALETTE.smoke;
+  return (
+    <div
+      className="mt-2.5 flex h-1.5 max-w-xs gap-[3px]"
+      role="img"
+      aria-label={`Session shape: ${ordered.map((b) => PART_LABEL[b.block_type]).join(", ")}`}
+      data-testid="intensity-bar"
+    >
+      {ordered.map((b) => (
+        <span
+          key={`${b.block_id}-${b.sort_order}`}
+          title={PART_LABEL[b.block_type]}
+          className="rounded-full"
+          style={{
+            flex: Math.max(1, stepCount(b)),
+            background: colour(b),
+            opacity: b.block_type === "main" || b.block_type === "finisher" ? 1 : 0.45,
+          }}
+        />
+      ))}
     </div>
   );
 }

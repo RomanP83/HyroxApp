@@ -41,7 +41,7 @@ describe("the setup page", () => {
   const html = render();
 
   it("carries the shared header — the way back to the week view", () => {
-    expect(html).toMatch(/<a[^>]+href="\/plan"[^>]*>HYROX/);
+    expect(html).toMatch(/<a[^>]+href="\/today"[^>]*>HYROX/);
   });
 
   it("shows the pinned days as pressed, and the rest as not", () => {

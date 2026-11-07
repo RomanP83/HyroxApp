@@ -9,12 +9,16 @@ import { useRouter } from "next/navigation";
 import type { GeneratedSession, SessionFeedback } from "@/lib/engine";
 import { AppHeader } from "./AppHeader";
 import { SessionCard, type LogAction, type StrengthExerciseInput, type StrengthSetInput } from "./SessionCard";
+import { Sheet } from "./Sheet";
+import { PlanSwitch } from "./PlanSwitch";
 import { FeedbackCard } from "./FeedbackCard";
 import { AiCoachCard } from "./AiCoachCard";
 import type { SuggestionRow } from "@/lib/aiCoach";
 import {
   DEMAND_COLORS,
   DEMAND_LABELS,
+  demandOf,
+  PALETTE,
   fmtClock,
   fmtDayDate,
   WEEKDAY_LABELS,
@@ -36,11 +40,12 @@ import type {
 import { alternativesFor, resolveSubstitutions, STATION_LABELS } from "@/lib/engine";
 import { haptic } from "@/lib/haptics";
 import {
+  CheckIcon,
+  CloseIcon,
   LeafIcon,
-  LockIcon,
   MedicalIcon,
+  SkipIcon,
   SparkIcon,
-  SpinnerIcon,
 } from "./icons";
 
 export interface ClientSession {
@@ -67,6 +72,11 @@ interface PhaseMeta {
 }
 
 interface Props {
+  /**
+   * Which screen this is. "today" is the gym screen: the day strip and the
+   * day's session. "week" is the Plan tab: the whole week, one line a day.
+   */
+  view: "today" | "week";
   planId: string;
   profileId: string;
   planStatus: string;
@@ -108,6 +118,12 @@ const ACTION_RPE: Record<Exclude<LogAction, "skip">, number> = { planned: 0, har
 export function PlanClient(props: Props) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
+  // The session the last toast was about — the toast offers to take it back.
+  const [undoId, setUndoId] = useState<string | null>(null);
+  // Today: the day picked in the strip. Week: the session opened from a row.
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [openSession, setOpenSession] = useState<string | null>(null);
+  const [noteOpen, setNoteOpen] = useState(false);
   const [busy, setBusy] = useState<{ sessionId: string; action: LogAction } | null>(null);
   // Which station's alternatives are open, and what is currently swapped.
   const [swapStation, setSwapStation] = useState<Station | null>(null);
@@ -262,7 +278,7 @@ export function PlanClient(props: Props) {
       const suggestion = data?.strength?.suggestions?.[0];
       if (suggestion) {
         setToast(
-          `${suggestion.exercise}: ${suggestion.reason} Take it on the strength page whenever you want.`,
+          `${suggestion.exercise}: ${suggestion.reason} Take it under Setup → Strength program whenever you want.`,
         );
       }
       if (data?.feedback && action !== "skip") {
@@ -277,6 +293,7 @@ export function PlanClient(props: Props) {
               : "Nice work — session logged."),
         );
       }
+      setUndoId(sessionId);
       router.refresh();
     } catch {
       // Revert the optimistic flip — honesty beats speed.
@@ -346,6 +363,181 @@ export function PlanClient(props: Props) {
 
   // Volume is a change to every remaining week, so saving it rebuilds the plan
   // from today (the same rebase the injury-recovery flow uses).
+  const isThisWeek = props.currentWeek.week_number === props.thisWeekNumber;
+  // The day Today shows: today until another day in the strip is tapped.
+  const dayShown = selectedDay ?? today?.weekday ?? 1;
+
+  /** One session, wired to every action the page offers. */
+  const card = (cs: ClientSession, opts: { focal?: boolean; defaultOpen?: boolean; onLogged?: () => void } = {}) => (
+    <SessionCard
+      key={cs.id}
+      focal={opts.focal}
+      defaultOpen={opts.defaultOpen}
+      session={cs.session}
+      status={statusOf(cs)}
+      busyAction={busy?.sessionId === cs.id ? busy.action : null}
+      onLog={(a, sets, rpe) => {
+        opts.onLogged?.();
+        void log(cs.id, a, cs.session.intensity_rpe_target, sets, rpe);
+      }}
+      strength={cs.strength ?? null}
+      onReset={() => reset(cs.id)}
+      resetting={resetting === cs.id}
+      date={dayDateOf(props.weekStart, cs.session.day_hint)}
+      substitutions={substitutions}
+      onSwap={(station) => setSwapStation(station)}
+      showSlot={doubleDays.has(cs.session.day_hint)}
+      onMove={(day, slot) => {
+        opts.onLogged?.();
+        void move(cs.id, day, slot);
+      }}
+      moving={movingId === cs.id}
+      occupied={occupied}
+    />
+  );
+
+  const rehabBanner = props.planStatus === "rehab" && (
+    <div className="card border-amber/50 bg-rack flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+      <div className="flex items-start gap-3 text-base">
+        <MedicalIcon size={18} className="mt-0.5 shrink-0 text-amber" />
+        <span>
+          <b>Rehab mode.</b> Stick to mobility and low-impact work — no plan stop, no lost
+          progress. When you&apos;re ready, the plan rebuilds from that day.
+        </span>
+      </div>
+      <button className="btn-primary" onClick={() => injury("recover")}>
+        I&apos;m back — rebuild my plan
+      </button>
+    </div>
+  );
+
+  const failedBanner = props.sessionsFailed && (
+    <div className="card border-stop/40 flex items-start gap-3 text-base">
+      <MedicalIcon size={18} className="mt-0.5 shrink-0 text-stop" />
+      <span>
+        <b>This week could not be loaded.</b> Nothing is wrong with your plan — the sessions just
+        did not come back. Reload the page; if it keeps happening, the adaptations and logs you
+        have made are all still saved.
+      </span>
+    </div>
+  );
+
+  /** One segment per session that asks something of you. */
+  const progress = trainable.length > 0 && (
+    <div data-testid="week-progress">
+      <div className="flex gap-1">
+        {trainable.map((cs) => {
+          const st = statusOf(cs);
+          return (
+            <span
+              key={cs.id}
+              title={`${cs.session.title} · ${st}`}
+              className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                st === "done" ? "bg-go" : st === "skipped" ? "bg-smoke" : "bg-well"
+              }`}
+            />
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex items-baseline justify-between gap-3 text-meta">
+        <span className="text-bone">
+          <span className="font-mono font-semibold tabular-nums text-chalk">{doneCount}</span> of{" "}
+          <span className="font-mono tabular-nums">{trainable.length}</span> sessions done
+          {skippedCount > 0 && <span className="text-smoke"> · {skippedCount} skipped</span>}
+          {props.runSummary && props.runSummary.runs > 0 && (
+            <span className="text-ash"> · {props.runSummary.total_km} km running</span>
+          )}
+        </span>
+        {props.view === "week" && !viewingThisWeek && thisWeek && (
+          <Link
+            href={`/plan?week=${thisWeek.week_number}`}
+            className="font-semibold text-flame hover:underline"
+          >
+            Go to this week →
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+
+  /** The week's reason, said by the coach. Two lines until asked for more. */
+  const coachNote = (
+    <div className="flex items-start gap-3 rounded-panel border border-edge bg-lane p-3.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber/15 text-amber">
+        <SparkIcon size={15} />
+      </span>
+      <div className="min-w-0">
+        <div className="text-meta font-bold text-bone">Why this week</div>
+        <p
+          className={`mt-0.5 max-w-[62ch] text-base leading-relaxed text-bone ${
+            noteOpen ? "" : "line-clamp-2"
+          }`}
+        >
+          {props.currentWeek.weekly_goal}
+        </p>
+        {props.currentWeek.weekly_goal && props.currentWeek.weekly_goal.length > 110 && (
+          <button
+            type="button"
+            className="mt-1 text-meta font-semibold text-run hover:underline"
+            onClick={() => setNoteOpen((v) => !v)}
+            aria-expanded={noteOpen}
+          >
+            {noteOpen ? "Less" : "More"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const runBlock = props.runSummary && props.runSummary.runs > 0 && (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-meta font-bold text-bone">Running</span>
+        <span className="font-mono text-meta tabular-nums text-bone">
+          {props.runSummary.total_km} km · {props.runSummary.runs} runs ·{" "}
+          {Math.round(props.runSummary.easy_share * 100)}% aerobic
+        </span>
+      </div>
+      {/* Aerobic vs. hard kilometres — the 80/20 rule, measured. */}
+      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-well">
+        <div
+          className="bg-go"
+          style={{ width: `${Math.round(props.runSummary.easy_share * 100)}%` }}
+          title={`${props.runSummary.easy_km} km aerobic`}
+        />
+        <div
+          className="bg-flame"
+          style={{ width: `${100 - Math.round(props.runSummary.easy_share * 100)}%` }}
+          title={`${props.runSummary.hard_km} km hard`}
+        />
+      </div>
+      <p
+        className={`mt-2 text-meta ${
+          props.runSummary.volume === "on_target" && props.runSummary.polarisation === "on_target"
+            ? "text-ash"
+            : "text-amber"
+        }`}
+      >
+        {props.runSummary.note.replace(/^[\d.]+ runs · [\d.]+ km · \d+% aerobic\. /, "")}
+      </p>
+    </div>
+  );
+
+  const restCard = (day: number) => (
+    <RestCard
+      key={`rest-${day}`}
+      day={day}
+      date={dayDateOf(props.weekStart, day)}
+      // A pin is a setting as it stands today. Claiming it about a week that
+      // was built before the pin existed would put words in the athlete's past
+      // mouth, so past weeks get the neutral line.
+      pinned={props.restDays.includes(day) && props.currentWeek.week_number >= props.thisWeekNumber}
+      today={isThisWeek && today?.weekday === day}
+    />
+  );
+
+  const openCs = openSession ? props.sessions.find((cs) => cs.id === openSession) ?? null : null;
+
   return (
     <main className="space-y-6">
       <AppHeader
@@ -355,24 +547,120 @@ export function PlanClient(props: Props) {
         }}
       />
 
-      {props.planStatus === "rehab" && (
-        <div className="card border-amber/50 bg-rack flex flex-wrap items-center justify-between gap-3 animate-fade-up">
-          <div className="flex items-start gap-3 text-base">
-            <MedicalIcon size={18} className="mt-0.5 shrink-0 text-amber" />
-            <span>
-              <b>Rehab mode.</b> Stick to mobility and low-impact work — no plan stop, no lost
-              progress. When you&apos;re ready, the plan rebuilds from that day.
-            </span>
-          </div>
-          <button className="btn-primary" onClick={() => injury("recover")}>
-            I&apos;m back — rebuild my plan
-          </button>
-        </div>
-      )}
+      {rehabBanner}
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
-        <div className="space-y-5">
-          {/* ── The cycle, demoted to a strip: context, not the task. ─────── */}
+      {props.view === "today" ? (
+        // ── Today: the screen you open in the gym. ────────────────────────
+        <div className="mx-auto max-w-2xl space-y-5">
+          <div>
+            <span
+              className="font-mono text-micro font-bold uppercase tracking-widest"
+              style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}
+            >
+              {titleCase(currentPhase?.phase_type ?? "")} · Week {props.currentWeek.week_number} of{" "}
+              {props.weeks.length}
+            </span>
+            <h1 className="text-h1 font-bold tracking-tight">
+              {dayShown === today?.weekday ? "Today" : WEEKDAY_LABELS[dayShown]}
+              <span className="ml-2 text-lead font-medium text-smoke">
+                {fmtDayDate(dayDateOf(props.weekStart, dayShown))}
+              </span>
+            </h1>
+          </div>
+
+          <DayStrip
+            weekStart={props.weekStart}
+            selected={dayShown}
+            today={isThisWeek ? today?.weekday ?? null : null}
+            sessions={props.sessions.map((cs) => ({ cs, status: statusOf(cs) }))}
+            onSelect={(day) => {
+              haptic("tap");
+              setSelectedDay(day);
+            }}
+          />
+
+          {failedBanner}
+
+          {!props.sessionsFailed && (
+            <div className="space-y-3">
+              {(() => {
+                const onDay = props.sessions.filter((cs) => cs.session.day_hint === dayShown);
+                if (!onDay.length) return restCard(dayShown);
+                return onDay.map((cs) =>
+                  card(cs, {
+                    focal: isThisWeek && today?.weekday === dayShown && statusOf(cs) === "planned",
+                  }),
+                );
+              })()}
+            </div>
+          )}
+
+          <div className="card space-y-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-meta font-bold text-bone">This week</span>
+              <Link href="/plan" className="text-meta font-semibold text-run hover:underline">
+                Whole week →
+              </Link>
+            </div>
+            {progress}
+          </div>
+
+          {coachNote}
+
+          <AiCoachCard
+            enabled={Boolean(props.aiEnabled)}
+            suggestion={props.aiSuggestion ?? null}
+            onToast={setToast}
+            onChanged={() => router.refresh()}
+          />
+
+          <div className="card">
+            <div className="mb-2.5 flex items-center gap-2">
+              <SparkIcon size={15} className="text-amber" />
+              <span className="text-meta font-bold text-bone">Why your plan changed</span>
+            </div>
+            {props.adjustments.length === 0 ? (
+              <p className="text-meta leading-relaxed text-ash">
+                Nothing needed adjusting yet. Every change the engine makes gets explained here, in
+                plain words.
+              </p>
+            ) : (
+              <ul className="space-y-2.5">
+                {props.adjustments.map((r, i) => (
+                  <li
+                    key={i}
+                    className="animate-fade-up border-l-2 border-amber/40 pl-3 text-meta leading-relaxed text-bone"
+                  >
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {(() => {
+            const phase = currentPhase?.phase_type as PhaseType | undefined;
+            const tip = phase ? PHASE_NUTRITION[phase] : undefined;
+            return tip ? (
+              <div className="card">
+                <div className="mb-1 flex items-center gap-2 text-base font-semibold">
+                  <LeafIcon size={16} className="text-go" /> {tip.headline}
+                </div>
+                <ul className="space-y-1 text-meta text-ash">
+                  {tip.points.map((pt) => (
+                    <li key={pt}>• {pt}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null;
+          })()}
+        </div>
+      ) : (
+        // ── Plan → Week: the whole week, one line a day. ─────────────────
+        <div className="mx-auto max-w-2xl space-y-5">
+          <PlanSwitch active="week" />
+
+          {/* The cycle, as a strip: jump to any week. */}
           <div>
             <div className="flex gap-[3px]">
               {props.weeks.map((w) => {
@@ -411,294 +699,91 @@ export function PlanClient(props: Props) {
             </div>
           </div>
 
-          {/* ── Why this week: the promise the product is built on, at size. ──
-              Step through the cycle a week at a time; the strip above is for
-              jumping. Viewing another week, one tap brings you back. */}
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <WeekStep
-                to={prevWeek}
-                label="Previous week"
-                glyph="‹"
-              />
-              <div className="min-w-0 flex-1 text-center">
-                <span
-                  className="font-mono text-micro font-bold uppercase tracking-widest"
-                  style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}
-                >
-                  {titleCase(currentPhase?.phase_type ?? "")}
+          <div className="flex items-center justify-between gap-3">
+            <WeekStep to={prevWeek} label="Previous week" glyph="‹" />
+            <div className="min-w-0 flex-1 text-center">
+              <span
+                className="font-mono text-micro font-bold uppercase tracking-widest"
+                style={{ color: PHASE_COLORS[currentPhase?.phase_type ?? "base"] }}
+              >
+                {titleCase(currentPhase?.phase_type ?? "")}
+              </span>
+              <h1 className="text-h2 font-bold tracking-tight">
+                Week <span className="font-mono tabular-nums">{props.currentWeek.week_number}</span>
+                <span className="text-lead font-medium text-smoke">
+                  {" "}
+                  of <span className="font-mono tabular-nums">{props.weeks.length}</span>
                 </span>
-                <h1 className="text-h2 font-bold tracking-tight">
-                  Week <span className="font-mono tabular-nums">{props.currentWeek.week_number}</span>
-                  <span className="text-lead font-medium text-smoke">
-                    {" "}
-                    of <span className="font-mono tabular-nums">{props.weeks.length}</span>
-                  </span>
-                </h1>
-                {(props.currentWeek.is_deload || props.currentWeek.is_benchmark_week) && (
-                  <div className="mt-1 flex justify-center gap-1.5">
-                    {props.currentWeek.is_deload && <span className="pill text-amber">deload</span>}
-                    {props.currentWeek.is_benchmark_week && (
-                      <span className="pill text-amber">benchmark</span>
-                    )}
-                  </div>
-                )}
-              </div>
-              <WeekStep to={nextWeek} label="Next week" glyph="›" />
-            </div>
-
-            {/* Progress: one segment per session that asks something of you. */}
-            {trainable.length > 0 && (
-              <div className="mt-4" data-testid="week-progress">
-                <div className="flex gap-1">
-                  {trainable.map((cs) => {
-                    const st = statusOf(cs);
-                    return (
-                      <span
-                        key={cs.id}
-                        title={`${cs.session.title} · ${st}`}
-                        className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-                          st === "done" ? "bg-go" : st === "skipped" ? "bg-smoke" : "bg-well"
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="mt-1.5 flex items-baseline justify-between gap-3 text-meta">
-                  <span className="text-bone">
-                    <span className="font-mono font-semibold tabular-nums text-chalk">{doneCount}</span>{" "}
-                    of <span className="font-mono tabular-nums">{trainable.length}</span> sessions done
-                    {skippedCount > 0 && (
-                      <span className="text-smoke"> · {skippedCount} skipped</span>
-                    )}
-                  </span>
-                  {!viewingThisWeek && thisWeek && (
-                    <Link
-                      href={`/plan?week=${thisWeek.week_number}`}
-                      className="font-semibold text-flame hover:underline"
-                    >
-                      Go to this week →
-                    </Link>
+              </h1>
+              {(props.currentWeek.is_deload || props.currentWeek.is_benchmark_week) && (
+                <div className="mt-1 flex justify-center gap-1.5">
+                  {props.currentWeek.is_deload && <span className="pill text-amber">deload</span>}
+                  {props.currentWeek.is_benchmark_week && (
+                    <span className="pill text-amber">benchmark</span>
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* The week's reason, said by the coach — not a caption. */}
-            <div className="mt-4 flex items-start gap-3 rounded-panel border border-edge bg-lane p-3.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber/15 text-amber">
-                <SparkIcon size={15} />
-              </span>
-              <div className="min-w-0">
-                <div className="text-meta font-bold text-bone">
-                  Coach note
-                </div>
-                <p className="mt-0.5 max-w-[62ch] text-base leading-relaxed text-bone">
-                  {props.currentWeek.weekly_goal}
-                </p>
-              </div>
+              )}
             </div>
-
-            {props.runSummary && props.runSummary.runs > 0 && (
-              <div className="mt-4 max-w-md">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-meta font-bold text-bone">
-                    Running
-                  </span>
-                  <span className="font-mono text-meta tabular-nums text-bone">
-                    {props.runSummary.total_km} km · {props.runSummary.runs} runs ·{" "}
-                    {Math.round(props.runSummary.easy_share * 100)}% aerobic
-                  </span>
-                </div>
-                {/* Aerobic vs. hard kilometres — the 80/20 rule, measured. */}
-                <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-well">
-                  <div
-                    className="bg-go"
-                    style={{ width: `${Math.round(props.runSummary.easy_share * 100)}%` }}
-                    title={`${props.runSummary.easy_km} km aerobic`}
-                  />
-                  <div
-                    className="bg-flame"
-                    style={{ width: `${100 - Math.round(props.runSummary.easy_share * 100)}%` }}
-                    title={`${props.runSummary.hard_km} km hard`}
-                  />
-                </div>
-                <p
-                  className={`mt-2 text-meta ${
-                    props.runSummary.volume === "on_target" &&
-                    props.runSummary.polarisation === "on_target"
-                      ? "text-ash"
-                      : "text-amber"
-                  }`}
-                >
-                  {props.runSummary.note.replace(/^[\d.]+ runs · [\d.]+ km · \d+% aerobic\. /, "")}
-                </p>
-              </div>
-            )}
+            <WeekStep to={nextWeek} label="Next week" glyph="›" />
           </div>
 
-          {/* ── The week. One card leads: the one you are standing in. ────── */}
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-baseline justify-between">
-              <span className="text-meta font-bold text-bone">
-                {props.sessions.length} sessions
-              </span>
-              <span className="flex items-center gap-3 text-micro text-smoke">
-                {(["hard", "aerobic", "load"] as const).map((d) => (
-                  <span key={d} className="flex items-center gap-1.5">
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: DEMAND_COLORS[d] }}
+          {progress}
+          {coachNote}
+          {runBlock}
+          {failedBanner}
+
+          {!props.sessionsFailed && (
+            <ul className="space-y-1.5" aria-label={`Week ${props.currentWeek.week_number}`}>
+              {weekItems.map((item) =>
+                item.kind === "rest" ? (
+                  <li key={`rest-${item.day}`}>
+                    <DayRow
+                      day={item.day}
+                      date={dayDateOf(props.weekStart, item.day)}
+                      today={isThisWeek && today?.weekday === item.day}
                     />
-                    {DEMAND_LABELS[d]}
-                  </span>
-                ))}
-              </span>
-            </div>
-          </div>
-
-          {props.sessionsFailed && (
-            <div className="card border-stop/40 flex items-start gap-3 text-base">
-              <MedicalIcon size={18} className="mt-0.5 shrink-0 text-stop" />
-              <span>
-                <b>This week could not be loaded.</b> Nothing is wrong with your plan — the
-                sessions just did not come back. Reload the page; if it keeps happening, the
-                adaptations and logs you have made are all still saved.
-              </span>
-            </div>
-          )}
-
-          {!props.sessionsFailed &&
-            weekItems.map((item) =>
-            item.kind === "rest" ? (
-              <RestCard
-                key={`rest-${item.day}`}
-                day={item.day}
-                date={dayDateOf(props.weekStart, item.day)}
-                // A pin is a setting as it stands today. Claiming it about a
-                // week that was built before the pin existed would put words in
-                // the athlete's past mouth, so past weeks get the neutral line.
-                pinned={
-                  props.restDays.includes(item.day) &&
-                  props.currentWeek.week_number >= props.thisWeekNumber
-                }
-                today={
-                  props.currentWeek.week_number === props.thisWeekNumber &&
-                  today?.weekday === item.day
-                }
-              />
-            ) : (
-            <SessionCard
-              key={item.cs.id}
-              // Today's session — and only while the week on screen is the
-              // week today is in. Without that second half the same weekday
-              // lit up in every week of the plan.
-              focal={
-                props.currentWeek.week_number === props.thisWeekNumber &&
-                today?.weekday === item.cs.session.day_hint &&
-                item.cs.status === "planned"
-              }
-              session={item.cs.session}
-              status={optimistic[item.cs.id] ?? item.cs.status}
-              busyAction={busy?.sessionId === item.cs.id ? busy.action : null}
-              onLog={(a, sets, rpe) => log(item.cs.id, a, item.cs.session.intensity_rpe_target, sets, rpe)}
-              strength={item.cs.strength ?? null}
-              onReset={() => reset(item.cs.id)}
-              resetting={resetting === item.cs.id}
-              date={dayDateOf(props.weekStart, item.cs.session.day_hint)}
-              substitutions={substitutions}
-              onSwap={(station) => setSwapStation(station)}
-              showSlot={doubleDays.has(item.cs.session.day_hint)}
-              onMove={(day, slot) => void move(item.cs.id, day, slot)}
-              moving={movingId === item.cs.id}
-              occupied={occupied}
-            />
-            ),
+                  </li>
+                ) : (
+                  <li key={item.cs.id}>
+                    <DayRow
+                      day={item.cs.session.day_hint}
+                      date={dayDateOf(props.weekStart, item.cs.session.day_hint)}
+                      today={isThisWeek && today?.weekday === item.cs.session.day_hint}
+                      session={item.cs.session}
+                      slot={doubleDays.has(item.cs.session.day_hint) ? item.cs.session.day_slot ?? "am" : null}
+                      status={statusOf(item.cs)}
+                      onOpen={() => {
+                        haptic("tap");
+                        setOpenSession(item.cs.id);
+                      }}
+                    />
+                  </li>
+                ),
+              )}
+            </ul>
           )}
         </div>
+      )}
 
-        <aside className="space-y-4">
-          {/* The one number the whole system exists to move. It reads like the
-              clock it will be measured against, not like a metric tile. */}
-          <div className="card-focal">
-            <div className="text-meta font-bold text-bone">
-              Estimated finish
-            </div>
-            <div className="mt-1.5 font-mono text-clock font-bold tabular-nums text-chalk">
-              {fmtClock(props.state?.predicted_race_time_sec)}
-            </div>
-            {props.goalCheck && <GoalLine check={props.goalCheck} />}
-            {props.state && (
-              <dl className="mt-4 space-y-1.5 border-t border-edge pt-3">
-                <Row k="Easy pace" v={fmtPace(props.state.pace_zones?.easy_sec_km)} />
-                <Row k="Race pace" v={fmtPace(props.state.pace_zones?.race_sec_km)} />
-                <Row k="ACWR" v={String(props.state.acwr ?? "—")} />
-              </dl>
-            )}
-            <p className="mt-3 text-micro text-smoke">Recalibrates every time you log.</p>
+      {openCs && (
+        <Sheet tall label={openCs.session.title} onClose={() => setOpenSession(null)}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="font-mono text-micro font-bold uppercase tracking-widest text-ash">
+              {WEEKDAY_LABELS[openCs.session.day_hint]} ·{" "}
+              {fmtDayDate(dayDateOf(props.weekStart, openCs.session.day_hint))}
+            </span>
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-control text-ash hover:bg-rack hover:text-chalk"
+              onClick={() => setOpenSession(null)}
+              aria-label="Close"
+            >
+              <CloseIcon size={18} />
+            </button>
           </div>
-
-          <div className="card">
-            <div className="mb-2.5 flex items-center gap-2">
-              <SparkIcon size={15} className="text-amber" />
-              <span className="text-meta font-bold text-bone">
-                Why your plan changed
-              </span>
-            </div>
-            {props.adjustments.length === 0 ? (
-              <p className="text-meta leading-relaxed text-ash">
-                Nothing needed adjusting yet. Every change the engine makes gets explained here, in
-                plain words.
-              </p>
-            ) : (
-              <ul className="space-y-2.5">
-                {props.adjustments.map((r, i) => (
-                  <li
-                    key={i}
-                    className="animate-fade-up border-l-2 border-amber/40 pl-3 text-meta leading-relaxed text-bone"
-                  >
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <AiCoachCard
-            enabled={Boolean(props.aiEnabled)}
-            suggestion={props.aiSuggestion ?? null}
-            onToast={setToast}
-            onChanged={() => router.refresh()}
-          />
-
-          {(() => {
-            const phase = currentPhase?.phase_type as PhaseType | undefined;
-            const tip = phase ? PHASE_NUTRITION[phase] : undefined;
-            return tip ? (
-              <div className="card">
-                <div className="mb-1 flex items-center gap-2 text-base font-semibold">
-                  <LeafIcon size={16} className="text-go" /> {tip.headline}
-                </div>
-                <ul className="space-y-1 text-meta text-ash">
-                  {tip.points.map((pt) => (
-                    <li key={pt}>• {pt}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null;
-          })()}
-
-          {/* Setup lives on its own page: two of those controls rebuild the
-              whole plan, which is not a footnote to today's session. */}
-          <Link
-            href="/settings"
-            className="flex items-center justify-between gap-2 rounded-panel border border-edge bg-lane/60 px-4 py-3 text-meta font-bold text-bone transition-colors duration-150 hover:border-edge-strong hover:text-bone"
-          >
-            Setup &amp; tools
-            <span className="text-smoke">→</span>
-          </Link>
-        </aside>
-      </div>
+          {card(openCs, { defaultOpen: true, onLogged: () => setOpenSession(null) })}
+        </Sheet>
+      )}
 
       {feedback && (
         <div
@@ -726,27 +811,182 @@ export function PlanClient(props: Props) {
 
       {toast && (
         <div
-          className="fixed bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-edge bg-lane px-4 py-2 text-base shadow-lg animate-fade-up"
-          onClick={() => setToast(null)}
+          role="status"
+          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[min(32rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg border border-edge bg-lane px-4 py-2.5 text-base shadow-lg animate-fade-up min-[901px]:bottom-4"
+          onClick={() => {
+            setToast(null);
+            setUndoId(null);
+          }}
         >
           <SparkIcon size={14} className="shrink-0 text-amber" />
-          {toast}
+          <span className="min-w-0 flex-1">{toast}</span>
+          {undoId && (
+            <button
+              type="button"
+              className="shrink-0 font-bold text-run hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                const id = undoId;
+                setUndoId(null);
+                setToast(null);
+                void reset(id);
+              }}
+            >
+              Undo
+            </button>
+          )}
         </div>
       )}
     </main>
   );
 }
 
-
-
-function Row({ k, v }: { k: string; v: string }) {
+/** Mon–Sun, a dot per session in its demand colour — green once it is done. */
+function DayStrip({
+  weekStart,
+  selected,
+  today,
+  sessions,
+  onSelect,
+}: {
+  weekStart: string;
+  selected: number;
+  today: number | null;
+  sessions: { cs: ClientSession; status: ClientSession["status"] }[];
+  onSelect: (day: number) => void;
+}) {
   return (
-    <div className="flex items-baseline justify-between gap-3 text-meta">
-      <dt className="text-ash">{k}</dt>
-      <dd className="font-mono tabular-nums text-bone">{v}</dd>
+    <div className="grid grid-cols-7 gap-1" role="tablist" aria-label="Days of this week">
+      {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+        const onDay = sessions.filter(({ cs }) => cs.session.day_hint === day);
+        const active = day === selected;
+        return (
+          <button
+            key={day}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-label={`${WEEKDAY_LABELS[day]}${day === today ? " (today)" : ""}: ${
+              onDay.length ? onDay.map(({ cs }) => cs.session.title).join(", ") : "rest day"
+            }`}
+            onClick={() => onSelect(day)}
+            className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-control border transition-colors duration-150 ease-out ${
+              active
+                ? "border-chalk bg-chalk text-lane"
+                : day === today
+                  ? "border-chalk bg-lane text-chalk"
+                  : "border-transparent text-ash hover:bg-lane"
+            }`}
+          >
+            <span className="text-micro font-bold uppercase">{WEEKDAY_LABELS[day].slice(0, 2)}</span>
+            <span className="font-mono text-base font-bold tabular-nums leading-none">
+              {Number(dayDateOf(weekStart, day).slice(8, 10))}
+            </span>
+            <span className="flex h-1.5 gap-0.5" aria-hidden="true">
+              {onDay.map(({ cs, status }) => (
+                <span
+                  key={cs.id}
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    background:
+                      status === "done"
+                        ? PALETTE.go
+                        : status === "skipped"
+                          ? PALETTE.smoke
+                          : DEMAND_COLORS[demandOf(cs.session.session_type)],
+                  }}
+                />
+              ))}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
+
+/** One day of the week as one line. A session line opens the session. */
+function DayRow({
+  day,
+  date,
+  today,
+  session,
+  slot,
+  status,
+  onOpen,
+}: {
+  day: number;
+  date: string;
+  today: boolean;
+  session?: GeneratedSession;
+  slot?: string | null;
+  status?: ClientSession["status"];
+  onOpen?: () => void;
+}) {
+  const label = (
+    <span className="w-12 shrink-0 text-left">
+      <span className="block font-mono text-micro font-bold uppercase tracking-widest text-ash">
+        {WEEKDAY_LABELS[day].slice(0, 3)}
+        {slot && <span className="ml-1 text-bone">{slot.toUpperCase()}</span>}
+      </span>
+      <span className="block font-mono text-meta text-smoke">{fmtDayDate(date)}</span>
+    </span>
+  );
+  if (!session) {
+    return (
+      <div
+        className={`flex items-center gap-3 rounded-panel border border-dashed px-3.5 py-2.5 ${
+          today ? "border-edge-strong" : "border-edge"
+        }`}
+      >
+        {label}
+        <span className="text-base font-medium text-ash">Rest day</span>
+      </div>
+    );
+  }
+  const demand = demandOf(session.session_type);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-day-row={session.title}
+      className={`flex w-full items-center gap-3 rounded-panel border bg-lane px-3.5 py-2.5 text-left transition-colors duration-150 ease-out hover:border-edge-strong ${
+        today ? "border-[1.5px] border-chalk" : "border-edge"
+      }`}
+    >
+      <span className="rail self-stretch" style={{ color: DEMAND_COLORS[demand] }} aria-hidden="true" />
+      {label}
+      <span className="min-w-0 flex-1">
+        <span
+          className={`block truncate text-base font-bold ${
+            status === "done" ? "text-ash line-through decoration-go decoration-2" : "text-chalk"
+          }`}
+        >
+          {session.title}
+        </span>
+        <span className="block text-meta text-ash">
+          <span style={{ color: DEMAND_COLORS[demand] }} className="font-semibold">
+            {DEMAND_LABELS[demand]}
+          </span>{" "}
+          · <span className="font-mono">{session.planned_duration_min} min</span>
+          {status === "skipped" && " · skipped"}
+          {status === "moved" && " · moved"}
+        </span>
+      </span>
+      <span
+        aria-label={status}
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+          status === "done" ? "border-go bg-go text-lane" : status === "skipped" ? "border-smoke" : "border-edge-strong"
+        }`}
+      >
+        {status === "done" && <CheckIcon size={14} />}
+        {status === "skipped" && <SkipIcon size={12} className="text-smoke" />}
+      </span>
+    </button>
+  );
+}
+
+
 
 /** A step to the neighbouring week — a 40px target, inert at either end. */
 function WeekStep({ to, label, glyph }: { to: number | null; label: string; glyph: string }) {
@@ -766,63 +1006,6 @@ function WeekStep({ to, label, glyph }: { to: number | null; label: string; glyp
     >
       {glyph}
     </Link>
-  );
-}
-
-/**
- * The goal, and the honest distance to it.
- *
- * Both numbers existed long before this line did — the app knew what an athlete
- * would run and what they had asked for, and never said the two out loud
- * together. Splitting the shortfall into what the stations can still give and
- * what would have to come from the legs is what turns it from a verdict into
- * something you can train against.
- */
-function GoalLine({ check }: { check: GoalCheck }) {
-  const short = Math.abs(check.delta_seconds);
-  return (
-    <div className="mt-3 border-t border-edge pt-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-meta font-bold text-bone">Goal</span>
-        <span className="font-mono text-base font-semibold tabular-nums text-bone">
-          {fmtClock(check.goal_seconds)}
-        </span>
-      </div>
-
-      {check.on_course ? (
-        <p className="mt-1.5 text-meta leading-relaxed text-go">
-          <b>{fmtClock(short)} inside it</b> on today&apos;s numbers.
-        </p>
-      ) : check.out_of_reach ? (
-        <p className="mt-1.5 text-meta leading-relaxed text-amber">
-          The stations alone take longer than this. Nothing in the legs can close it.
-        </p>
-      ) : (
-        <>
-          <p className="mt-1.5 text-meta leading-relaxed text-amber">
-            <b>{fmtClock(short)} to find.</b>{" "}
-            {check.station_gap_seconds > 0 && (
-              <>
-                {fmtClock(check.station_gap_seconds)} of it is sitting in the stations
-                {check.worst[0] ? ` — ${STATION_LABELS[check.worst[0].station].toLowerCase()} first` : ""}.{" "}
-              </>
-            )}
-            {check.running_gap_seconds > 0 && (
-              <>The other {fmtClock(check.running_gap_seconds)} has to come from the legs.</>
-            )}
-          </p>
-          {check.running_gap_seconds > 0 && (
-            <p className="mt-1.5 text-micro leading-relaxed text-smoke">
-              With every station perfect that is still{" "}
-              <span className="font-mono tabular-nums">
-                {fmtPace(check.required_pace_after_stations_sec_km)}
-              </span>{" "}
-              for all eight kilometres.
-            </p>
-          )}
-        </>
-      )}
-    </div>
   );
 }
 

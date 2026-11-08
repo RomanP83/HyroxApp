@@ -170,6 +170,7 @@ export function RunningDashboard({
                 <td className="py-1.5 pr-3">
                   {r.name ?? "Run"}
                   {/treadmill|indoor/i.test(r.activity_type) && <span className="ml-1 text-xs text-ash">· treadmill</span>}
+                  {r.session_id && <span className="ml-1 text-xs text-run">· logged to plan</span>}
                 </td>
                 <td className="py-1.5 pr-3 text-right">{r.km.toFixed(1)}</td>
                 <td className="hidden py-1.5 pr-3 text-right sm:table-cell">{fmtClock(Number(r.duration_s))}</td>

@@ -23,6 +23,8 @@ import {
   type SessionWithWeekRow,
 } from "@/lib/dbTypes";
 import { loadTuning } from "@/lib/engineConfig";
+import { garminLoadContext } from "@/lib/garminLoad";
+import { unplannedRunLoad } from "@/lib/engine";
 
 export interface MicroOutcome {
   adjustments: { action_taken: Record<string, unknown>; reason: string }[];
@@ -99,10 +101,20 @@ export async function applyMicroForSession(
     .order("completed_at", { ascending: false });
   const logs = (logsRaw ?? []) as unknown as LogWithSessionRow[];
 
-  const loadHistory: LoadEntry[] = logs.map((l) => ({
-    at: l.completed_at,
-    srpe: (l.rpe_actual ?? 0) * (l.duration_actual_min ?? 0),
-  }));
+  // Runs from the watch that no session accounts for load the body too.
+  const garmin = await garminLoadContext(
+    admin,
+    profileId,
+    planId,
+    new Date(Date.now() - 35 * 86_400_000).toISOString(),
+  );
+  const loadHistory: LoadEntry[] = [
+    ...logs.map((l) => ({
+      at: l.completed_at,
+      srpe: (l.rpe_actual ?? 0) * (l.duration_actual_min ?? 0),
+    })),
+    ...unplannedRunLoad(garmin.unplanned),
+  ];
 
   const priorSameType = logs
     .filter(

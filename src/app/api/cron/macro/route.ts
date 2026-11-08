@@ -18,6 +18,8 @@ import { loadSeasonRaces, pickMainRace, planWeeksTo } from "@/lib/seasonCalendar
 import { buildTransitionBlock } from "@/lib/transitionBlock";
 import { buildRaceBlock } from "@/lib/raceBlock";
 import { computeLoadState } from "@/lib/engine/adaptive";
+import { unplannedRunLoad } from "@/lib/engine/externalRuns";
+import { garminLoadContext } from "@/lib/garminLoad";
 import { dateInTrainingZone } from "@/lib/planClock";
 
 export const runtime = "nodejs";
@@ -118,10 +120,17 @@ export async function POST(req: Request) {
     // cached ACWR (including the old cold-start value) for nightly decisions.
     const state = {
       ...stateFromRow(stateRow as AthleteStateRow),
-      ...computeLoadState((logs ?? []).map((log) => ({
-        at: log.completed_at,
-        srpe: (log.rpe_actual ?? 0) * (log.duration_actual_min ?? 0),
-      })), new Date(now)),
+      ...computeLoadState([
+        ...(logs ?? []).map((log) => ({
+          at: log.completed_at,
+          srpe: (log.rpe_actual ?? 0) * (log.duration_actual_min ?? 0),
+        })),
+        // Unplanned watch runs, the same entries the log-time calibration adds.
+        ...unplannedRunLoad(
+          (await garminLoadContext(admin, plan.profile_id, plan.id, new Date(now - 35 * 86_400_000).toISOString()))
+            .unplanned,
+        ),
+      ], new Date(now)),
     };
 
     // Is this plan still the right SHAPE? A race cycle ends in a peak and a

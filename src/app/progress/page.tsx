@@ -9,7 +9,9 @@ import {
   type AthleteState,
   type LoadEntry,
   type RaceResult,
+  unplannedRunLoad,
 } from "@/lib/engine";
+import { garminLoadContext } from "@/lib/garminLoad";
 import Link from "next/link";
 import { EstimateCard } from "@/components/EstimateCard";
 import { fmtClock } from "@/lib/format";
@@ -111,10 +113,20 @@ export default async function ProgressPage() {
   const rpeActual: Pt[] = rpeLogs.map((l) => ({ label: day(l.completed_at), y: l.rpe_actual }));
 
   // ── ACWR curve, recomputed daily from the sRPE history ────────────────────
-  const history: LoadEntry[] = logList.map((l) => ({
-    at: l.completed_at,
-    srpe: (l.rpe_actual ?? 0) * (l.duration_actual_min ?? 0),
-  }));
+  // Unplanned Garmin runs count too — the same entries the engine adds.
+  const garmin = await garminLoadContext(
+    supabase,
+    profile.id,
+    plan?.id ?? null,
+    logList[0]?.completed_at ?? new Date(Date.now() - 35 * 86_400_000).toISOString(),
+  );
+  const history: LoadEntry[] = [
+    ...logList.map((l) => ({
+      at: l.completed_at,
+      srpe: (l.rpe_actual ?? 0) * (l.duration_actual_min ?? 0),
+    })),
+    ...unplannedRunLoad(garmin.unplanned),
+  ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
   const acwrSeries: Pt[] = [];
   if (history.length >= 2) {
     const start = new Date(history[0].at as string).getTime();
@@ -210,7 +222,10 @@ export default async function ProgressPage() {
         <LineChart series={rpeTarget} secondary={rpeActual} legend={["RPE target", "RPE actual"]} domain={[1, 10]} fmt={(v) => v.toFixed(0)} />
       </Card>
 
-      <Card title="Training load ratio (ACWR)" sub="Acute (7d) vs. chronic (28d) load — the engine's guardrail signal">
+      <Card
+        title="Training load ratio (ACWR)"
+        sub={`Acute (7d) vs. chronic (28d) load — the engine's guardrail signal${garmin.unplanned.length ? ` · includes ${garmin.unplanned.length} unplanned Garmin run${garmin.unplanned.length === 1 ? "" : "s"}` : ""}`}
+      >
         <LineChart
           series={acwrSeries}
           fmt={(v) => v.toFixed(2)}

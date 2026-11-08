@@ -438,8 +438,13 @@ vorher. In gesperrten Wochen (Free Preview) erscheint die Karte nicht.
 
 **Review my training** schickt eine Zusammenfassung deiner Daten an Gemini (Google): die geloggten
 Einheiten der letzten 21 Tage (RPE Soll/Ist, Dauer, Erfüllungsindex, deine Notizen), ausgelassene
-Einheiten, importierte Einheiten aus HyroxTraining aus demselben Zeitraum, ACWR und Belastung, Phase, Renndatum, Zielzeit und — wenn eingetragen — die
-[Rennanalyse](#rennen--simulationen). Name und E-Mail gehen nicht mit. Zurück kommt:
+Einheiten, importierte Einheiten aus HyroxTraining aus demselben Zeitraum, ACWR und Belastung, Phase, Renndatum, Zielzeit, — wenn eingetragen — die
+[Rennanalyse](#rennen--simulationen) und — wenn Garmin-Läufe importiert sind — deine
+[Garmin-Laufdaten](#garmin-läufe-im-training): Kilometer und Pace der letzten sechs Wochen, der
+Vergleich der letzten vier Wochen mit den vier davor, VO2max jetzt und vor etwa vier Wochen, Garmins
+Rennprognosen und die ungeplanten Läufe der letzten 21 Tage mit geschätzter RPE. Der Coach ist
+angewiesen, bei stark steigenden Wochenkilometern oder vielen ungeplanten Läufen Laufeinheiten eher
+leichter als härter vorzuschlagen. Name und E-Mail gehen nicht mit. Zurück kommt:
 
 - ein **Rückblick** in drei bis sechs Sätzen (Sprache über `AI_COACH_LANGUAGE`, Standard Deutsch),
 - **bis zu drei Vorschläge** für Einheiten der laufenden und der nächsten Woche.
@@ -626,6 +631,26 @@ Inaktivitätsregeln gelten trotzdem. Der Makro-Cron berechnet die Lastfenster vo
 | Dauerhaft hohe RPE (14 Tage) | Automatischer Deload |
 | ACWR unter 0,8 | Sanfter Wiedereinstieg |
 | 7 Tage inaktiv | Plan wird ab heute neu aufgebaut |
+
+**Läufe außerhalb des Plans zählen mit.** Kommen Läufe über den
+[Garmin-Import](#garmin-läufe-im-training), gehen die, die keiner geplanten Einheit zugeordnet
+wurden, als zusätzliche Last in ACWR ein — beim Loggen jeder Einheit, im Nachtlauf und in der
+ACWR-Kurve auf Progress gleich gerechnet. Ihre Anstrengung schätzt die Engine aus dem Puls
+(Ø-Puls im Verhältnis zum höchsten Puls, den die Uhr je gemessen hat; Tabelle
+`EXTERNAL_RUN_RPE_BY_HR_SHARE` in `constants.ts`):
+
+| Ø-Puls in % des Maximalpulses | geschätzte RPE |
+|---|---|
+| unter 70 % | 3 |
+| 70–78 % | 4 |
+| 78–85 % | 5 |
+| 85–89 % | 6 |
+| 89–93 % | 7 |
+| ab 93 % | 8 |
+
+Ohne Puls, oder solange der gemessene Maximalpuls unter 160 liegt, gilt RPE 4 (lockerer Lauf).
+Last = RPE × Minuten, wie bei geloggten Einheiten. Hast du einen Lauf von Hand als Laufeinheit
+geloggt, zählt der Garmin-Lauf am selben Tag mit ähnlicher Dauer (±25 %) nicht doppelt.
 
 **Die Mischung folgt einer Tabelle, nicht einer Reihenfolge.** Für jedes Level und jede Phase steht
 fest, welchen Anteil der geplanten Minuten Laufen, Kraft, Stationsarbeit und kompromittiertes Laufen
@@ -1207,7 +1232,7 @@ Oben zwei Knöpfe: **Log a test** und **Log a race** — beide auf [Tests & race
 | **Sessions logged** | Gesamtzahl |
 | **Weekly compliance** | Balken pro Woche |
 | **Effort: planned vs. felt** | RPE-Ziel als Linie gegen dein geloggtes RPE |
-| **Training load ratio** | ACWR über die Zeit, mit den Schwellen 0,8 / 1,3 / 1,5 |
+| **Training load ratio** | ACWR über die Zeit, mit den Schwellen 0,8 / 1,3 / 1,5. Die Unterzeile nennt, wie viele [ungeplante Garmin-Läufe](#garmin-läufe-im-training) mitgezählt sind. |
 | **Finish-time estimate over time** | Jede Neuberechnung der Prognose |
 | **Benchmarks** | Ein Verlauf pro Test |
 
@@ -1254,9 +1279,9 @@ statt leere Diagramme zu zeigen.
 | **Recent runs** | Die letzten 15 Läufe: Datum, Name, km, Zeit (nicht am Handy), Pace, Ø-Puls. Laufband-Läufe sind mit „· treadmill" markiert. |
 
 Gezählt werden alle Garmin-Lauftypen (Straße, Laufband, Trail, Bahn). Laufband-Pace kommt von der
-Uhr und ist entsprechend ungenauer. **Reine Anzeige:** Diese Läufe loggen keine Einheiten, ändern
-weder Pace-Zonen noch ACWR noch den Plan. Das automatische Zuordnen zu geplanten Einheiten macht
-nur die offizielle Garmin-Verbindung (Webhook), siehe [Abschnitt 13](#13-verbindungen-strava-garmin-telegram).
+Uhr und ist entsprechend ungenauer. Was die Läufe im Plan bewirken (Einheiten abhaken, Belastung,
+KI-Coach), steht unter [Garmin-Läufe im Training](#garmin-läufe-im-training). In **Recent runs**
+trägt ein Lauf, der eine geplante Einheit abgehakt hat, den Vermerk „· logged to plan".
 
 ### Race readiness
 
@@ -1405,6 +1430,29 @@ In der App selbst gibt es dafür **keinen Knopf**: Ohne eingerichteten Sync blei
   und Läufe unter 400 m oder 2 Minuten werden übersprungen. Höchstens 500 Aktivitäten pro Aufruf.
 - Der Export unter Setup enthält die importierten Läufe und Fitnesswerte (`garmin_runs`,
   `garmin_fitness`).
+- Die Antwort nennt unter `logged_to_plan`, wie viele Läufe eine geplante Einheit abgehakt haben.
+  Klappt das Zuordnen nicht (etwa ohne Migration 0037), sind die Läufe trotzdem gespeichert und
+  die Antwort enthält `auto_log_error`.
+
+### Garmin-Läufe im Training
+
+Was mit jedem importierten Lauf passiert:
+
+1. **Passt er zu einer geplanten Laufeinheit, wird sie abgehakt.** Gleiche Regeln wie bei Strava:
+   Laufeinheit (Easy, Intervalle, Compromised) der **aktuellen** Planwoche, gleicher Tag, gleiche
+   Tageshälfte (Start vor 12 Uhr = vormittags). Geloggt werden echte Dauer, Strecke und Pace — die
+   Pace fließt in die Kalibrierung der Pace-Zonen. Als Anstrengung wird das **RPE-Ziel** der
+   Einheit eingetragen, nicht der Puls; fühlte es sich anders an, korrigierst du das in der App
+   wie bei jedem Log. Eine Einheit, die du schon selbst geloggt hast, bleibt unangetastet.
+2. **Sonst zählt er als ungeplanter Lauf in die Belastung** (ACWR), mit aus dem Puls geschätzter
+   Anstrengung — siehe [Läufe außerhalb des Plans](#6-wie-sich-der-plan-anpasst). Er hakt nichts
+   ab und verschiebt nichts; der Plan reagiert nur über die üblichen ACWR-Regeln (Trim, Deload).
+3. **Der KI-Coach sieht die Laufdaten** (Wochenkilometer, Pace-Trend, VO2max, Prognosen,
+   ungeplante Läufe), siehe [KI-Coach](#ki-coach-gemini).
+
+Abgehakt wird nur, was in der laufenden Woche liegt. Ein Lauf vom Sonntagabend, der erst am Montag
+importiert wird, zählt deshalb nur als ungeplanter Lauf; die Sonntags-Einheit bleibt offen und
+lässt sich von Hand loggen.
 
 ---
 
@@ -1527,6 +1575,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Garmin-Läufe im Training:** importierte Läufe haken passende geplante Laufeinheiten der laufenden Woche ab (echte Pace → Pace-Zonen); alle anderen Läufe zählen mit aus dem Puls geschätzter Anstrengung in die Belastung (ACWR); der KI-Coach bekommt Wochenkilometer, Pace, VO2max, Prognosen und ungeplante Läufe. „· logged to plan" in Recent runs | [6](#6-wie-sich-der-plan-anpasst), [4](#ki-coach-gemini), [11](#running--lauffortschritt-aus-garmin-progressrunning), [13](#garmin-läufe-im-training) |
 | **Balkendiagramme:** Der erste Balken überdeckt die Beschriftung der senkrechten Achse nicht mehr (Weekly distance, Weekly compliance, Imported history) | [11](#11-progress--auswertungen) |
 | **Lauf-Dashboard aus Garmin** (`/progress/running`, über Progress → Running from Garmin): Wochenkilometer, Pace- und Effizienz-Trend, VO2max, Rennprognosen und die letzten Läufe. Daten kommen über den neuen Import-Endpunkt `/api/garmin/import`; reine Anzeige, der Plan bleibt unberührt | [2](#2-seitenübersicht), [11](#running--lauffortschritt-aus-garmin-progressrunning), [13](#garmin-import-für-das-lauf-dashboard) |
 | **Neue Struktur:** vier Tabs statt sechs — Today, Plan, Progress, Race. **Today** ist der neue Start mit Wochenstreifen und der Einheit des Tages; **Plan** zeigt die Woche als Liste (eine Zeile pro Tag, Antippen öffnet die Einheit) und die Saison über „Week \| Season"; Tests & Rennen tragen sich über Progress ein, das Kraftprogramm über Setup. **Loggen** mit einem Knopf: „Done" fragt im Sheet nach der Anstrengung (vorbelegt mit dem Ziel), Skip und Move sitzen im ⋯-Menü, nach dem Speichern bietet ein Hinweis Undo. Die Prognose steht jetzt auf Progress. Jede Einheit zeigt ihren Verlauf als Balken | [2](#2-seitenübersicht), [4](#4-today-und-plan--heute-und-die-trainingswoche), [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen), [11](#11-progress--auswertungen) |

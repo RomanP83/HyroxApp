@@ -158,6 +158,8 @@ export interface StoredRun {
   avg_hr: number | null;
   max_hr?: number | null;
   elevation_gain_m?: number | string | null;
+  /** Planned session this run was logged against (migration 0037). */
+  session_id?: string | null;
 }
 
 export interface RunWeek {

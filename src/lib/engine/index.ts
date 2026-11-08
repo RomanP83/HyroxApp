@@ -1,6 +1,7 @@
 // Public engine surface. Import from "@/lib/engine".
 export * from "./types";
 export * from "./constants";
+export * from "./externalRuns";
 export * from "./macro";
 export * from "./season";
 export * from "./raceCalendar";

@@ -61,6 +61,7 @@ fest, wann was dazugekommen ist. Technische Detaildokumente liegen daneben:
 | `/strength` | Eigene Kraftprogramme — erreichbar über **Setup → Strength program** | nein |
 | `/benchmarks` | Tests und Rennen eintragen — erreichbar über **Progress → Log a test / Log a race** | nein |
 | `/progress` | **Tab Progress:** Prognose, Verlauf und Auswertungen | nein |
+| `/progress/running` | Lauffortschritt aus Garmin — erreichbar über **Progress → Running from Garmin** | nein |
 | `/race` | Renntag: Pacing-Blatt, Stationskosten, Rennergebnis | nein |
 | `/settings` | Setup & Tools: Wochenform, Laufvolumen, Verbindungen, Verletzung | nein |
 | `/admin/knowledge` | Betreiber: Wissensquellen einspeisen | Betreiber-Secret |
@@ -80,11 +81,11 @@ Alle eingeloggten Seiten teilen sich **einen Rahmen** im Look des HyroxTraining-
 |---|---|---|
 | **Today** | In der Halle: die Einheit von heute loggen | — |
 | **Plan** | Die Woche und die Saison ansehen, Einheiten verschieben | Season, über den Umschalter **Week \| Season** oben |
-| **Progress** | Wo du stehst: Prognose, Ziel, Verlauf | Tests und Rennen eintragen (`/benchmarks`) |
+| **Progress** | Wo du stehst: Prognose, Ziel, Verlauf | Tests und Rennen eintragen (`/benchmarks`), Lauf-Dashboard (`/progress/running`) |
 | **Race** | Renntag: Pacing-Blatt und Stationskosten | — |
 
 Der Tab, auf dem du bist, ist schwarz gefüllt — auch auf den Seiten, die an ihm hängen: Auf der
-Saison leuchtet **Plan**, auf Tests & races **Progress**, auf dem Kraftprogramm das
+Saison leuchtet **Plan**, auf Tests & races und dem Lauf-Dashboard **Progress**, auf dem Kraftprogramm das
 **Setup**-Zahnrad. Diese Seiten haben oben links zusätzlich einen Rückweg („← Progress",
 „← Setup"). Auch die Betreiberseite `/admin/knowledge` hat oben links einen Rückweg in die App.
 
@@ -1231,6 +1232,32 @@ importierten Einheiten, ihre Arten, und zwei Balken je Kalenderwoche (Einheiten,
 geloggten Dauern; die letzten 20 Wochen mit Einträgen). Reiner Verlauf — fließt nicht in ACWR oder
 Plan.
 
+### Running — Lauffortschritt aus Garmin (`/progress/running`)
+
+Erreichbar über den Knopf **Running from Garmin →** unter „Log a test / Log a race". Oben links
+„← Progress" zurück. Die Seite zeigt nur Daten, die über den Garmin-Import
+([Abschnitt 13](#garmin-import-für-das-lauf-dashboard)) angekommen sind; rechts oben steht, wann
+zuletzt synchronisiert wurde („synced TT.MM.JJJJ"). Ohne importierte Läufe sagt die Seite das,
+statt leere Diagramme zu zeigen.
+
+| Element | Was es zeigt |
+|---|---|
+| **This week** | Kilometer der laufenden Woche (Montag bis Sonntag, nach dem lokalen Datum der Uhr). |
+| **Avg. km / week (4 wk)** | Schnitt der letzten vier *vollen* Wochen, darunter der Unterschied zu den vier Wochen davor. Die laufende Woche zählt nicht mit. |
+| **Avg. pace (4 wk)** | Pace über alle Läufe der letzten vier vollen Wochen, nach Distanz gewichtet (Gesamtzeit ÷ Gesamtstrecke), darunter schneller/langsamer als die vier Wochen davor. |
+| **Runs (4 wk)** | Anzahl Läufe in denselben vier Wochen; darunter der längste Lauf der letzten 12 Wochen. |
+| **Weekly distance** | Kilometer je Woche, die letzten 12 Wochen. |
+| **Average pace per week** | Gewichtete Pace je Woche (nur Wochen mit Läufen). Niedriger = schneller. |
+| **Aerobic efficiency** | Meter pro Herzschlag je Woche: Strecke ÷ (Minuten × Ø-Puls), nur Läufe mit Pulsdaten. Steigt der Wert bei ähnlichem Training, läufst du bei gleichem Puls schneller. |
+| **VO2max** | Garmins VO2max-Schätzung, nur Tage mit neu berechnetem Wert (fortgeschriebene Tage werden nicht gespeichert). |
+| **Race predictions** | Garmins Prognose für 5 km, 10 km, Halbmarathon und Marathon zum neuesten Stand, darunter die Veränderung seit der ältesten gespeicherten Prognose (bis ca. 200 Tage zurück). |
+| **Recent runs** | Die letzten 15 Läufe: Datum, Name, km, Zeit (nicht am Handy), Pace, Ø-Puls. Laufband-Läufe sind mit „· treadmill" markiert. |
+
+Gezählt werden alle Garmin-Lauftypen (Straße, Laufband, Trail, Bahn). Laufband-Pace kommt von der
+Uhr und ist entsprechend ungenauer. **Reine Anzeige:** Diese Läufe loggen keine Einheiten, ändern
+weder Pace-Zonen noch ACWR noch den Plan. Das automatische Zuordnen zu geplanten Einheiten macht
+nur die offizielle Garmin-Verbindung (Webhook), siehe [Abschnitt 13](#13-verbindungen-strava-garmin-telegram).
+
 ### Race readiness
 
 Direkt unter den Kennzahlen, gerechnet aus den Einträgen unter
@@ -1361,6 +1388,24 @@ Pro Push sind höchstens 20 Aktivitäten erlaubt; Datenbankfehler werden nicht m
 entspricht das Done mit der Skala auf, über oder unter dem Ziel bzw. Skip im ⋯-Menü). Antippen loggt
 die Einheit, ohne die App zu öffnen. Ohne Telegram gibt es stattdessen eine E-Mail.
 
+### Garmin-Import für das Lauf-Dashboard
+
+Unabhängig von der offiziellen Garmin-Verbindung oben gibt es einen Import-Endpunkt
+`POST /api/garmin/import`, der Läufe, VO2max-Werte und Rennprognosen für
+[`/progress/running`](#running--lauffortschritt-aus-garmin-progressrunning) speichert. Gedacht ist er
+für einen Sync von außen — etwa eine geplante Claude-Aufgabe, die Garmin über den Garmin-Connector
+liest und die Daten in dessen Format weiterschickt (`activities`, `vo2max`, `race_predictions`).
+In der App selbst gibt es dafür **keinen Knopf**: Ohne eingerichteten Sync bleibt die Seite leer.
+
+- **Einrichtung:** `GARMIN_IMPORT_SECRET` setzen; Aufrufe senden es als
+  `Authorization: Bearer <Secret>`. Ohne Secret antwortet der Endpunkt mit 503, mit falschem mit 401.
+- Gibt es in der Datenbank mehr als ein Profil, muss `GARMIN_IMPORT_PROFILE_ID` sagen, welches
+  gemeint ist (sonst 409).
+- Doppelt gesendete Aktivitäten werden aktualisiert, nicht doppelt angelegt. Nicht-Lauf-Aktivitäten
+  und Läufe unter 400 m oder 2 Minuten werden übersprungen. Höchstens 500 Aktivitäten pro Aufruf.
+- Der Export unter Setup enthält die importierten Läufe und Fitnesswerte (`garmin_runs`,
+  `garmin_fitness`).
+
 ---
 
 ## 14. Automatische Abläufe im Hintergrund
@@ -1482,6 +1527,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Lauf-Dashboard aus Garmin** (`/progress/running`, über Progress → Running from Garmin): Wochenkilometer, Pace- und Effizienz-Trend, VO2max, Rennprognosen und die letzten Läufe. Daten kommen über den neuen Import-Endpunkt `/api/garmin/import`; reine Anzeige, der Plan bleibt unberührt | [2](#2-seitenübersicht), [11](#running--lauffortschritt-aus-garmin-progressrunning), [13](#garmin-import-für-das-lauf-dashboard) |
 | **Neue Struktur:** vier Tabs statt sechs — Today, Plan, Progress, Race. **Today** ist der neue Start mit Wochenstreifen und der Einheit des Tages; **Plan** zeigt die Woche als Liste (eine Zeile pro Tag, Antippen öffnet die Einheit) und die Saison über „Week \| Season"; Tests & Rennen tragen sich über Progress ein, das Kraftprogramm über Setup. **Loggen** mit einem Knopf: „Done" fragt im Sheet nach der Anstrengung (vorbelegt mit dem Ziel), Skip und Move sitzen im ⋯-Menü, nach dem Speichern bietet ein Hinweis Undo. Die Prognose steht jetzt auf Progress. Jede Einheit zeigt ihren Verlauf als Balken | [2](#2-seitenübersicht), [4](#4-today-und-plan--heute-und-die-trainingswoche), [5](#5-eine-einheit-loggen-und-den-fehlklick-zurücknehmen), [11](#11-progress--auswertungen) |
 | **Schnellere Seitenwechsel:** jeder Bereich zeigt beim Tippen sofort Platzhalter mit stehender Navigation; ein vor weniger als 30 s besuchter Bereich kommt ohne Ladezeit zurück; die Seiten fragen die Datenbank in weniger Runden ab, und der Server läuft jetzt in Frankfurt neben der Datenbank statt in den USA | [Seitenwechsel](#seitenwechsel) |
 | **Neues Design wie HyroxTraining („Box Whiteboard"):** heller Whiteboard-Grund, Barlow-Schriften, Markerfarben mit je einer Bedeutung (Laufen jetzt blau, hart rot); Navigation am Desktop in einer Aluminium-Spalte links, am Handy als Tab-Leiste unten mit Setup-Zahnrad oben; die heutige Einheit hebt sich mit Schatten ab, Erledigtes wird grün durchgestrichen | [2](#2-seitenübersicht), [4](#eine-einheitenkarte), [8](#8-settings--setup--tools) |

@@ -173,6 +173,9 @@ export default async function ProgressPage() {
         <Link href="/benchmarks#races" className="btn-ghost">
           Log a race
         </Link>
+        <Link href="/progress/running" className="btn-ghost col-span-2">
+          Running from Garmin →
+        </Link>
       </div>
 
       <EstimateCard

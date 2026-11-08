@@ -102,6 +102,9 @@ export async function GET() {
         benchmark_results: await byProfile("benchmark_results"),
         race_results: await byProfile("athlete_race_results"),
         imported_workouts: await byProfile("imported_workouts"),
+        // Migration 0036; a database without it exports without them.
+        garmin_runs: await byProfile("garmin_runs").catch(() => []),
+        garmin_fitness: await byProfile("garmin_fitness").catch(() => []),
       },
       vacations: await byProfile("vacations"),
       ai_suggestions: await byProfile("ai_suggestions"),

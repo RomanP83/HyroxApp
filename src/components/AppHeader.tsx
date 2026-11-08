@@ -10,7 +10,8 @@
 //
 // Four tabs by what you are doing: training today, looking at the plan,
 // checking where you stand, racing. Pages that hang off a tab (Season off
-// Plan, Tests off Progress, the strength program off Setup) light that tab.
+// Plan, Tests and Running off Progress, the strength program off Setup) light
+// that tab.
 //
 // The countdown and the page action sit top right of the main column on
 // desktop, in the rail top bar on phones.
@@ -23,7 +24,7 @@ type IconName = "today" | "week" | "progress" | "race" | "setup";
 const NAV: { href: string; label: string; short: string; icon: IconName; also: string[] }[] = [
   { href: "/today", label: "Today", short: "Today", icon: "today", also: [] },
   { href: "/plan", label: "Plan", short: "Plan", icon: "week", also: ["/season"] },
-  { href: "/progress", label: "Progress", short: "Progress", icon: "progress", also: ["/benchmarks"] },
+  { href: "/progress", label: "Progress", short: "Progress", icon: "progress", also: ["/benchmarks", "/progress/running"] },
   { href: "/race", label: "Race", short: "Race", icon: "race", also: [] },
 ];
 

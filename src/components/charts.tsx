@@ -234,8 +234,14 @@ export function BarChart({
   domain?: [number, number];
 }) {
   if (!bars.length) return <EmptyState />;
-  const scale = makeScale(bars.length, bars.map((b) => b.y), domain ?? [0, Math.max(...bars.map((b) => b.y), 1)]);
   const innerW = W - PAD.left - PAD.right;
+  // Bars sit in the middle of equal bands, so the first one clears the
+  // y-axis labels and the last one the right edge (a line chart's points
+  // may sit on the edges; a bar's body may not).
+  const scale: Scale = {
+    ...makeScale(bars.length, bars.map((b) => b.y), domain ?? [0, Math.max(...bars.map((b) => b.y), 1)]),
+    x: (i) => PAD.left + (innerW * (i + 0.5)) / bars.length,
+  };
   const bw = Math.min(24, (innerW / bars.length) * 0.6);
   const y0 = scale.y(domain ? domain[0] : 0);
 

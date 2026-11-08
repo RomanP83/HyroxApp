@@ -45,6 +45,35 @@ export function slotForRun(
   return hour < 12 ? "am" : "pm";
 }
 
+interface RunCandidate {
+  id: string;
+  day_hint: number;
+  day_slot: string | null;
+}
+
+/**
+ * Which open run session of the day a run belongs to.
+ *
+ * A day with ONE run session takes the run whenever it started: a single
+ * session is stored as the morning half, and an evening run is still that
+ * session. Only a day with two run sessions (a double day) goes by the half
+ * the run started in — and never falls back to the other half, so a
+ * redelivered morning run cannot consume the evening run.
+ */
+export function pickRunSession<T extends RunCandidate>(
+  candidates: T[],
+  dayRunSessions: { id: string; day_slot: string | null }[],
+  dayHint: number,
+  runSlot: "am" | "pm" | null,
+): T | null {
+  const sameDay = candidates.filter((s) => s.day_hint === dayHint);
+  if (!sameDay.length) return null;
+  if (dayRunSessions.length <= 1) {
+    return sameDay.length === 1 ? sameDay[0] : null;
+  }
+  return sameDay.find((s) => (s.day_slot ?? "am") === runSlot) ?? null;
+}
+
 /**
  * Match the run to a planned session of the athlete's current week and log it.
  * Returns the logged session id, or null when nothing matched.
@@ -98,12 +127,17 @@ export async function autoLogRun(
   if (candidatesError) throw new Error("Run session lookup failed");
   if (!candidates?.length) return null;
 
-  // On a double day both halves can hold a run. Prefer the one whose slot
-  // matches when the run actually started. Never fall back to another half:
-  // a redelivery must not consume the second run of a double day.
-  const sameDay = candidates.filter((s) => s.day_hint === activityDayHint);
-  const runSlot = slotForRun(run.startedAt);
-  const session = sameDay.find((s) => (s.day_slot ?? "am") === runSlot);
+  // Every run session of that day, whatever its status: tells a day with one
+  // run session apart from a day whose second run is already logged.
+  const { data: dayRuns, error: dayRunsError } = await admin
+    .from("sessions")
+    .select("id, day_slot")
+    .eq("week_id", week.id)
+    .eq("day_hint", activityDayHint)
+    .in("session_type", RUN_SESSION_TYPES);
+  if (dayRunsError) throw new Error("Run day lookup failed");
+
+  const session = pickRunSession(candidates, dayRuns ?? [], activityDayHint, slotForRun(run.startedAt));
   // A webhook arriving late must never consume an unrelated run merely
   // because it is the earliest remaining one in the week.
   if (!session) return null;

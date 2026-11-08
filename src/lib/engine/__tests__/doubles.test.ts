@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { distributeSlots, doublesForWeek } from "../micro";
 import { generatePlan, initialAthleteState, type AthleteProfile, type PhaseType } from "../index";
 import { DEMO_LIBRARY } from "@/lib/demoLibrary";
-import { slotForRun } from "@/lib/autoLogRun";
+import { pickRunSession, slotForRun } from "@/lib/autoLogRun";
 
 const PHASES: PhaseType[] = ["base", "build", "peak", "taper"];
 /** Sessions that must never share a day with another hard session. */
@@ -225,5 +225,30 @@ describe("slotForRun", () => {
     expect(slotForRun("2026-08-21T18:05:00.000Z")).toBe("pm");
     expect(slotForRun(undefined)).toBeNull();
     expect(slotForRun("not a date")).toBeNull();
+  });
+});
+
+describe("pickRunSession", () => {
+  const easy = { id: "easy", day_hint: 3, day_slot: "am" };
+  const pmRun = { id: "pm", day_hint: 3, day_slot: "pm" };
+
+  it("gives an evening run to the day's only run session, stored as the morning", () => {
+    expect(pickRunSession([easy], [easy], 3, "pm")?.id).toBe("easy");
+    expect(pickRunSession([easy], [easy], 3, "am")?.id).toBe("easy");
+  });
+
+  it("goes by the half of the day on a day with two run sessions", () => {
+    const amRun = { ...easy, id: "am" };
+    expect(pickRunSession([amRun, pmRun], [amRun, pmRun], 3, "am")?.id).toBe("am");
+    expect(pickRunSession([amRun, pmRun], [amRun, pmRun], 3, "pm")?.id).toBe("pm");
+  });
+
+  it("never lets a redelivered morning run consume the evening run of a double day", () => {
+    const amDone = { id: "am", day_slot: "am" };
+    expect(pickRunSession([pmRun], [amDone, pmRun], 3, "am")).toBeNull();
+  });
+
+  it("matches nothing on another day", () => {
+    expect(pickRunSession([easy], [], 4, "pm")).toBeNull();
   });
 });

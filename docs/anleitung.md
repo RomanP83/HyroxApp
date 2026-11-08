@@ -1400,8 +1400,11 @@ Einheit zugeordnet und geloggt. Die tatsächlich gelaufene Pace fließt direkt i
 Pace-Kalibrierung. Neue Aktivitäten kommen per Webhook an — kein Polling, keine manuelle Eingabe.
 
 Automatisch zugeordnet werden nur Läufe mit gültigem Startzeitpunkt nach dem Planstart, in der
-aktuellen Planwoche und im passenden Tag-/AM-PM-Slot. Alte oder nicht passende Aktivitäten werden
-nicht auf eine andere offene Einheit umgebucht. Nicht zugeordnete Läufe kannst du manuell loggen.
+aktuellen Planwoche und am passenden Tag. Steht an dem Tag **eine** Laufeinheit, bekommt sie den
+Lauf unabhängig von der Uhrzeit. Nur an einem Doppeltag mit **zwei** Laufeinheiten entscheidet die
+Tageshälfte (Start vor 12 Uhr = vormittags), und der Lauf wechselt nie auf die andere Hälfte. Alte
+oder nicht passende Aktivitäten werden nicht auf eine andere offene Einheit umgebucht. Nicht
+zugeordnete Läufe kannst du manuell loggen.
 
 **Garmin-Einrichtung:** Zusätzlich zu Client-ID und Client-Secret ist `GARMIN_WEBHOOK_SECRET`
 erforderlich. Die Push-URL wird mit `?token=<Secret>` registriert (alternativ Header
@@ -1439,8 +1442,8 @@ In der App selbst gibt es dafür **keinen Knopf**: Ohne eingerichteten Sync blei
 Was mit jedem importierten Lauf passiert:
 
 1. **Passt er zu einer geplanten Laufeinheit, wird sie abgehakt.** Gleiche Regeln wie bei Strava:
-   Laufeinheit (Easy, Intervalle, Compromised) der **aktuellen** Planwoche, gleicher Tag, gleiche
-   Tageshälfte (Start vor 12 Uhr = vormittags). Geloggt werden echte Dauer, Strecke und Pace — die
+   Laufeinheit (Easy, Intervalle, Compromised) der **aktuellen** Planwoche, gleicher Tag; die
+   Tageshälfte zählt nur an Tagen mit zwei Laufeinheiten (siehe oben). Geloggt werden echte Dauer, Strecke und Pace — die
    Pace fließt in die Kalibrierung der Pace-Zonen. Als Anstrengung wird das **RPE-Ziel** der
    Einheit eingetragen, nicht der Puls; fühlte es sich anders an, korrigierst du das in der App
    wie bei jedem Log. Eine Einheit, die du schon selbst geloggt hast, bleibt unangetastet.
@@ -1575,6 +1578,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **Korrektur Lauf-Zuordnung (Strava, Garmin):** Ein Lauf nach 12 Uhr fand an einem Tag mit nur einer Laufeinheit nie seine Einheit, weil sie als „vormittags" gespeichert ist. Jetzt bekommt die einzige Laufeinheit des Tages den Lauf zu jeder Uhrzeit; die Tageshälfte zählt nur an Tagen mit zwei Laufeinheiten | [13](#13-verbindungen-strava-garmin-telegram) |
 | **Garmin-Läufe im Training:** importierte Läufe haken passende geplante Laufeinheiten der laufenden Woche ab (echte Pace → Pace-Zonen); alle anderen Läufe zählen mit aus dem Puls geschätzter Anstrengung in die Belastung (ACWR); der KI-Coach bekommt Wochenkilometer, Pace, VO2max, Prognosen und ungeplante Läufe. „· logged to plan" in Recent runs | [6](#6-wie-sich-der-plan-anpasst), [4](#ki-coach-gemini), [11](#running--lauffortschritt-aus-garmin-progressrunning), [13](#garmin-läufe-im-training) |
 | **Balkendiagramme:** Der erste Balken überdeckt die Beschriftung der senkrechten Achse nicht mehr (Weekly distance, Weekly compliance, Imported history) | [11](#11-progress--auswertungen) |
 | **Lauf-Dashboard aus Garmin** (`/progress/running`, über Progress → Running from Garmin): Wochenkilometer, Pace- und Effizienz-Trend, VO2max, Rennprognosen und die letzten Läufe. Daten kommen über den neuen Import-Endpunkt `/api/garmin/import`; reine Anzeige, der Plan bleibt unberührt | [2](#2-seitenübersicht), [11](#running--lauffortschritt-aus-garmin-progressrunning), [13](#garmin-import-für-das-lauf-dashboard) |

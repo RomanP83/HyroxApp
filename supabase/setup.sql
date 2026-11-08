@@ -2826,6 +2826,22 @@ drop policy if exists garmin_fitness_read on garmin_fitness;
 create policy garmin_fitness_read on garmin_fitness for select
   using (profile_id in (select id from athlete_profiles where user_id = auth.uid()));
 
+-- ─────────────────────────────────────────────────────────────────────
+-- supabase/migrations/0037_garmin_run_session.sql
+-- ─────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- 0037 — which planned session a Garmin run was logged against.
+--
+-- Set by /api/garmin/import when a run is matched to a planned run session of
+-- the current week. A run with a session is already in the load through its
+-- log; a run without one enters the load as an unplanned run.
+-- ============================================================================
+
+alter table garmin_runs
+  add column if not exists session_id uuid references sessions(id) on delete set null;
+
+create index if not exists garmin_runs_session_idx on garmin_runs(session_id);
+
 -- >>> generated: compromised running
 -- ============================================================================
 -- Compromised running: 60 sessions, five levels x four phases x three.

@@ -22,7 +22,8 @@ export default async function RunningPage() {
   const [{ data: runRows }, { data: fitnessRows }] = await Promise.all([
     supabase
       .from("garmin_runs")
-      .select("activity_id, name, activity_type, start_local, distance_m, duration_s, avg_hr, max_hr, elevation_gain_m, imported_at")
+      // "*" so a database without migration 0037 (session_id) still opens the page.
+      .select("*")
       .eq("profile_id", profile.id)
       .gte("start_local", since)
       .order("start_local", { ascending: true }),

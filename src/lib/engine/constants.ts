@@ -491,3 +491,30 @@ export const GOAL_SECONDS_BY_LEVEL: Record<ExperienceLevel, number> = {
 export function goalSecondsForLevel(level: ExperienceLevel): number {
   return GOAL_SECONDS_BY_LEVEL[level] ?? GOAL_SECONDS_BY_LEVEL.intermediate;
 }
+
+// ── Runs from a watch that the plan did not ask for ─────────────────────────
+
+/**
+ * Effort of an unplanned run from its average heart rate, as a share of the
+ * athlete's highest heart rate seen on the watch. Read top to bottom: the
+ * first band whose ceiling is above the share gives the RPE. Roughly the
+ * classic five-zone model (Z1 <70 %, Z2 70–78 %, Z3 78–85 %, Z4 85–92 %, Z5).
+ */
+export const EXTERNAL_RUN_RPE_BY_HR_SHARE: readonly (readonly [number, number])[] = [
+  [0.7, 3],
+  [0.78, 4],
+  [0.85, 5],
+  [0.89, 6],
+  [0.93, 7],
+  [Infinity, 8],
+];
+/** An unplanned run without heart rate counts as an easy run. */
+export const EXTERNAL_RUN_DEFAULT_RPE = 4;
+/** A max heart rate below this is not trusted (too few hard runs seen yet). */
+export const EXTERNAL_RUN_MIN_TRUSTED_MAX_HR = 160;
+/**
+ * A watch run is the SAME run as a logged run session on the same day when
+ * their durations differ by at most this share — it is then already in the
+ * load and must not count twice.
+ */
+export const EXTERNAL_RUN_DUPLICATE_DURATION_SHARE = 0.25;

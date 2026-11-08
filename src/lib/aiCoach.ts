@@ -33,6 +33,7 @@ import {
 } from "@/lib/engine";
 import { weekStartOf } from "@/lib/dayOverrides";
 import { geminiJson } from "@/lib/gemini";
+import { garminCoachFacts, type GarminCoachFacts } from "@/lib/garminLoad";
 
 /** Pressing the button twice within this window returns the same review. */
 export const AI_COACH_MIN_INTERVAL_MIN = 10;
@@ -102,6 +103,8 @@ export interface CoachFacts {
   skipped_recent: string[];
   /** Sessions imported from the old tracker in the same 21 days, if any. */
   imported_recent: { date: string; kind: string; title: string | null; duration_min: number | null; rpe: number | null }[];
+  /** Running data from the athlete's Garmin watch, if synced. */
+  garmin_running: GarminCoachFacts | null;
   upcoming: {
     session_id: string;
     week: "current" | "next";
@@ -131,6 +134,7 @@ export function coachSystemPrompt(language: string): string {
 
 Rules:
 - Use ONLY the numbers in the facts. Never invent paces, weights, times or claims.
+- "garmin_running" is the athlete's watch data: weekly kilometres, pace, VO2max and Garmin's race predictions. Its unplanned runs are already counted in acwr; their effort is estimated from heart rate, not rated by the athlete. A sharp rise in weekly kilometres or many unplanned runs is a reason to keep upcoming run sessions easier, never harder.
 - An empty suggestions list is a good answer when the plan fits. Do not propose change for its own sake.
 - session_id must be copied exactly from "upcoming", and only for status "planned".
 - Never make a taper, deload or vacation session harder. Sessions titled "Vacation · …" are the athlete's holiday — leave them easy. Never propose "harder" when acwr is at or above the trim guardrail.
@@ -340,6 +344,7 @@ export async function loadCoachContext(
       duration_min: r.duration_min,
       rpe: r.rpe == null ? null : Number(r.rpe),
     })),
+    garmin_running: await garminCoachFacts(admin, plan.profile_id, planId, now, HISTORY_DAYS),
     upcoming: candidates.map((c) => ({
       session_id: c.id,
       week: c.week,

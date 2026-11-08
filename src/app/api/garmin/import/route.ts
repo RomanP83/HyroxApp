@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { GarminImport, garminImportAuthed, mapPredictions, mapRuns, mapVo2 } from "@/lib/garminRuns";
+import { autoLogGarminRuns } from "@/lib/garminLoad";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -10,7 +11,9 @@ export const maxDuration = 60;
 // race predictions in the connector's own shapes. Guarded by
 // GARMIN_IMPORT_SECRET as a Bearer token, because it writes with the service
 // role. Idempotent: the same activity posted twice updates one row.
-// Display only — the plan and the engine's state are never touched.
+// Runs of the current week that fit a planned run session are logged against
+// it (autoLogGarminRuns); all other runs reach the load as unplanned runs
+// wherever the load is computed (lib/garminLoad.ts).
 async function resolveProfileId(admin: ReturnType<typeof supabaseAdmin>): Promise<string | null | "ambiguous"> {
   const pinned = process.env.GARMIN_IMPORT_PROFILE_ID;
   if (pinned) return pinned;
@@ -68,9 +71,23 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: "import_failed", detail: error.message }, { status: 500 });
   }
 
+  // Runs of this week that match a planned run session are logged against it,
+  // through the same path Strava uses (real pace → pace-zone calibration).
+  // The runs are stored either way; a failure here (e.g. migration 0037 not
+  // applied yet) is reported, not turned into a retry of the whole import.
+  let loggedToPlan = 0;
+  let autoLogError: string | undefined;
+  try {
+    loggedToPlan = await autoLogGarminRuns(admin, profileId);
+  } catch (e) {
+    autoLogError = e instanceof Error ? e.message : String(e);
+  }
+
   return NextResponse.json({
     ok: true,
     runs: rows.length,
+    logged_to_plan: loggedToPlan,
+    ...(autoLogError ? { auto_log_error: autoLogError } : {}),
     skipped,
     vo2max_days: vo2.length,
     race_predictions: Boolean(pred),

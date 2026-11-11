@@ -257,6 +257,7 @@ künftigen Themen wiegt das schwerer — empfohlen ist der bezahlte API-Tarif.
 | `/training/kraft` | Je Übung: Verlauf, geschätztes 1RM, Start → Ziel |
 | `/training/laufen` | Wochenkilometer, Pace, Puls, VO2max, Rennprognosen |
 | `/fragen` | KI-Chat |
+| `/wissen` | Dokumente hochladen, verschlagworten, Zusammenfassung und Fundstellen ansehen |
 | `/quellen` | Eingänge, Zustellungen an Apps, Token verwalten, nicht Zugeordnetes |
 
 ## 11. Umsetzung in Phasen
@@ -272,7 +273,8 @@ Jede Phase ist für sich nutzbar und endet mit grünen Tests.
 | 4 Kraft → HyroxApp | `/api/hub/strength` in HyroxApp, Zustellung | 1 Tag | Krafteinheit im Tracker hakt die geplante Einheit ab, ist rückgängig zu machen, wird nicht doppelt geloggt |
 | 5 Ansichten | Übersicht, Training, Kraft, Laufen | 1–1½ Tage | Wochenzahlen stimmen mit den Apps überein (Stichprobe drei Wochen) |
 | 6 KI | Werkzeuge, Gemini-Schleife, Chat | 1–1½ Tage | Zehn Testfragen mit bekannter Antwort liefern richtige Zahlen |
-| 7 Feinschliff | PWA, Fehlerzustände, Export des Hubs, Lese-Schnittstelle, Kurzanleitung | 1 Tag | — |
+| 7 Wissen | Modul `wissen`: Ablage, Aufbereitung, Suche, Quellenangaben im Chat (Abschnitt 15) | 2 Tage | Fünf Testfragen nennen die richtige Studie mit Seite; eine Frage ohne passende Literatur sagt das auch |
+| 8 Feinschliff | PWA, Fehlerzustände, Export des Hubs, Lese-Schnittstelle, Kurzanleitung | 1 Tag | — |
 
 Prüfung in jeder Phase: `vitest` (Normalisierer mit festen Beispieldateien, Zustellung mit
 Wiederholung, Token-Rechte, KI-Werkzeuge), `tsc --noEmit`, `next lint`, `next build`, Playwright.
@@ -310,3 +312,56 @@ In HyroxApp zusätzlich die dortigen Regeln: Anleitung im selben Commit, keine K
 Garmin-Gesundheitsdaten (Schlaf, HRV, Ruhepuls), Körperdaten, Ernährung, Mehrbenutzer-Betrieb,
 Planänderungen durch den Hub. Für die ersten drei ist der Weg vorbereitet: Garmin-Aufgabe um die
 Abrufe erweitern, neues Modul, Kennzahlen in `daily_metrics`.
+
+## 15. Modul `wissen` — wissenschaftliche Dokumente
+
+Studien, Reviews und Artikel zu Hyrox, Laufen, Kraft usw. liegen im Hub, und die KI zieht sie bei
+Antworten heran — mit Quellenangabe.
+
+**Ablegen.** Seite `/wissen`: PDF hochladen (auch mehrere), dazu Titel, Autoren, Jahr, Art
+(Studie, Review, Artikel, eigenes Notizdokument) und Themen-Schlagworte (Hyrox, Laufen, Kraft,
+Regeneration, …). Die KI schlägt diese Angaben aus dem Dokument vor, du bestätigst. Die Datei
+liegt in einem privaten Speicher-Bucket; dieselbe Datei zweimal wird über ihre Prüfsumme erkannt.
+
+**Aufbereiten** (einmal je Dokument, im Hintergrund):
+
+1. Text seitenweise auslesen; gescannte PDFs und Tabellen liest das Modell direkt.
+2. In Abschnitte von etwa einer halben Seite teilen, jeder mit Seitenzahl.
+3. Je Abschnitt einen Bedeutungsvektor berechnen und in Postgres ablegen (`pgvector`).
+4. Einen Steckbrief erzeugen: Fragestellung, Probanden, Methode, Kernergebnisse mit Zahlen,
+   Grenzen der Aussagekraft.
+
+| Tabelle | Inhalt |
+|---|---|
+| `documents` | Metadaten, Schlagworte, Prüfsumme, Speicherpfad, Status, Steckbrief |
+| `document_chunks` | Abschnitt, Seite, Volltext-Index, Vektor |
+
+**Nutzen in der KI.** Zwei weitere Werkzeuge:
+
+| Werkzeug | Liefert |
+|---|---|
+| `search_knowledge(query, topics?)` | Die passendsten Textstellen (Bedeutungs- und Stichwortsuche kombiniert) mit Titel, Jahr, Seite |
+| `get_document(id)` | Steckbrief eines Dokuments |
+
+Die Suche arbeitet sprachübergreifend: deutsche Frage, englische Studie. Regeln für die Antwort:
+
+- Aussagen aus der Literatur tragen eine Quellenangabe (Titel, Jahr, Seite), anklickbar bis zur
+  Textstelle.
+- „Deine Daten" und „Literatur" werden in der Antwort getrennt ausgewiesen.
+- Findet die Suche nichts Passendes, sagt die KI das, statt aus Allgemeinwissen eine Studienlage
+  zu behaupten.
+
+So werden Fragen möglich wie: „Ich laufe seit vier Wochen 45 km — was sagen meine Studien zur
+Steigerung des Umfangs, und passt mein Verlauf dazu?"
+
+**Verhältnis zu HyroxApp.** HyroxApp hat bereits eine eigene Dokumenten-Strecke
+(`/admin/knowledge`) mit anderem Zweck: Sie leitet aus einem Dokument geprüfte Änderungs­vorschläge
+für die Plan-Engine ab. Der Hub bleibt auch hier die Ablage: Ein Dokument bekommt den Knopf
+**„An HyroxApp senden"**, der es in die dortige Prüfliste legt. Bewusst nicht automatisch — jede
+Übergabe löst dort eine Auswertung aus und verlangt deine Durchsicht.
+
+**Zu beachten.**
+
+- Beim Aufbereiten und beim Antworten gehen Textstellen an Google.
+- Die Dokumente sind nur für dich abrufbar; es gibt keine Freigabe nach außen.
+- Speicher: Der kostenlose Supabase-Tarif reicht für einige hundert PDFs.

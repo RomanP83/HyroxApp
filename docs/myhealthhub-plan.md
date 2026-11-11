@@ -16,6 +16,9 @@ beantwortet Fragen zu allen Daten. Der Hub ist so geschnitten, dass später weit
 | Kraft → HyroxApp | Ja: Hub reicht Krafteinheiten weiter, die geplante Einheit gilt dort als erledigt |
 | KI-Modell | Gemini (vorhandener `GEMINI_API_KEY`) |
 | Datenumfang zum Start | Garmin-Aktivitäten und -Fitnesswerte, Strength Tracker, Plan aus HyroxApp |
+| Erste Erweiterung | Garmin-Gesundheitsdaten (Schlaf, HRV, Ruhepuls) als Modul `health`, direkt nach dem Start |
+| Betrieb | Warnung bei verstummter Quelle, wöchentliches Backup an einen zweiten Ort |
+| Zusätze | Ereignisse und Notizen, angeheftete Antworten, Wissens-Modul für Dokumente |
 
 Annahmen, die ich ohne Rückfrage gesetzt habe — bitte widersprechen, falls falsch:
 
@@ -101,6 +104,9 @@ Stack wie HyroxApp: Next.js App Router, TypeScript, Tailwind, Supabase, zod, vit
 | `consumers` | Abnehmer des Hubs (zum Start: `hyroxapp`) mit Adresse und abonnierten Datenarten |
 | `deliveries` | Zustellliste: Abnehmer, Datenart, Verweis, Status, Versuche, letzter Fehler |
 | `chat_threads`, `chat_messages` | KI-Gespräche inkl. ausgeführter Abfragen |
+| `events` | Ereignisse und Notizen: von, bis, Art, Titel, Text (Abschnitt 17) |
+| `pinned_answers` | Angeheftete Fragen mit letzter Antwort und Zeitpunkt (Abschnitt 19) |
+| `backups` | Protokoll der Sicherungen: Zeitpunkt, Größe, Ablageort, Ergebnis (Abschnitt 16) |
 
 **Modul `training`**
 
@@ -252,13 +258,15 @@ künftigen Themen wiegt das schwerer — empfohlen ist der bezahlte API-Tarif.
 
 | Seite | Inhalt |
 |---|---|
-| `/` Übersicht | Diese Woche, Tage bis zum Rennen, letzte Einheiten, Stand der Quellen |
+| `/` Übersicht | Diese Woche, Tage bis zum Rennen, letzte Einheiten, Stand der Quellen, angeheftete Antworten, Warnungen |
 | `/training` | Zeitleiste aller Einheiten, Filter nach Art und Quelle |
 | `/training/kraft` | Je Übung: Verlauf, geschätztes 1RM, Start → Ziel |
 | `/training/laufen` | Wochenkilometer, Pace, Puls, VO2max, Rennprognosen |
-| `/fragen` | KI-Chat |
+| `/gesundheit` | Schlaf, HRV, Ruhepuls im Verlauf, neben der Trainingsbelastung |
+| `/ereignisse` | Ereignisse und Notizen anlegen und bearbeiten |
+| `/fragen` | KI-Chat, Antworten anheften |
 | `/wissen` | Dokumente hochladen, verschlagworten, Zusammenfassung und Fundstellen ansehen |
-| `/quellen` | Eingänge, Zustellungen an Apps, Token verwalten, nicht Zugeordnetes |
+| `/quellen` | Eingänge, Zustellungen an Apps, Token verwalten, nicht Zugeordnetes, Warnschwellen, Backups |
 
 ## 11. Umsetzung in Phasen
 
@@ -271,10 +279,15 @@ Jede Phase ist für sich nutzbar und endet mit grünen Tests.
 | 2 Tracker → Hub | Eingang, Sync-Block und Wiederherstellen im Tracker, Übungs-Aliasse | 1 Tag | Speichern erscheint binnen Sekunden im Hub; ein leerer Browser löscht nichts |
 | 3 Plan → Hub | `/api/hub/export` in HyroxApp, Abholer, Zuordnung geplant/absolviert | 1 Tag | Zwei Syncs ergeben dieselben Zeilen; keine Einheit doppelt |
 | 4 Kraft → HyroxApp | `/api/hub/strength` in HyroxApp, Zustellung | 1 Tag | Krafteinheit im Tracker hakt die geplante Einheit ab, ist rückgängig zu machen, wird nicht doppelt geloggt |
-| 5 Ansichten | Übersicht, Training, Kraft, Laufen | 1–1½ Tage | Wochenzahlen stimmen mit den Apps überein (Stichprobe drei Wochen) |
-| 6 KI | Werkzeuge, Gemini-Schleife, Chat | 1–1½ Tage | Zehn Testfragen mit bekannter Antwort liefern richtige Zahlen |
-| 7 Wissen | Modul `wissen`: Ablage, Aufbereitung, Suche, Quellenangaben im Chat (Abschnitt 15) | 2 Tage | Fünf Testfragen nennen die richtige Studie mit Seite; eine Frage ohne passende Literatur sagt das auch |
-| 8 Feinschliff | PWA, Fehlerzustände, Export des Hubs, Lese-Schnittstelle, Kurzanleitung | 1 Tag | — |
+| 5 Betrieb | Warnung bei verstummter Quelle, wöchentliches Backup (Abschnitt 16) | 1 Tag | Eine künstlich stillgelegte Quelle löst genau eine Nachricht aus; ein Backup lässt sich in eine leere Datenbank zurückspielen |
+| 6 Ansichten | Übersicht, Training, Kraft, Laufen, Ereignisse (Abschnitt 17) | 1½–2 Tage | Wochenzahlen stimmen mit den Apps überein (Stichprobe drei Wochen); Ereignisse erscheinen als Markierung in den Verläufen |
+| 7 KI | Werkzeuge, Gemini-Schleife, Chat, Antworten anheften (Abschnitt 19) | 1½–2 Tage | Zehn Testfragen mit bekannter Antwort liefern richtige Zahlen; eine angeheftete Antwort ändert sich nach neuem Eingang |
+| 8 Gesundheit | Modul `health`: Schlaf, HRV, Ruhepuls über die Garmin-Aufgabe (Abschnitt 18) | 1 Tag | 90 Tage Bestand sind da; die KI beantwortet eine Frage, die Schlaf und Training verbindet |
+| 9 Wissen | Modul `wissen`: Ablage, Aufbereitung, Suche, Quellenangaben im Chat (Abschnitt 15) | 2 Tage | Fünf Testfragen nennen die richtige Studie mit Seite; eine Frage ohne passende Literatur sagt das auch |
+| 10 Feinschliff | PWA, Fehlerzustände, Lese-Schnittstelle, Kurzanleitung | 1 Tag | — |
+
+Zusammen etwa 13–14 Arbeitstage. Nach Phase 4 ist der neue Datenfluss komplett, nach Phase 7 der
+Hub mit KI nutzbar; 8 und 9 sind eigenständige Erweiterungen.
 
 Prüfung in jeder Phase: `vitest` (Normalisierer mit festen Beispieldateien, Zustellung mit
 Wiederholung, Token-Rechte, KI-Werkzeuge), `tsc --noEmit`, `next lint`, `next build`, Playwright.
@@ -292,26 +305,32 @@ In HyroxApp zusätzlich die dortigen Regeln: Anleitung im selben Commit, keine K
 | Hub | `ALLOWED_EMAIL`, `CRON_SECRET`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `STRENGTH_ORIGIN` |
 | Hub | `HYROXAPP_URL`, `HYROXAPP_GARMIN_IMPORT_SECRET`, `HYROXAPP_INGEST_SECRET`, `HYROXAPP_EXPORT_TOKEN` |
 | HyroxApp | `HUB_EXPORT_TOKEN`, `HUB_INGEST_SECRET` (neu); `GARMIN_IMPORT_SECRET` (nach Umstellung neu setzen) |
+| Hub | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (Warnungen), `BLOB_READ_WRITE_TOKEN` (Backups) |
 | Tracker | keine — Hub-Adresse und Token werden einmal in der App eingetragen |
 
 4. In Phase 1: die geplante Claude-Aufgabe auf die Hub-Adresse und das Hub-Token umstellen.
+5. In Phase 5: im Vercel-Projekt einen Blob-Speicher anlegen (für die Backups).
+6. In Phase 8: die geplante Claude-Aufgabe um die Gesundheitsabrufe erweitern (Text liefere ich).
 
 ## 13. Risiken
 
 | Risiko | Gegenmaßnahme |
 |---|---|
 | Der Hub wird zum einzigen Nadelöhr: fällt er aus, bekommt HyroxApp keine Garmin-Daten | Rohdaten und Zustellliste gehen nicht verloren, Nachlieferung automatisch; Stand je Abnehmer auf `/quellen` sichtbar; HyroxApp läuft ohne Garmin weiter wie heute |
-| Datenverlust im Hub wiegt schwerer als bisher | Vollständiger Export des Hubs als Datei, Rohdaten erlauben Neuaufbau aller Tabellen |
+| Datenverlust im Hub wiegt schwerer als bisher | Wöchentliches Backup außerhalb von Supabase (Abschnitt 16), Rohdaten erlauben Neuaufbau aller Tabellen |
+| Eine Quelle fällt unbemerkt aus | Warnung nach einstellbarer Frist (Abschnitt 16) |
 | Krafteinheit wird der falschen geplanten Session zugeordnet | Enge Regel (gleicher Tag, Art Kraft), sonst nicht zuordnen; in HyroxApp rückgängig zu machen |
 | Export-Format von HyroxApp ändert sich | `format`-Nummer prüfen, zod-Validierung |
 | KI nennt falsche Zahlen | Zahlen nur aus Werkzeug-Ergebnissen, Abfragen einsehbar, Testfragen |
 | Token im Tracker liegt im Browser | Token darf nur Kraftdaten schreiben und lesen; jederzeit austauschbar |
 
-## 14. Bewusst noch nicht enthalten
+## 14. Bewusst nicht enthalten
 
-Garmin-Gesundheitsdaten (Schlaf, HRV, Ruhepuls), Körperdaten, Ernährung, Mehrbenutzer-Betrieb,
-Planänderungen durch den Hub. Für die ersten drei ist der Weg vorbereitet: Garmin-Aufgabe um die
-Abrufe erweitern, neues Modul, Kennzahlen in `daily_metrics`.
+- Körperdaten und Ernährung — der Weg ist vorbereitet (neues Modul, Kennzahlen in
+  `daily_metrics`), lohnt aber erst, wenn du sie konsequent erfasst.
+- Ein eigener KI-Coach oder Wochenrückblick im Hub — beides hat HyroxApp; zwei Stimmen mit
+  unterschiedlichen Ratschlägen sind schlechter als eine.
+- Fragen per Telegram, Mehrbenutzer-Betrieb, Planänderungen durch den Hub.
 
 ## 15. Modul `wissen` — wissenschaftliche Dokumente
 
@@ -365,3 +384,61 @@ für die Plan-Engine ab. Der Hub bleibt auch hier die Ablage: Ein Dokument bekom
 - Beim Aufbereiten und beim Antworten gehen Textstellen an Google.
 - Die Dokumente sind nur für dich abrufbar; es gibt keine Freigabe nach außen.
 - Speicher: Der kostenlose Supabase-Tarif reicht für einige hundert PDFs.
+
+## 16. Betrieb: Warnungen und Backup
+
+**Warnung bei verstummter Quelle.** Je Quelle eine Frist auf `/quellen` (Vorgabe: Garmin 3 Tage,
+Strength Tracker 10 Tage, HyroxApp 2 Tage). Der tägliche Cron prüft den letzten Eingang; ist die
+Frist überschritten, kommt **eine** Telegram-Nachricht und ein Hinweis auf der Übersicht — erneut
+erst, wenn die Quelle zwischendurch wieder geliefert hat. Dasselbe gilt für Zustellungen an
+HyroxApp, die nach mehreren Versuchen noch offen sind. Gesendet wird über den vorhandenen
+Telegram-Bot; dessen Eingangs-Webhook bleibt bei HyroxApp.
+
+**Backup.** Sonntags schreibt der Cron einen vollständigen Export (alle Tabellen inkl. Rohdaten,
+als eine komprimierte Datei) in einen Vercel-Blob-Speicher — bewusst außerhalb von Supabase, damit
+ein gelöschtes oder gesperrtes Datenbank-Projekt die Sicherung nicht mitnimmt. Aufbewahrt werden
+die letzten acht. Hochgeladene Dokumente werden einmalig beim Hochladen dorthin gespiegelt.
+Auf `/quellen`: Liste der Sicherungen, „Jetzt sichern", Herunterladen. Ein Skript
+`scripts/restore.ts` spielt eine Sicherung in eine leere Datenbank zurück; ein fehlgeschlagenes
+Backup löst dieselbe Warnung aus wie eine verstummte Quelle.
+
+## 17. Ereignisse und Notizen
+
+Dinge, die in keiner Datenquelle stehen, aber Verläufe erklären.
+
+- `events`: von, bis (optional), Art (Krankheit, Verletzung, Reise, Material, Belastung im Alltag,
+  Sonstiges), Titel, freier Text. Themenneutral im Kern, damit jedes Modul sie nutzt.
+- `/ereignisse`: anlegen in zwei Feldern (Art + Titel, Datum ist heute vorbelegt), bearbeiten,
+  löschen. Zusätzlich ein Schnellzugriff auf der Übersicht.
+- In allen Verläufen (Kraft, Laufen, Gesundheit) als Markierung auf der Zeitachse.
+- KI-Werkzeug `list_events(from, to)`; die Systemanweisung verlangt, bei Fragen nach Ursachen
+  („Warum …?") die Ereignisse des Zeitraums zu prüfen.
+
+## 18. Modul `health` — Garmin-Gesundheitsdaten
+
+Erste Erweiterung nach dem Start, über den bereits bestehenden Weg.
+
+- **Eingang:** Die geplante Claude-Aufgabe ruft zusätzlich Schlaf, HRV und Ruhepuls ab (optional
+  Body Battery, Trainingsbereitschaft, Stress) und sendet sie als weiteren Block `health` an
+  `POST /api/ingest/garmin`. Einmalig 90 Tage Bestand, danach täglich die letzten Tage.
+- **Ablage:** in `daily_metrics`, je Tag und Kennzahl: `sleep_min`, `sleep_score`, `deep_min`,
+  `rem_min`, `hrv_night_ms`, `resting_hr`, `body_battery_max`, `training_readiness`, `stress_avg`.
+  Keine neue Tabelle; weitere Kennzahlen brauchen keine Migration.
+- **Nicht an HyroxApp weitergereicht:** Deren Import kennt diese Werte nicht, und die Engine dort
+  soll ihren Plan nicht aus Schlafdaten ändern. Bei Bedarf holt sich HyroxApp sie später über die
+  Lese-Schnittstelle.
+- **Ansicht `/gesundheit`:** Verläufe mit 7-Tage-Mittel und persönlicher Normalspanne, darunter
+  die Trainingsbelastung derselben Tage.
+- **KI:** `daily_metric` deckt die Werte bereits ab; dazu `recovery_summary(from, to)` (Mittel,
+  Abweichung von der eigenen Normalspanne, auffällige Tage). Die KI beschreibt Zusammenhänge in
+  deinen Daten, stellt aber keine Diagnosen.
+
+## 19. Antworten anheften
+
+- Im Chat hat jede Antwort den Knopf **Anheften**. Gespeichert werden die Frage, ein kurzer Titel
+  und die Antwort; auf der Übersicht erscheint sie als Kachel (höchstens sechs, per Ziehen sortiert).
+- Die Kachel stellt ihre Frage neu, wenn seit der letzten Antwort neue Daten eingegangen sind —
+  höchstens einmal am Tag, damit die KI-Kosten begrenzt bleiben. Darunter steht „Stand: …".
+- Geeignet sind Fragen mit gleitendem Zeitraum („die letzten vier Wochen gegen die vier davor").
+  Tippen auf die Kachel öffnet die volle Antwort mit den Abfragen dahinter.
+- Schlägt die Aktualisierung fehl, bleibt die letzte Antwort mit ihrem Datum stehen.

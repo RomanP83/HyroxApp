@@ -48,6 +48,10 @@ export async function buildExportPayload(supabase: SupabaseClient, profile: Reco
 
   const seasons = await byProfile("seasons");
   const seasonIds = idsOf(seasons);
+  const seasonRaces = await selectIn(supabase, "season_races", "season_id", seasonIds);
+  // races is the shared race catalogue (no profile_id): export the races this
+  // athlete's plans and seasons point at.
+  const raceIds = [...new Set([...idsOf(plans, "race_id"), ...idsOf(seasonRaces, "race_id")])];
   const templates = await byProfile("strength_templates");
   const benchmarkResults = await byProfile("benchmark_results");
 
@@ -57,9 +61,9 @@ export async function buildExportPayload(supabase: SupabaseClient, profile: Reco
     format: 1 as const,
     athlete: { profile, state: (await byProfile("athlete_state"))[0] ?? null },
     season: {
-      races: await byProfile("races"),
+      races: await selectIn(supabase, "races", "id", raceIds),
       seasons,
-      season_races: await selectIn(supabase, "season_races", "season_id", seasonIds),
+      season_races: seasonRaces,
       season_blocks: await selectIn(supabase, "season_blocks", "season_id", seasonIds),
     },
     training: {

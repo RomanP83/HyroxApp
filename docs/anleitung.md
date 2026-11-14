@@ -1097,8 +1097,10 @@ Rennergebnisse und deine Kraftprogramme als JSON. Die Einheiten bringen **ihre e
 die Datei ist also für sich lesbar und nicht nur gegen eine Datenbank, in der dieselbe Bibliothek
 noch steht.
 
-Nicht enthalten: der Rest der Übungsbibliothek, die statischen Benchmark-Definitionen und die
-Wissenspipeline. Nichts davon hast *du* getan, und alles davon kommt aus dem Repository zurück.
+Nicht enthalten: der Rest der Übungsbibliothek und die Wissenspipeline. Nichts davon hast *du*
+getan, und alles davon kommt aus dem Repository zurück. Die Definitionen der Benchmarks, für die du
+Werte hast, sind dabei, damit die Datei sagt, was jeder Wert misst. Dieselbe Datei holt sich
+[MyHealthHub](#myhealthhub--der-daten-hub) täglich ab.
 
 **Das ist deine Sicherungskopie.** Deine gesamte Trainingshistorie liegt in genau einem
 Supabase-Projekt; eine zweite Kopie hält nichts.
@@ -1457,6 +1459,33 @@ Abgehakt wird nur, was in der laufenden Woche liegt. Ein Lauf vom Sonntagabend, 
 importiert wird, zählt deshalb nur als ungeplanter Lauf; die Sonntags-Einheit bleibt offen und
 lässt sich von Hand loggen.
 
+### MyHealthHub — der Daten-Hub
+
+MyHealthHub ist eine eigene App, in der Garmin- und Kraftdaten zuerst ankommen; von dort gehen
+sie hierher weiter. Für HyroxApp heißt das:
+
+- **Garmin:** Die Läufe kommen weiterhin über [`/api/garmin/import`](#garmin-import-für-das-lauf-dashboard),
+  nur ruft jetzt der Hub den Endpunkt auf statt der geplanten Claude-Aufgabe. Form, Regeln und
+  Zuordnung bleiben genau wie oben beschrieben.
+- **Krafteinheiten aus dem Strength Tracker** können eine geplante Krafteinheit **abhaken, ohne dass
+  du in HyroxApp etwas tippst.** Der Hub schickt jede gespeicherte Einheit an
+  `POST /api/hub/strength`. Abgehakt wird nur in der **laufenden Planwoche**: zuerst die offene
+  Krafteinheit desselben Tages, sonst die offene Krafteinheit dieser Woche, die dem Tag am nächsten
+  liegt. Gibt es keine, ändert sich nichts — der Hub zeigt dann „in HyroxApp nicht zugeordnet“.
+  Geloggt wird wie bei „Done“: Sätze mit kg und Wiederholungen (Übungen mit gleichem Namen wie in
+  deinem Kraftprogramm bekommen ihre Gewichtsvorschläge), Anstrengung und Dauer aus dem Tracker
+  (ohne Angabe: das Ziel der Einheit), danach die übliche Kalibrierung. **Undo** funktioniert wie bei
+  jedem Log. Dieselbe Einheit zweimal geschickt loggt einmal; im Tracker nachbearbeitet wird sie
+  zurückgenommen und neu geloggt; im Tracker gelöscht wird sie zurückgenommen.
+- **Plan und Eingaben zum Auswerten:** Der Hub holt sich täglich über `GET /api/hub/export`
+  denselben Inhalt wie der Export unter [Deine Daten](#deine-daten). Er ändert dabei nichts am Plan.
+- **Einrichtung:** `HUB_INGEST_SECRET` (für die Krafteinheiten) und `HUB_EXPORT_TOKEN` (für den
+  Abruf) setzen; der Hub sendet sie als `Authorization: Bearer …`. Ohne `HUB_INGEST_SECRET` antwortet
+  `/api/hub/strength` mit 503, ohne `HUB_EXPORT_TOKEN` gibt es `/api/hub/export` nicht (404). Mit
+  mehr als einem Profil gilt wie beim Garmin-Import `GARMIN_IMPORT_PROFILE_ID`.
+- In HyroxApp gibt es dafür **keinen Knopf und keine Anzeige**: Was der Hub zugestellt hat und was
+  nicht zugeordnet werden konnte, steht im Hub unter „Quellen“.
+
 ---
 
 ## 14. Automatische Abläufe im Hintergrund
@@ -1578,6 +1607,7 @@ Neueste zuerst. Jede Zeile nennt die Funktion und den Abschnitt, in dem sie besc
 
 | Änderung | Abschnitt |
 |---|---|
+| **MyHealthHub:** Krafteinheiten aus dem Strength Tracker kommen über den Hub und haken die passende geplante Krafteinheit der laufenden Woche ab — wie „Done“, mit Undo; Garmin-Läufe kommen jetzt über den Hub; der Export enthält die Benchmark-Definitionen und wird vom Hub täglich abgeholt | [8](#deine-daten), [13](#myhealthhub--der-daten-hub) |
 | **Korrektur Lauf-Zuordnung (Strava, Garmin):** Ein Lauf nach 12 Uhr fand an einem Tag mit nur einer Laufeinheit nie seine Einheit, weil sie als „vormittags" gespeichert ist. Jetzt bekommt die einzige Laufeinheit des Tages den Lauf zu jeder Uhrzeit; die Tageshälfte zählt nur an Tagen mit zwei Laufeinheiten | [13](#13-verbindungen-strava-garmin-telegram) |
 | **Garmin-Läufe im Training:** importierte Läufe haken passende geplante Laufeinheiten der laufenden Woche ab (echte Pace → Pace-Zonen); alle anderen Läufe zählen mit aus dem Puls geschätzter Anstrengung in die Belastung (ACWR); der KI-Coach bekommt Wochenkilometer, Pace, VO2max, Prognosen und ungeplante Läufe. „· logged to plan" in Recent runs | [6](#6-wie-sich-der-plan-anpasst), [4](#ki-coach-gemini), [11](#running--lauffortschritt-aus-garmin-progressrunning), [13](#garmin-läufe-im-training) |
 | **Balkendiagramme:** Der erste Balken überdeckt die Beschriftung der senkrechten Achse nicht mehr (Weekly distance, Weekly compliance, Imported history) | [11](#11-progress--auswertungen) |
